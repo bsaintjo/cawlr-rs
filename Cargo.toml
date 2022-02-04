@@ -1,0 +1,15 @@
+[package]
+name = "cawlr"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+bio = "0.39.1"
+clap = { version = "3.0.11", features = ["derive"] }
+mimalloc = { version = "0.1.27", default-features = false }
+polars = { version = "0.19.1", features = ["simd", "is_in", "lazy", "parquet"] }
+
+[patch.crates-io]
+packed_simd_2 = { git = "https://github.com/hkratz/packed_simd", branch = "remove_llvm_asm" }
