@@ -1,15 +1,36 @@
+cargo-features = ["profile-rustflags"]
+
 [package]
 name = "cawlr"
 version = "0.1.0"
 edition = "2021"
+authors = ["Brandon Saint-John <bsaintjo@ucsc.edu>"]
+readme = "README"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-bio = "0.39.1"
-clap = { version = "3.0.11", features = ["derive"] }
-mimalloc = { version = "0.1.27", default-features = false }
-polars = { version = "0.19.1", features = ["simd", "is_in", "lazy", "parquet"] }
+anyhow = "1.0.55"
+arrow2 = { version = "0.9.1", features = ["io_parquet", "serde", "serde_derive"] }
+bio = "0.39.2"
+clap = { version = "3.1.1", features = ["derive"] }
+csv = "1.1.6"
+env_logger = "0.9.0"
+indicatif = "0.16.2"
+linfa = { version = "0.5.0", features=["serde", "openblas-system"] }
+linfa-clustering = { version = "0.5.0", features=["serde"] }
+log = "0.4.14"
+mimalloc = { version = "0.1.28", default-features = false }
+parquet = { version = "8.0.0", default-features = false, features=["arrow", "base64"] }
+polars = { version = "0.19.1", features = ["simd", "is_in", "lazy", "parquet", "ndarray", "performant"] }
+rv = { version = "0.14.3", features = ["serde1"] }
+serde = "1.0.136"
+serde-pickle = "1.1.0"
+serde_arrow = "0.4.0"
 
 [patch.crates-io]
 packed_simd_2 = { git = "https://github.com/hkratz/packed_simd", branch = "remove_llvm_asm" }
+
+[profile.release]
+lto = true
+rustflags = ["-C", "target-native=cpu"]
