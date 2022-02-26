@@ -34,3 +34,7 @@ packed_simd_2 = { git = "https://github.com/hkratz/packed_simd", branch = "remov
 [profile.release]
 lto = true
 rustflags = ["-C", "target-native=cpu"]
+
+[dev-dependencies]
+assert_cmd = "2.0.4"
+assert_fs = "1.0.7"
