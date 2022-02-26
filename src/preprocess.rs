@@ -57,8 +57,8 @@ pub(crate) fn preprocess(
 ) -> Result<Vec<NanopolishRecord>> {
     let source = File::open(input)?;
     let bar_style =
-        ProgressStyle::default_bar().template("[{elapsed_precise}] {bar} {pos:>7}/{len:7} {msg}");
-    let bar = ProgressBar::new(source.metadata()?.len())
+        ProgressStyle::default_spinner().template("[{elapsed_precise}] {spinner} {msg}");
+    let bar = ProgressBar::new_spinner()
         .with_message("Processing nanopolish file.")
         .with_style(bar_style);
     let input = bar.wrap_read(source);
@@ -115,8 +115,9 @@ pub(crate) fn preprocess(
     }
     bar.finish();
 
-    let bar_style =
-        ProgressStyle::default_bar().template("[{elapsed_precise}] {bar} {pos:>7}/{len:7} {msg}");
+    let bar_style = ProgressStyle::default_bar()
+        .on_finish(indicatif::ProgressFinish::Abandon)
+        .template("[{elapsed_precise}] {bar} {pos:>7}/{len:7} {msg}");
     let bar = ProgressBar::new(position_to_events.len() as u64)
         .with_message("Getting means.")
         .with_style(bar_style);
