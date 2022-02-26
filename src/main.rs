@@ -20,7 +20,7 @@ struct Args {
     debug: bool,
 
     #[clap(subcommand)]
-    command: Option<Commands>,
+    command: Commands,
 }
 
 #[derive(Subcommand, Debug)]
@@ -51,6 +51,8 @@ enum Commands {
         #[clap(arg_enum, default_value_t=OutputFileType::Parquet)]
         output_filetype: OutputFileType,
     },
+
+    /// For each kmer, train a two-component gaussian mixture model and save models to a file
     Train {
         #[clap(short, long)]
         /// Parquet file of positive or negative control from cawlr preprocess
@@ -97,14 +99,14 @@ fn main() -> Result<()> {
     env_logger::init();
     let args = Args::parse();
     match &args.command {
-        Some(Commands::Preprocess {
+        Commands::Preprocess {
             input,
             output,
             chrom,
             start,
             stop,
             output_filetype,
-        }) => {
+        } => {
             log::info!("Preprocess command");
             let nps = preprocess::preprocess(input, chrom, start, stop)?;
             match output_filetype {
@@ -116,27 +118,25 @@ fn main() -> Result<()> {
                 }
             }
         }
-        Some(Commands::Train { input, output }) => {
+        Commands::Train { input, output } => {
             let model_db = train::train(input)?;
             let mut file = File::create(output)?;
             serde_pickle::ser::to_writer(&mut file, &model_db, Default::default())?;
         }
 
-        Some(Commands::Score {
+        Commands::Score {
             ..
-        }) => {
+        } => {
             unimplemented!()
         }
 
-        Some(Commands::Sma {
+        Commands::Sma {
             ..
-        }) => {
+        } => {
             unimplemented!()
         }
 
-        _ => {
-            unimplemented!()
-        }
+        // None => {}
     }
     Ok(())
 }
