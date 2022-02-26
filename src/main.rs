@@ -1,5 +1,3 @@
-use std::fs::File;
-
 use clap::{ArgEnum, Parser, Subcommand};
 use mimalloc::MiMalloc;
 
@@ -120,23 +118,16 @@ fn main() -> Result<()> {
         }
         Commands::Train { input, output } => {
             let model_db = train::train(input)?;
-            let mut file = File::create(output)?;
-            serde_pickle::ser::to_writer(&mut file, &model_db, Default::default())?;
+            train::save_gmm(output, model_db)?;
         }
 
-        Commands::Score {
-            ..
-        } => {
+        Commands::Score { .. } => {
             unimplemented!()
         }
 
-        Commands::Sma {
-            ..
-        } => {
+        Commands::Sma { .. } => {
             unimplemented!()
-        }
-
-        // None => {}
+        } // None => {}
     }
     Ok(())
 }

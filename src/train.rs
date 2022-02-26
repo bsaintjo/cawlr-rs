@@ -9,6 +9,12 @@ use rv::prelude::{Gaussian, Mixture};
 
 type ModelDB = HashMap<String, Mixture<Gaussian>>;
 
+pub(crate) fn save_gmm(output: &str, model_db: ModelDB) -> Result<()> {
+    let mut file = File::create(output)?;
+    serde_pickle::ser::to_writer(&mut file, &model_db, Default::default())?;
+    Ok(())
+}
+
 fn train_gmm(df: DataFrame) -> Result<Mixture<Gaussian>> {
     let data = df.column("event_mean")?.f64()?.to_ndarray()?;
     let old_dim = data.shape();
