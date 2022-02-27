@@ -6,6 +6,10 @@ version = "0.1.0"
 edition = "2021"
 authors = ["Brandon Saint-John <bsaintjo@ucsc.edu>"]
 readme = "README.md"
+description = "Chromatin accessibility with long reads"
+license = "BSD-3-Clause"
+license-file = "LICENSE"
+categories = ["science", "command-line-utilities"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
