@@ -4,6 +4,7 @@ use mimalloc::MiMalloc;
 use anyhow::Result;
 
 mod preprocess;
+mod rank;
 mod score;
 mod train;
 
@@ -39,18 +40,21 @@ enum Commands {
         chrom: Option<String>,
 
         #[clap(long)]
-        /// output only includes data that aligns at or after this position, should be set with --chrom
+        /// output only includes data that aligns at or after this position,
+        /// should be set with --chrom
         start: Option<u32>,
 
         #[clap(long)]
-        /// output only includes data that aligns at or before this position, should be set with --chrom
+        /// output only includes data that aligns at or before this position,
+        /// should be set with --chrom
         stop: Option<u32>,
 
         #[clap(arg_enum, default_value_t=OutputFileType::Parquet)]
         output_filetype: OutputFileType,
     },
 
-    /// For each kmer, train a two-component gaussian mixture model and save models to a file
+    /// For each kmer, train a two-component gaussian mixture model and save
+    /// models to a file
     Train {
         #[clap(short, long)]
         /// Parquet file of positive or negative control from cawlr preprocess
@@ -58,6 +62,25 @@ enum Commands {
 
         #[clap(short, long)]
         output: String,
+    },
+
+    /// Rank each kmer by the symmetrical Kulback-Leibler Divergence and output
+    /// results
+    Rank {
+        #[clap(long)]
+        pos_ctrl: String,
+
+        #[clap(long)]
+        neg_ctrl: String,
+
+        #[clap(short, long)]
+        output: String,
+
+        #[clap(long, default_value_t=2456)]
+        seed: u64,
+        
+        #[clap(long, default_value_t=10_000_usize)]
+        samples: usize,
     },
     Score {
         #[clap(short, long)]
@@ -68,6 +91,9 @@ enum Commands {
 
         #[clap(long)]
         neg_ctrl: String,
+
+        #[clap(short, long)]
+        ranks: String,
     },
     Sma {
         #[clap(short, long)]
@@ -78,11 +104,13 @@ enum Commands {
         chrom: String,
 
         #[clap(long)]
-        /// output only includes data that aligns at or after this position, should be set with --chrom
+        /// output only includes data that aligns at or after this position,
+        /// should be set with --chrom
         start: u32,
 
         #[clap(long)]
-        /// output only includes data that aligns at or before this position, should be set with --chrom
+        /// output only includes data that aligns at or before this position,
+        /// should be set with --chrom
         stop: u32,
     },
 }
@@ -121,13 +149,26 @@ fn main() -> Result<()> {
             train::save_gmm(output, model_db)?;
         }
 
+        Commands::Rank { 
+            pos_ctrl,
+            neg_ctrl,
+            output,
+            seed,
+            samples,
+         } => {
+             let pos_ctrl_db = rank::load_models(pos_ctrl)?;
+             let neg_ctrl_db = rank::load_models(neg_ctrl)?;
+             let kmer_ranks = rank::RankOptions::new(*seed, *samples).rank(pos_ctrl_db, neg_ctrl_db);
+             rank::save_kmer_ranks(output, kmer_ranks)?;
+        }
+
         Commands::Score { .. } => {
             unimplemented!()
         }
 
         Commands::Sma { .. } => {
             unimplemented!()
-        } // None => {}
+        }
     }
     Ok(())
 }

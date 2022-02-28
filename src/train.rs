@@ -7,8 +7,9 @@ use polars::prelude::{DataFrame, ParquetReader, SerReader};
 use anyhow::Result;
 use rv::prelude::{Gaussian, Mixture};
 
-type ModelDB = HashMap<String, Mixture<Gaussian>>;
+pub(crate) type ModelDB = HashMap<String, Mixture<Gaussian>>;
 
+// TODO switch to parquet
 pub(crate) fn save_gmm(output: &str, model_db: ModelDB) -> Result<()> {
     let mut file = File::create(output)?;
     serde_pickle::ser::to_writer(&mut file, &model_db, Default::default())?;
@@ -73,8 +74,8 @@ pub(crate) fn train(input: &str) -> Result<ModelDB> {
 #[cfg(test)]
 mod tests {
     use polars::df;
-    use polars::series::Series;
     use polars::prelude::NamedFrom;
+    use polars::series::Series;
     use rv::traits::ContinuousDistr;
 
     use super::*;

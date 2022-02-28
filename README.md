@@ -10,6 +10,7 @@
     - [`cawlr preprocess`](#cawlr-preprocess)
     - [`cawlr train`](#cawlr-train)
     - [`cawlr score`](#cawlr-score)
+    - [`cawlr rank`](#cawlr-rank)
     - [`cawlr sma`](#cawlr-sma)
   - [QC Scripts](#qc-scripts)
     - [`plot_gmm_models.py`](#plot_gmm_modelspy)
@@ -24,6 +25,8 @@
 ### `cawlr train`
 
 ### `cawlr score`
+
+### `cawlr rank`
 
 ### `cawlr sma`
 

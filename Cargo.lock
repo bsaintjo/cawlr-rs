@@ -432,6 +432,7 @@ dependencies = [
  "mimalloc",
  "parquet",
  "polars",
+ "rand",
  "rv",
  "serde",
  "serde-pickle",

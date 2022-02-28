@@ -68,6 +68,7 @@ pub(crate) fn preprocess(
     let mut reader = csv::ReaderBuilder::new()
         .delimiter(b'\t')
         .from_reader(input);
+    // TODO Use serde_with::StringDelimiter
     for result in reader.records() {
         let record = result?;
         let contig = record.get(0).unwrap();

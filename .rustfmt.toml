@@ -1,0 +1,5 @@
+report_todo = "Always"
+report_fixme = "Always"
+wrap_comments = true
+group_imports = "StdExternalCrate"
+imports_granularity = "Crate"
