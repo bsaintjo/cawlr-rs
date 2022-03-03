@@ -5,11 +5,11 @@ use std::{
 
 use indicatif::{ProgressBar, ProgressIterator, ProgressStyle};
 use parquet::{arrow::ArrowWriter, file::properties::WriterProperties};
-use serde::Serialize;
+use serde::{Serialize, Deserialize};
 
 use anyhow::Result;
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub(crate) struct NanopolishRecord {
     contig: String,
     position: u32,
@@ -33,6 +33,18 @@ impl NanopolishRecord {
             kmer,
             event_mean,
         }
+    }
+
+    pub(crate) fn contig(&self) -> &str {
+        &self.contig
+    }
+
+    pub(crate) fn pos_as_u64(&self) -> u64 {
+        self.position as u64
+    }
+
+    pub(crate) fn event_mean(&self) -> f32 {
+        self.event_mean
     }
 
     fn empty(contig: &str, position: u32, read_name: &str, kmer: &str) -> Self {

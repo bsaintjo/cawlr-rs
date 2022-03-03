@@ -27,6 +27,12 @@ pub(crate) fn save_kmer_ranks(output: &str, kmer_ranks: HashMap<String, f64>) ->
     Ok(())
 }
 
+pub(crate) fn load_kmer_ranks(input: &str) -> Result<HashMap<String, f64>> {
+    let file = File::open(input)?;
+    let kmer_ranks = serde_pickle::from_reader(file, Default::default())?;
+    Ok(kmer_ranks)
+}
+
 
 pub struct RankOptions {
     rng: SmallRng,
@@ -47,6 +53,8 @@ impl RankOptions {
     // Between Gaussian Mixture Models," 2007 IEEE International Conference on
     // Acoustics, Speech and Signal Processing - ICASSP '07, 2007, pp.
     // IV-317-IV-320, doi: 10.1109/ICASSP.2007.366913.
+    //
+    // TODO: Check if some normalization is required for this
     fn kl_approx(&mut self, pos_ctrl: &Mixture<Gaussian>, neg_ctrl: &Mixture<Gaussian>) -> f64 {
         let samples: Vec<f32> = pos_ctrl.sample(self.n_samples, &mut self.rng);
         let total: f64 = samples

@@ -1,7 +1,9 @@
-use clap::{ArgEnum, Parser, Subcommand};
-use mimalloc::MiMalloc;
+use std::path::Path;
 
 use anyhow::Result;
+use bio::io::fasta::IndexedReader;
+use clap::{ArgEnum, IntoApp, Parser, Subcommand};
+use mimalloc::MiMalloc;
 
 mod preprocess;
 mod rank;
@@ -76,15 +78,18 @@ enum Commands {
         #[clap(short, long)]
         output: String,
 
-        #[clap(long, default_value_t=2456)]
+        #[clap(long, default_value_t = 2456)]
         seed: u64,
-        
-        #[clap(long, default_value_t=10_000_usize)]
+
+        #[clap(long, default_value_t = 10_000_usize)]
         samples: usize,
     },
     Score {
         #[clap(short, long)]
         input: String,
+
+        #[clap(short, long)]
+        output: String,
 
         #[clap(long)]
         pos_ctrl: String,
@@ -94,6 +99,12 @@ enum Commands {
 
         #[clap(short, long)]
         ranks: String,
+
+        #[clap(short, long)]
+        genome: String,
+
+        #[clap(long)]
+        cutoff: f64,
     },
     Sma {
         #[clap(short, long)]
@@ -149,21 +160,45 @@ fn main() -> Result<()> {
             train::save_gmm(output, model_db)?;
         }
 
-        Commands::Rank { 
+        Commands::Rank {
             pos_ctrl,
             neg_ctrl,
             output,
             seed,
             samples,
-         } => {
-             let pos_ctrl_db = rank::load_models(pos_ctrl)?;
-             let neg_ctrl_db = rank::load_models(neg_ctrl)?;
-             let kmer_ranks = rank::RankOptions::new(*seed, *samples).rank(pos_ctrl_db, neg_ctrl_db);
-             rank::save_kmer_ranks(output, kmer_ranks)?;
+        } => {
+            let pos_ctrl_db = rank::load_models(pos_ctrl)?;
+            let neg_ctrl_db = rank::load_models(neg_ctrl)?;
+            let kmer_ranks = rank::RankOptions::new(*seed, *samples).rank(pos_ctrl_db, neg_ctrl_db);
+            rank::save_kmer_ranks(output, kmer_ranks)?;
         }
 
-        Commands::Score { .. } => {
-            unimplemented!()
+        Commands::Score {
+            input,
+            output,
+            pos_ctrl,
+            neg_ctrl,
+            ranks,
+            genome,
+            ..
+        } => {
+            let fai_file = format!("{}.fai", genome);
+            let fai_file_exists = Path::new(&fai_file).exists();
+            if fai_file_exists {
+                let mut cmd = Args::command();
+                cmd.error(
+                    clap::ErrorKind::MissingRequiredArgument,
+                    "Missing .fai index file, run samtools faidx on genome file.",
+                )
+                .exit();
+            }
+            let nprs = score::load_nprs(input)?;
+            let pos_ctrl_db = rank::load_models(pos_ctrl)?;
+            let neg_ctrl_db = rank::load_models(neg_ctrl)?;
+            let kmer_ranks = rank::load_kmer_ranks(ranks)?;
+            let genome = IndexedReader::from_file(genome)?;
+            let snprs = score::score(nprs, pos_ctrl_db, neg_ctrl_db, kmer_ranks, genome);
+            score::save_scored_nprs(output, snprs)?;
         }
 
         Commands::Sma { .. } => {
