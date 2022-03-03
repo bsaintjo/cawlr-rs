@@ -15,6 +15,7 @@
   - [QC Scripts](#qc-scripts)
     - [`plot_gmm_models.py`](#plot_gmm_modelspy)
     - [`plot_read_length_vs_mod_rate.py`](#plot_read_length_vs_mod_ratepy)
+    - [`plot_scores_with_inference.py`](#plot_scores_with_inferencepy)
 
 ## Installation
 
@@ -35,3 +36,5 @@
 ### `plot_gmm_models.py`
 
 ### `plot_read_length_vs_mod_rate.py`
+
+### `plot_scores_with_inference.py`
