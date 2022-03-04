@@ -3,11 +3,10 @@ use std::{
     fs::File,
 };
 
+use anyhow::Result;
 use indicatif::{ProgressBar, ProgressIterator, ProgressStyle};
 use parquet::{arrow::ArrowWriter, file::properties::WriterProperties};
-use serde::{Serialize, Deserialize};
-
-use anyhow::Result;
+use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub(crate) struct NanopolishRecord {
@@ -160,14 +159,5 @@ pub(crate) fn write_records_to_parquet(output: &str, records: Vec<NanopolishReco
     let mut writer = ArrowWriter::try_new(out, batches.schema(), Some(props))?;
     writer.write(&batches)?;
     writer.close()?;
-    Ok(())
-}
-
-/// Writes out a Vec<NanopolishRecord> to a .arrow file
-pub(crate) fn write_records_to_arrow(output: &str, records: Vec<NanopolishRecord>) -> Result<()> {
-    eprintln!("Writing to .arrow file: {}", output);
-    let schema = serde_arrow::Schema::from_records(&records)?;
-    let out = File::create(output)?;
-    serde_arrow::to_ipc_writer(out, &records, &schema)?;
     Ok(())
 }

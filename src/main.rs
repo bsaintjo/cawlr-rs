@@ -50,9 +50,6 @@ enum Commands {
         /// output only includes data that aligns at or before this position,
         /// should be set with --chrom
         stop: Option<u32>,
-
-        #[clap(arg_enum, default_value_t=OutputFileType::Parquet)]
-        output_filetype: OutputFileType,
     },
 
     /// For each kmer, train a two-component gaussian mixture model and save
@@ -126,12 +123,6 @@ enum Commands {
     },
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ArgEnum)]
-enum OutputFileType {
-    Arrow,
-    Parquet,
-}
-
 fn main() -> Result<()> {
     env_logger::init();
     let args = Args::parse();
@@ -142,18 +133,10 @@ fn main() -> Result<()> {
             chrom,
             start,
             stop,
-            output_filetype,
         } => {
             log::info!("Preprocess command");
             let nps = preprocess::preprocess(input, chrom, start, stop)?;
-            match output_filetype {
-                OutputFileType::Parquet => {
-                    preprocess::write_records_to_parquet(output, nps)?;
-                }
-                OutputFileType::Arrow => {
-                    preprocess::write_records_to_arrow(output, nps)?;
-                }
-            }
+            preprocess::write_records_to_parquet(output, nps)?;
         }
         Commands::Train { input, output } => {
             let model_db = train::train(input)?;
