@@ -2,7 +2,7 @@ use std::path::Path;
 
 use anyhow::Result;
 use bio::io::fasta::IndexedReader;
-use clap::{ArgEnum, IntoApp, Parser, Subcommand};
+use clap::{IntoApp, Parser, Subcommand};
 use mimalloc::MiMalloc;
 
 mod preprocess;
@@ -34,7 +34,7 @@ enum Commands {
         input: String,
 
         #[clap(short, long)]
-        /// path to output file
+        /// path to output file in parquet format
         output: String,
 
         #[clap(short, long)]
@@ -44,11 +44,13 @@ enum Commands {
         #[clap(long)]
         /// output only includes data that aligns at or after this position,
         /// should be set with --chrom
+        /// TODO: Throw error if set without --chrom
         start: Option<u32>,
 
         #[clap(long)]
         /// output only includes data that aligns at or before this position,
         /// should be set with --chrom
+        /// TODO: Throw error if set without --chrom
         stop: Option<u32>,
     },
 
@@ -60,52 +62,77 @@ enum Commands {
         input: String,
 
         #[clap(short, long)]
+        /// Path to resulting pickle file
+        /// TODO: Move from pickle to parquet
         output: String,
     },
 
-    /// Rank each kmer by the symmetrical Kulback-Leibler Divergence and output
-    /// results
+    /// Rank each kmer by the Kulback-Leibler Divergence and between the trained
+    /// models
     Rank {
         #[clap(long)]
+        /// Positive control output from cawlr train
         pos_ctrl: String,
 
         #[clap(long)]
+        /// Negative control output from cawlr train
         neg_ctrl: String,
 
         #[clap(short, long)]
+        /// Path to output file
         output: String,
 
         #[clap(long, default_value_t = 2456)]
+        /// Ranks are estimated via sampling, so to keep values consistent
+        /// between subsequent runs a seed value is used
         seed: u64,
 
+        /// Ranks are estimated via sampling, higher value for samples means it
+        /// takes longer for cawlr rank to run but the ranks will be more
+        /// accurate
         #[clap(long, default_value_t = 10_000_usize)]
         samples: usize,
     },
+
+    /// Score each kmer with likelihood based on positive and negative controls
     Score {
         #[clap(short, long)]
+        /// Path to parquet file from cawlr preprocess
         input: String,
 
         #[clap(short, long)]
+        /// Path to output file
         output: String,
 
         #[clap(long)]
+        /// Positive control file from cawlr train
         pos_ctrl: String,
 
         #[clap(long)]
+        /// Negative control file from cawlr train
         neg_ctrl: String,
 
         #[clap(short, long)]
+        /// Path to rank file from cawlr rank
         ranks: String,
 
         #[clap(short, long)]
+        /// Path to fasta file for organisms genome, must have a .fai file from
+        /// samtools faidx
         genome: String,
 
         #[clap(long)]
+        /// TODO: Only score with kmers whose KL score is greater cutoff
         cutoff: f64,
     },
     Sma {
         #[clap(short, long)]
+        /// Path to scored data from cawlr score
         input: String,
+
+        #[clap(short, long)]
+        /// Path to output file
+        output: String,
 
         #[clap(short, long)]
         /// output only includes data from this chromosome
@@ -114,11 +141,13 @@ enum Commands {
         #[clap(long)]
         /// output only includes data that aligns at or after this position,
         /// should be set with --chrom
+        /// TODO: Throw error if set without --chrom
         start: u32,
 
         #[clap(long)]
         /// output only includes data that aligns at or before this position,
         /// should be set with --chrom
+        /// TODO: Throw error if set without --chrom
         stop: u32,
     },
 }
