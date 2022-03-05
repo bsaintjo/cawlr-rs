@@ -207,7 +207,6 @@ fn main() -> Result<()> {
                 )
                 .exit();
             }
-            // let nprs = score::load_nprs(input)?;
             let nprs = CawlrIO::load(input)?;
             let pos_ctrl_db = CawlrIO::load(pos_ctrl)?;
             let neg_ctrl_db = CawlrIO::load(neg_ctrl)?;
