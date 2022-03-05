@@ -5,7 +5,6 @@ use std::{
 
 use anyhow::Result;
 use indicatif::{ProgressBar, ProgressIterator, ProgressStyle};
-use parquet::{arrow::ArrowWriter, file::properties::WriterProperties};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -147,17 +146,4 @@ pub(crate) fn preprocess(
             }
         });
     Ok(position_to_record.values().cloned().collect())
-}
-
-/// Writes out a Vec<NanopolishRecord> to a .parquet file
-pub(crate) fn write_records_to_parquet(output: &str, records: Vec<NanopolishRecord>) -> Result<()> {
-    eprintln!("Writing to .parquet file: {}", output);
-    let schema = serde_arrow::Schema::from_records(&records)?;
-    let batches = serde_arrow::to_record_batch(&records, &schema)?;
-    let out = File::create(output)?;
-    let props = WriterProperties::builder().build();
-    let mut writer = ArrowWriter::try_new(out, batches.schema(), Some(props))?;
-    writer.write(&batches)?;
-    writer.close()?;
-    Ok(())
 }

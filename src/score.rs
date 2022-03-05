@@ -1,23 +1,16 @@
 use std::{
     collections::HashMap,
-    fs::File,
     io::{Read, Seek},
     str::from_utf8,
-    sync::Arc,
 };
 
 use anyhow::Result;
 use bio::io::fasta::IndexedReader;
-use parquet::{
-    arrow::{ArrowReader, ArrowWriter, ParquetFileArrowReader},
-    file::serialized_reader::SerializedFileReader,
-};
 use rv::{
     prelude::{Gaussian, Mixture},
     traits::Rv,
 };
 use serde::{Deserialize, Serialize};
-use serde_arrow::{from_record_batch, to_record_batch, Schema};
 
 use crate::{preprocess::NanopolishRecord, train::ModelDB};
 
@@ -130,32 +123,6 @@ where
             ScoredRecord::new(npr, signal_ll)
         })
         .collect()
-}
-
-pub(crate) fn save_scored_nprs(output: &str, snprs: Vec<ScoredRecord>) -> Result<()> {
-    let file = File::create(output)?;
-    let schema = Schema::from_records(&snprs)?;
-    let batches = to_record_batch(&snprs, &schema)?;
-    let mut writer = ArrowWriter::try_new(file, batches.schema(), None)?;
-    writer.write(&batches)?;
-    writer.close()?;
-    Ok(())
-}
-
-pub(crate) fn load_nprs(input: &str) -> Result<Vec<NanopolishRecord>> {
-    let file = File::open(input)?;
-    let file_reader = SerializedFileReader::new(file)?;
-    let mut reader = ParquetFileArrowReader::new(Arc::new(file_reader));
-    let n = reader.get_metadata().num_row_groups();
-    let schema = reader.get_schema()?;
-    let schema = Schema::try_from(schema)?;
-    let record_reader = reader.get_record_reader(2048)?;
-    let mut acc = Vec::with_capacity(n);
-    for rb in record_reader.flatten() {
-        let mut nprs = from_record_batch(&rb, &schema)?;
-        acc.append(&mut nprs);
-    }
-    Ok(acc)
 }
 
 #[cfg(test)]

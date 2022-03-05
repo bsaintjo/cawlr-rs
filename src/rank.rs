@@ -1,51 +1,22 @@
-use std::{
-    collections::{HashMap, HashSet},
-    fs::File,
-};
+use std::collections::{HashMap, HashSet};
 
-use anyhow::Result;
-use rand::{SeedableRng, prelude::SmallRng};
+use rand::{prelude::SmallRng, SeedableRng};
 use rv::{
     prelude::{Gaussian, Mixture},
     traits::Rv,
 };
-use serde_pickle::from_reader;
 
 use crate::train::ModelDB;
 
-// TODO switch to parquet
-pub(crate) fn load_models(input: &str) -> Result<ModelDB> {
-    let file = File::open(input)?;
-    let model_db = from_reader(file, Default::default())?;
-    Ok(model_db)
-}
-
-// TODO switch to parquet
-pub(crate) fn save_kmer_ranks(output: &str, kmer_ranks: HashMap<String, f64>) -> Result<()> {
-    let mut file = File::create(output)?;
-    serde_pickle::to_writer(&mut file, &kmer_ranks, Default::default())?;
-    Ok(())
-}
-
-pub(crate) fn load_kmer_ranks(input: &str) -> Result<HashMap<String, f64>> {
-    let file = File::open(input)?;
-    let kmer_ranks = serde_pickle::from_reader(file, Default::default())?;
-    Ok(kmer_ranks)
-}
-
-
 pub struct RankOptions {
     rng: SmallRng,
-    n_samples: usize
+    n_samples: usize,
 }
 
 impl RankOptions {
     pub(crate) fn new(seed: u64, n_samples: usize) -> Self {
         let rng = SmallRng::seed_from_u64(seed);
-        RankOptions {
-            rng,
-            n_samples
-        }
+        RankOptions { rng, n_samples }
     }
 
     // Approximate the Kulback-Leibler Divergence for the two GMMs as mentioned in

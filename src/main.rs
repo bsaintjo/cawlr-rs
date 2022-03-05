@@ -9,6 +9,9 @@ mod preprocess;
 mod rank;
 mod score;
 mod train;
+mod utils;
+
+use utils::CawlrIO;
 
 #[global_allocator]
 static GLOBAL: MiMalloc = MiMalloc;
@@ -165,7 +168,7 @@ fn main() -> Result<()> {
         } => {
             log::info!("Preprocess command");
             let nps = preprocess::preprocess(input, chrom, start, stop)?;
-            preprocess::write_records_to_parquet(output, nps)?;
+            nps.save(output)?;
         }
         Commands::Train { input, output } => {
             let model_db = train::train(input)?;
@@ -179,10 +182,10 @@ fn main() -> Result<()> {
             seed,
             samples,
         } => {
-            let pos_ctrl_db = rank::load_models(pos_ctrl)?;
-            let neg_ctrl_db = rank::load_models(neg_ctrl)?;
+            let pos_ctrl_db = CawlrIO::load(pos_ctrl)?;
+            let neg_ctrl_db = CawlrIO::load(neg_ctrl)?;
             let kmer_ranks = rank::RankOptions::new(*seed, *samples).rank(pos_ctrl_db, neg_ctrl_db);
-            rank::save_kmer_ranks(output, kmer_ranks)?;
+            kmer_ranks.save(output)?;
         }
 
         Commands::Score {
@@ -204,13 +207,14 @@ fn main() -> Result<()> {
                 )
                 .exit();
             }
-            let nprs = score::load_nprs(input)?;
-            let pos_ctrl_db = rank::load_models(pos_ctrl)?;
-            let neg_ctrl_db = rank::load_models(neg_ctrl)?;
-            let kmer_ranks = rank::load_kmer_ranks(ranks)?;
+            // let nprs = score::load_nprs(input)?;
+            let nprs = CawlrIO::load(input)?;
+            let pos_ctrl_db = CawlrIO::load(pos_ctrl)?;
+            let neg_ctrl_db = CawlrIO::load(neg_ctrl)?;
+            let kmer_ranks = CawlrIO::load(ranks)?;
             let genome = IndexedReader::from_file(genome)?;
             let snprs = score::score(nprs, pos_ctrl_db, neg_ctrl_db, kmer_ranks, genome);
-            score::save_scored_nprs(output, snprs)?;
+            snprs.save(output)?;
         }
 
         Commands::Sma { .. } => {
