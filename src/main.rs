@@ -184,7 +184,7 @@ fn main() -> Result<()> {
         } => {
             let pos_ctrl_db = CawlrIO::load(pos_ctrl)?;
             let neg_ctrl_db = CawlrIO::load(neg_ctrl)?;
-            let kmer_ranks = rank::RankOptions::new(*seed, *samples).rank(pos_ctrl_db, neg_ctrl_db);
+            let kmer_ranks = rank::RankOptions::new(seed, samples).rank(pos_ctrl_db, neg_ctrl_db);
             kmer_ranks.save(output)?;
         }
 
