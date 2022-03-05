@@ -32,9 +32,6 @@ serde = "1.0.136"
 serde-pickle = "1.1.0"
 serde_arrow = "0.4.0"
 
-[patch.crates-io]
-packed_simd_2 = { git = "https://github.com/hkratz/packed_simd", branch = "remove_llvm_asm" }
-
 [profile.release]
 lto = true
 rustflags = ["-C", "target-cpu=native"]
