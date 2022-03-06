@@ -159,7 +159,7 @@ fn main() -> Result<()> {
     env_logger::init();
     let args = Args::parse();
     // TODO: Remove ref and fix rest of the functions
-    match &args.command {
+    match args.command {
         Commands::Preprocess {
             input,
             output,
@@ -174,7 +174,7 @@ fn main() -> Result<()> {
         Commands::Train { input, output } => {
             log::info!("Train command");
             let model_db = train::train(input)?;
-            train::save_gmm(output, model_db)?;
+            model_db.save(output)?;
         }
 
         Commands::Rank {
@@ -213,7 +213,7 @@ fn main() -> Result<()> {
             let pos_ctrl_db = CawlrIO::load(pos_ctrl)?;
             let neg_ctrl_db = CawlrIO::load(neg_ctrl)?;
             let kmer_ranks = CawlrIO::load(ranks)?;
-            let genome = IndexedReader::from_file(genome)?;
+            let genome = IndexedReader::from_file(&genome)?;
             let snprs = score::score(nprs, pos_ctrl_db, neg_ctrl_db, kmer_ranks, genome);
             snprs.save(output)?;
         }

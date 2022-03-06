@@ -1,4 +1,4 @@
-use std::{collections::HashMap, fs::File};
+use std::{collections::HashMap, fs::File, path::Path};
 
 use anyhow::Result;
 use linfa::{traits::Fit, DatasetBase, ParamGuard};
@@ -7,13 +7,6 @@ use polars::prelude::{DataFrame, ParquetReader, SerReader};
 use rv::prelude::{Gaussian, Mixture};
 
 pub(crate) type ModelDB = HashMap<String, Mixture<Gaussian>>;
-
-// TODO switch to parquet
-pub(crate) fn save_gmm(output: &str, model_db: ModelDB) -> Result<()> {
-    let mut file = File::create(output)?;
-    serde_pickle::ser::to_writer(&mut file, &model_db, Default::default())?;
-    Ok(())
-}
 
 fn train_gmm(df: DataFrame) -> Result<Mixture<Gaussian>> {
     let data = df.column("mean")?.f64()?.to_ndarray()?;
@@ -42,7 +35,7 @@ fn train_gmm(df: DataFrame) -> Result<Mixture<Gaussian>> {
     Ok(mm)
 }
 
-pub(crate) fn train(input: &str) -> Result<ModelDB> {
+pub(crate) fn train<P>(input: P) -> Result<ModelDB> where P: AsRef<Path>{
     let file = File::open(input)?;
     let df = ParquetReader::new(file).finish()?;
     let group_idxs = df.groupby(["kmer"])?.groups()?;

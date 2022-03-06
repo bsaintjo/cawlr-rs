@@ -73,18 +73,18 @@ impl Process {
         }
     }
 
-    pub(crate) fn chrom(mut self, chrom: &Option<String>) -> Self {
-        self.chrom = chrom.clone();
+    pub(crate) fn chrom(mut self, chrom: Option<String>) -> Self {
+        self.chrom = chrom;
         self
     }
 
-    pub(crate) fn start(mut self, start: &Option<u64>) -> Self {
-        self.start = *start;
+    pub(crate) fn start(mut self, start: Option<u64>) -> Self {
+        self.start = start;
         self
     }
 
-    pub(crate) fn stop(mut self, stop: &Option<u64>) -> Self {
-        self.stop = *stop;
+    pub(crate) fn stop(mut self, stop: Option<u64>) -> Self {
+        self.stop = stop;
         self
     }
 
