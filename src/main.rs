@@ -48,13 +48,13 @@ enum Commands {
         /// output only includes data that aligns at or after this position,
         /// should be set with --chrom
         /// TODO: Throw error if set without --chrom
-        start: Option<u32>,
+        start: Option<u64>,
 
         #[clap(long)]
         /// output only includes data that aligns at or before this position,
         /// should be set with --chrom
         /// TODO: Throw error if set without --chrom
-        stop: Option<u32>,
+        stop: Option<u64>,
     },
 
     /// For each kmer, train a two-component gaussian mixture model and save
@@ -158,6 +158,7 @@ enum Commands {
 fn main() -> Result<()> {
     env_logger::init();
     let args = Args::parse();
+    // TODO: Remove ref and fix rest of the functions
     match &args.command {
         Commands::Preprocess {
             input,
@@ -167,10 +168,11 @@ fn main() -> Result<()> {
             stop,
         } => {
             log::info!("Preprocess command");
-            let nps = preprocess::preprocess(input, chrom, start, stop)?;
-            nps.save(output)?;
+            let nprs = preprocess::Process::new().chrom(chrom).start(start).stop(stop).with_file(input)?;
+            nprs.save(output)?;
         }
         Commands::Train { input, output } => {
+            log::info!("Train command");
             let model_db = train::train(input)?;
             train::save_gmm(output, model_db)?;
         }

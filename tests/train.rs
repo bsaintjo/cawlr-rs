@@ -38,7 +38,7 @@ impl TestFiles {
         let temp_dir = TempDir::new()?;
         let input_file_path = temp_dir.child(input_filename);
         let input_file = File::create(&input_file_path)?;
-        let df = polars::df!("event_mean" => &[0.1, 0.2, 0.3, 0.4, 0.5],
+        let df = polars::df!("mean" => &[0.1, 0.2, 0.3, 0.4, 0.5],
                                     "kmer" => &["AAAAAA", "AAAAAA", "AAAAAA", "AAAAAA", "AAAAAA"])?;
         ParquetWriter::new(input_file).finish(&df)?;
 

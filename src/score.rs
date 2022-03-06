@@ -12,12 +12,16 @@ use rv::{
 };
 use serde::{Deserialize, Serialize};
 
-use crate::{preprocess::NanopolishRecord, train::ModelDB};
+use crate::{
+    preprocess::{NanopolishRecord, Output},
+    train::ModelDB,
+};
 
 #[derive(Serialize, Deserialize)]
 pub(crate) struct ScoredRecord {
-    npr: NanopolishRecord,
     score: f64,
+    #[serde(flatten)]
+    npr: NanopolishRecord,
 }
 
 impl ScoredRecord {
@@ -96,7 +100,7 @@ fn score_signal(signal: f32, pos_model: &Mixture<Gaussian>, neg_model: &Mixture<
 // TODO use rayon for parallel scoring
 // TODO: add scoring of skipped events
 pub(crate) fn score<R>(
-    nprs: Vec<NanopolishRecord>,
+    nprs: Vec<Output>,
     pos_models: ModelDB,
     neg_models: ModelDB,
     kmer_ranks: HashMap<String, f64>,
@@ -108,19 +112,14 @@ where
     let chrom_lens = get_genome_chrom_lens(&genome);
     nprs.into_iter()
         .map(|npr| {
-            let ctxt = get_genomic_context(
-                &chrom_lens,
-                &mut genome,
-                npr.contig(),
-                npr.pos_as_u64() as u64,
-            )
-            .expect("Failed to read genome fasta.");
+            let ctxt = get_genomic_context(&chrom_lens, &mut genome, npr.contig(), npr.pos())
+                .expect("Failed to read genome fasta.");
             let best_kmer = choose_best_kmer(&kmer_ranks, &ctxt);
             let best_kmer = from_utf8(best_kmer).unwrap();
             let pos_model = pos_models.get(best_kmer).unwrap();
             let neg_model = neg_models.get(best_kmer).unwrap();
-            let signal_ll = score_signal(npr.event_mean(), pos_model, neg_model);
-            ScoredRecord::new(npr, signal_ll)
+            let signal_ll = score_signal(npr.mean() as f32, pos_model, neg_model);
+            ScoredRecord::new(npr.metadata(), signal_ll)
         })
         .collect()
 }

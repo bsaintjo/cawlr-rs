@@ -1,10 +1,9 @@
 use std::{collections::HashMap, fs::File};
 
+use anyhow::Result;
 use linfa::{traits::Fit, DatasetBase, ParamGuard};
 use linfa_clustering::GaussianMixtureModel;
 use polars::prelude::{DataFrame, ParquetReader, SerReader};
-
-use anyhow::Result;
 use rv::prelude::{Gaussian, Mixture};
 
 pub(crate) type ModelDB = HashMap<String, Mixture<Gaussian>>;
@@ -17,7 +16,7 @@ pub(crate) fn save_gmm(output: &str, model_db: ModelDB) -> Result<()> {
 }
 
 fn train_gmm(df: DataFrame) -> Result<Mixture<Gaussian>> {
-    let data = df.column("event_mean")?.f64()?.to_ndarray()?;
+    let data = df.column("mean")?.f64()?.to_ndarray()?;
     let old_dim = data.shape();
     let new_dim = (old_dim[0], 1);
     let data = data.into_shape(new_dim)?;
@@ -73,16 +72,14 @@ pub(crate) fn train(input: &str) -> Result<ModelDB> {
 
 #[cfg(test)]
 mod tests {
-    use polars::df;
-    use polars::prelude::NamedFrom;
-    use polars::series::Series;
+    use polars::{df, prelude::NamedFrom, series::Series};
     use rv::traits::ContinuousDistr;
 
     use super::*;
 
     #[test]
     fn test_train_gmm() -> Result<()> {
-        let df = df!("event_mean" => &[0.1, 0.2, 0.3])?;
+        let df = df!("mean" => &[0.1, 0.2, 0.3])?;
         assert_eq!(1 + 1, 2);
         let mm = train_gmm(df)?;
         mm.pdf(&0.2);
