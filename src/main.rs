@@ -168,7 +168,11 @@ fn main() -> Result<()> {
             stop,
         } => {
             log::info!("Preprocess command");
-            let nprs = preprocess::Process::new().chrom(chrom).start(start).stop(stop).with_file(input)?;
+            let nprs = preprocess::Process::new()
+                .chrom(chrom)
+                .start(start)
+                .stop(stop)
+                .with_file(input)?;
             nprs.save(output)?;
         }
         Commands::Train { input, output } => {

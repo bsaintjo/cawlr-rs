@@ -6,7 +6,7 @@ use std::{
 };
 
 use anyhow::Result;
-use indicatif::{ProgressBar, ProgressIterator, ProgressStyle};
+use indicatif::{ProgressBar, ProgressFinish, ProgressStyle};
 use rstats::Stats;
 use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, CommaSeparator, StringWithSeparator};
@@ -59,7 +59,7 @@ pub(crate) struct Process {
     stop: Option<u64>,
 }
 
-// TODO: Add back indicatif support
+// TODO: Store ProgressBar in process and add indicatif support across
 /// Reads a nanopolish output file, collapses samples across multiple lines,
 /// finds the mean for all the samples, and produces an Output for
 /// each collapsed line.
@@ -93,6 +93,13 @@ impl Process {
         P: AsRef<Path>,
     {
         let file = File::open(filename)?;
+        let style = ProgressStyle::default_spinner()
+            .template("{spinner} [{elapsed_precise}] {binary_bytes_per_sec} {msg}")
+            .on_finish(ProgressFinish::AndLeave);
+        let file = ProgressBar::new_spinner()
+            .with_message("Processing data")
+            .with_style(style)
+            .wrap_read(file);
         Ok(self.with_reader(file))
     }
 
@@ -144,7 +151,7 @@ impl Process {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub(crate) struct Output {
     mean: f64,
     time: f32,
@@ -242,5 +249,6 @@ mod tests {
         let line = b"chrI\t1\tCACACC\t6246746d-97e5-4ace-9362-60d2faffdb93\tt\t529\t96.94\t1.722\t0.00150\tCACACC\t96.60\t1.74\t0.16\t95.5522,99.8873,94.8586,96.2459,97.8065,97.2863";
         let cursor = Cursor::new(line);
         let p = Process::new().with_reader(cursor);
+        eprintln!("{:?}", p);
     }
 }
