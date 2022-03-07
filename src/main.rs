@@ -10,6 +10,8 @@ mod rank;
 mod score;
 mod train;
 mod utils;
+mod reads;
+mod sma;
 
 use utils::CawlrIO;
 

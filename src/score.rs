@@ -28,6 +28,10 @@ impl ScoredRecord {
     fn new(npr: NanopolishRecord, score: f64) -> Self {
         Self { npr, score }
     }
+    
+    pub(crate) fn get_score(&self) -> f64 {
+        self.score
+    }
 }
 
 // TODO: test for positions after chr_len
