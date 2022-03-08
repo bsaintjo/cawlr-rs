@@ -1,3 +1,4 @@
+#![feature(type_changing_struct_update)]
 use std::path::Path;
 
 use anyhow::Result;
