@@ -10,29 +10,11 @@ use rv::{
     prelude::{Gaussian, Mixture},
     traits::Rv,
 };
-use serde::{Deserialize, Serialize};
 
 use crate::{
-    preprocess::{NanopolishRecord, Output},
+    reads::{PreprocessRead, Score, ScoredRead},
     train::ModelDB,
 };
-
-#[derive(Serialize, Deserialize)]
-pub(crate) struct ScoredRecord {
-    score: f64,
-    #[serde(flatten)]
-    npr: NanopolishRecord,
-}
-
-impl ScoredRecord {
-    fn new(npr: NanopolishRecord, score: f64) -> Self {
-        Self { npr, score }
-    }
-    
-    pub(crate) fn get_score(&self) -> f64 {
-        self.score
-    }
-}
 
 // TODO: test for positions after chr_len
 // TODO: Deal with +1 issue at chromosome ends
@@ -104,26 +86,29 @@ fn score_signal(signal: f32, pos_model: &Mixture<Gaussian>, neg_model: &Mixture<
 // TODO use rayon for parallel scoring
 // TODO: add scoring of skipped events
 pub(crate) fn score<R>(
-    nprs: Vec<Output>,
+    nprs: Vec<PreprocessRead>,
     pos_models: ModelDB,
     neg_models: ModelDB,
     kmer_ranks: HashMap<String, f64>,
     mut genome: IndexedReader<R>,
-) -> Vec<ScoredRecord>
+) -> Vec<ScoredRead>
 where
     R: Read + Seek,
 {
     let chrom_lens = get_genome_chrom_lens(&genome);
     nprs.into_iter()
         .map(|npr| {
-            let ctxt = get_genomic_context(&chrom_lens, &mut genome, npr.contig(), npr.pos())
-                .expect("Failed to read genome fasta.");
-            let best_kmer = choose_best_kmer(&kmer_ranks, &ctxt);
-            let best_kmer = from_utf8(best_kmer).unwrap();
-            let pos_model = pos_models.get(best_kmer).unwrap();
-            let neg_model = neg_models.get(best_kmer).unwrap();
-            let signal_ll = score_signal(npr.mean() as f32, pos_model, neg_model);
-            ScoredRecord::new(npr.metadata(), signal_ll)
+            let chrom = npr.chrom().to_owned();
+            npr.map_data(|ld| {
+                let ctxt = get_genomic_context(&chrom_lens, &mut genome, &chrom, ld.pos())
+                    .expect("Failed to read genome fasta.");
+                let best_kmer = choose_best_kmer(&kmer_ranks, &ctxt);
+                let best_kmer = from_utf8(best_kmer).unwrap();
+                let pos_model = pos_models.get(best_kmer).unwrap();
+                let neg_model = neg_models.get(best_kmer).unwrap();
+                let signal_ll = score_signal(ld.mean() as f32, pos_model, neg_model);
+                Score::new(ld.pos(), signal_ll)
+            })
         })
         .collect()
 }

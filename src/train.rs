@@ -1,19 +1,56 @@
-use std::{collections::HashMap, fs::File, path::Path};
+use std::collections::HashMap;
 
 use anyhow::Result;
 use linfa::{traits::Fit, DatasetBase, ParamGuard};
 use linfa_clustering::GaussianMixtureModel;
-use polars::prelude::{DataFrame, ParquetReader, SerReader};
+use ndarray::Array;
 use rv::prelude::{Gaussian, Mixture};
 
-pub(crate) type ModelDB = HashMap<String, Mixture<Gaussian>>;
+use crate::reads::PreprocessRead;
 
-fn train_gmm(df: DataFrame) -> Result<Mixture<Gaussian>> {
-    let data = df.column("mean")?.f64()?.to_ndarray()?;
-    let old_dim = data.shape();
-    let new_dim = (old_dim[0], 1);
-    let data = data.into_shape(new_dim)?;
-    let data = DatasetBase::from(data);
+pub(crate) type ModelDB = HashMap<String, Mixture<Gaussian>>;
+type KmerMeans = HashMap<String, Vec<f64>>;
+
+pub(crate) struct Train {
+    acc: KmerMeans,
+}
+
+impl Train {
+    pub(crate) fn new() -> Self {
+        Self {
+            acc: HashMap::new(),
+        }
+    }
+
+    pub(crate) fn run(mut self, reads: Vec<PreprocessRead>) -> Result<ModelDB> {
+        let mut gmms = HashMap::new();
+        self.reads_to_kmer_means(reads);
+        for (kmer, kmer_mean) in self.acc.into_iter() {
+            let gmm = train_gmm(kmer_mean)?;
+            gmms.insert(kmer, gmm);
+        }
+
+        Ok(gmms)
+    }
+
+    fn read_to_kmer_means(&mut self, read: PreprocessRead) {
+        for ld in read.into_iter() {
+            let mean = ld.mean();
+            let kmer = ld.into_kmer();
+            self.acc.entry(kmer).or_insert(Vec::new()).push(mean);
+        }
+    }
+
+    fn reads_to_kmer_means(&mut self, reads: Vec<PreprocessRead>) {
+        reads.into_iter().for_each(|lr| self.read_to_kmer_means(lr))
+    }
+}
+
+fn train_gmm(means: Vec<f64>) -> Result<Mixture<Gaussian>> {
+    let len = means.len();
+    let shape = (len, 1);
+    let means = Array::from_shape_vec(shape, means)?;
+    let data = DatasetBase::from(means);
 
     let n_clusters = 2;
     let n_runs = 10;
@@ -33,49 +70,4 @@ fn train_gmm(df: DataFrame) -> Result<Mixture<Gaussian>> {
     let mm = Mixture::new_unchecked(weights, gausses);
 
     Ok(mm)
-}
-
-pub(crate) fn train<P>(input: P) -> Result<ModelDB> where P: AsRef<Path>{
-    let file = File::open(input)?;
-    let df = ParquetReader::new(file).finish()?;
-    let group_idxs = df.groupby(["kmer"])?.groups()?;
-    let mut series_iter = group_idxs.iter();
-    let kmers = series_iter.next().expect("no kmer series");
-    let idxs = series_iter.next().expect("no idxs series");
-    let kmers_to_idxs = kmers.utf8()?.into_iter().zip(idxs.list()?.into_iter());
-    let mut kmer_to_gmm = HashMap::new();
-    for (kmer, idxs) in kmers_to_idxs {
-        if let Some(kmer) = kmer {
-            if let Some(idxs) = idxs {
-                let kdf = df.take(idxs.u32()?)?;
-                if kdf.height() < 2 {
-                    log::warn!(
-                        "Warning: kmer {} doesn't have minimum number of values, skipping...",
-                        kmer
-                    );
-                    continue;
-                }
-                let result = train_gmm(kdf)?;
-                kmer_to_gmm.insert(kmer.to_owned(), result);
-            }
-        }
-    }
-    Ok(kmer_to_gmm)
-}
-
-#[cfg(test)]
-mod tests {
-    use polars::{df, prelude::NamedFrom, series::Series};
-    use rv::traits::ContinuousDistr;
-
-    use super::*;
-
-    #[test]
-    fn test_train_gmm() -> Result<()> {
-        let df = df!("mean" => &[0.1, 0.2, 0.3])?;
-        assert_eq!(1 + 1, 2);
-        let mm = train_gmm(df)?;
-        mm.pdf(&0.2);
-        Ok(())
-    }
 }

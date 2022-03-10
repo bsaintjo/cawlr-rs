@@ -6,10 +6,43 @@ use std::{
 };
 
 use anyhow::Result;
+use bio_types::{genome::AbstractInterval, sequence::SequenceRead};
 use indicatif::{ProgressBar, ProgressFinish, ProgressStyle};
 use rstats::Stats;
+use rust_htslib::bam::{ext::BamRecordExtensions, IndexedReader, Read as BamRead, Record};
 use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, CommaSeparator, StringWithSeparator};
+
+use crate::reads::{LData, PreprocessRead};
+
+pub(crate) type ReadToPreprocessRead = HashMap<Vec<u8>, PreprocessRead>;
+pub(crate) type ReadPosToSamples = HashMap<(Vec<u8>, u64), Data>;
+
+fn process_bam<P>(filename: P) -> Result<ReadToPreprocessRead>
+where
+    P: AsRef<Path>,
+{
+    let mut acc = HashMap::new();
+    let mut bam = IndexedReader::from_path(filename)?;
+    let mut record = Record::new();
+    // TODO map only unique reads by filtering on mapq or flags
+    // TODO should i grab the sequence and store it for later?
+    while let Some(result) = bam.read(&mut record) {
+        if result.is_ok() {
+            let name = record.name().to_owned();
+            let key_name = name.clone();
+            let chrom = record.contig().to_owned();
+            let start = record.reference_start() as usize;
+            let len = record.seq_len() as usize;
+            let data = Vec::new();
+            let read = PreprocessRead::new(name, chrom, start, len, data);
+            if let Some(ld) = acc.insert(key_name, read) {
+                log::warn!("Duplicate read of encountered in bam with data {:?}", ld);
+            }
+        }
+    }
+    Ok(acc)
+}
 
 #[serde_as]
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -21,7 +54,7 @@ struct Npr {
     #[serde(skip)]
     _reference_kmer: String,
 
-    read_name: String,
+    read_name: Vec<u8>,
 
     #[serde(skip)]
     _strand: String,
@@ -35,7 +68,7 @@ struct Npr {
     #[serde(skip)]
     _event_stdv: f32,
 
-    event_length: f32,
+    event_length: f64,
 
     model_kmer: String,
 
@@ -48,12 +81,11 @@ struct Npr {
     #[serde(skip)]
     _standardized_level: f32,
 
-    #[serde_as(as = "StringWithSeparator::<CommaSeparator, f32>")]
-    samples: Vec<f32>,
+    #[serde_as(as = "StringWithSeparator::<CommaSeparator, f64>")]
+    samples: Vec<f64>,
 }
 
 pub(crate) struct Process {
-    data: HashMap<(String, u64), Data>,
     chrom: Option<String>,
     start: Option<u64>,
     stop: Option<u64>,
@@ -66,7 +98,6 @@ pub(crate) struct Process {
 impl Process {
     pub(crate) fn new() -> Self {
         Self {
-            data: HashMap::new(),
             chrom: None,
             start: None,
             stop: None,
@@ -88,7 +119,27 @@ impl Process {
         self
     }
 
-    pub(crate) fn with_file<P>(self, filename: P) -> Result<Vec<Output>>
+    pub(crate) fn run<P, R>(&self, filename: P, bam_filename: R) -> Result<Vec<PreprocessRead>>
+    where
+        P: AsRef<Path>,
+        R: AsRef<Path>,
+    {
+        let rp_to_samples = self.with_file(filename)?;
+        let mut bam_to_pr = process_bam(bam_filename)?;
+        for (key, datum) in rp_to_samples.into_iter() {
+            if let Some(pr) = bam_to_pr.get_mut(&key.0) {
+                let mean = datum.samples.amean()?;
+                let data = LData::new(datum.pos, datum.kmer, mean, datum.time);
+                pr.get_mut_data().push(data);
+            }
+        }
+        Ok(bam_to_pr
+            .into_values()
+            .filter(|lr| lr.is_empty())
+            .collect())
+    }
+
+    pub(crate) fn with_file<P>(&self, filename: P) -> Result<ReadPosToSamples>
     where
         P: AsRef<Path>,
     {
@@ -103,10 +154,11 @@ impl Process {
         Ok(self.with_reader(file))
     }
 
-    pub(crate) fn with_reader<R>(mut self, input: R) -> Vec<Output>
+    pub(crate) fn with_reader<R>(&self, input: R) -> ReadPosToSamples
     where
         R: Read,
     {
+        let mut acc: ReadPosToSamples = HashMap::new();
         let mut reader = csv::ReaderBuilder::new()
             .delimiter(b'\t')
             .from_reader(input);
@@ -132,7 +184,7 @@ impl Process {
             }
 
             let key = (line.read_name.clone(), line.position);
-            match self.data.entry(key) {
+            match acc.entry(key) {
                 Entry::Occupied(mut oe) => {
                     log::debug!("Occupied");
                     oe.get_mut().update_from_npr(line);
@@ -144,97 +196,39 @@ impl Process {
                 }
             }
         }
-        self.data
-            .into_values()
-            .flat_map(|d| d.into_output())
-            .collect()
+        acc
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-pub(crate) struct Output {
-    mean: f64,
-    time: f32,
-    #[serde(flatten)]
-    npr: NanopolishRecord,
-}
-
-impl Output {
-    pub(crate) fn new(mean: f64, time: f32, npr: NanopolishRecord) -> Self {
-        Self { mean, time, npr }
-    }
-
-    /// Get a reference to the output's npr.
-    pub(crate) fn contig(&self) -> &str {
-        &self.npr.contig
-    }
-
-    pub(crate) fn pos(&self) -> u64 {
-        self.npr.position
-    }
-
-    pub(crate) fn mean(&self) -> f64 {
-        self.mean
-    }
-
-    pub(crate) fn metadata(self) -> NanopolishRecord {
-        self.npr
-    }
-}
-
-#[derive(Serialize, Deserialize)]
+#[derive(Debug)]
 pub(crate) struct Data {
-    samples: Vec<f32>,
-    time: f32,
-    #[serde(flatten)]
-    npr: NanopolishRecord,
+    pos: u64,
+    kmer: String,
+    samples: Vec<f64>,
+    time: f64,
 }
 
 impl Data {
-    fn new(samples: Vec<f32>, time: f32, npr: NanopolishRecord) -> Self {
-        Self { samples, time, npr }
+    fn new(pos: u64, kmer: String, samples: Vec<f64>, time: f64) -> Self {
+        Self {
+            pos,
+            kmer,
+            samples,
+            time,
+        }
     }
 
     fn new_from_npr(npr: Npr) -> Self {
         let samples = npr.samples;
-        let contig = npr.contig;
-        let position = npr.position;
-        let read_name = npr.read_name;
+        let pos = npr.position;
         let kmer = npr.model_kmer;
         let time = npr.event_length;
-        let metadata = NanopolishRecord::new(contig, position, read_name, kmer);
-        Self::new(samples, time, metadata)
+        Self::new(pos, kmer, samples, time)
     }
 
     fn update_from_npr(&mut self, mut npr: Npr) {
         self.samples.append(&mut npr.samples);
         self.time += npr.event_length;
-    }
-
-    // TODO: serde_arrow doesn't support lists or sequences, so we need to calculate
-    // final statistics and use that in the output
-    fn into_output(self) -> Result<Output> {
-        let mean = self.samples.amean()?;
-        Ok(Output::new(mean, self.time, self.npr))
-    }
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub(crate) struct NanopolishRecord {
-    contig: String,
-    position: u64,
-    read_name: String,
-    kmer: String,
-}
-
-impl NanopolishRecord {
-    fn new(contig: String, position: u64, read_name: String, kmer: String) -> Self {
-        NanopolishRecord {
-            contig,
-            position,
-            read_name,
-            kmer,
-        }
     }
 }
 

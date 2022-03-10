@@ -1,4 +1,3 @@
-#![feature(type_changing_struct_update)]
 use std::path::Path;
 
 use anyhow::Result;
@@ -8,11 +7,11 @@ use mimalloc::MiMalloc;
 
 mod preprocess;
 mod rank;
+mod reads;
 mod score;
+mod sma;
 mod train;
 mod utils;
-mod reads;
-mod sma;
 
 use utils::CawlrIO;
 
@@ -38,6 +37,10 @@ enum Commands {
         #[clap(short, long)]
         /// path to nanopolish eventalign output with samples column
         input: String,
+
+        #[clap(short, long)]
+        /// path to nanopolish eventalign output with samples column
+        bam: String,
 
         #[clap(short, long)]
         /// path to output file in parquet format
@@ -165,6 +168,7 @@ fn main() -> Result<()> {
     match args.command {
         Commands::Preprocess {
             input,
+            bam,
             output,
             chrom,
             start,
@@ -175,12 +179,13 @@ fn main() -> Result<()> {
                 .chrom(chrom)
                 .start(start)
                 .stop(stop)
-                .with_file(input)?;
+                .run(input, bam)?;
             nprs.save(output)?;
         }
         Commands::Train { input, output } => {
             log::info!("Train command");
-            let model_db = train::train(input)?;
+            let reads = CawlrIO::load(input)?;
+            let model_db = train::Train::new().run(reads)?;
             model_db.save(output)?;
         }
 

@@ -16,6 +16,7 @@ categories = ["science", "command-line-utilities"]
 anyhow = "1.0.55"
 arrow2 = { version = "0.9.1", features = ["io_parquet", "serde", "serde_derive"] }
 bio = "0.39.2"
+bio-types = "0.12.1"
 clap = { version = "3.1.1", features = ["derive"] }
 criterion-stats = "0.3.0"
 csv = "1.1.6"
@@ -25,10 +26,12 @@ linfa = { version = "0.5.0", features=["serde", "openblas-system"] }
 linfa-clustering = { version = "0.5.0", features=["serde"] }
 log = "0.4.14"
 mimalloc = { version = "0.1.28", default-features = false }
+ndarray = "0.15.4"
 parquet = { version = "8.0.0", default-features = false, features=["arrow", "base64"] }
 polars = { version = "0.19.1", features = ["simd", "is_in", "lazy", "parquet", "ndarray", "performant"] }
 rand = { version = "0.8.5", features = ["small_rng"] }
 rstats = "1.0.13"
+rust-htslib = "0.38.2"
 rv = { version = "0.14.3", features = ["serde1"] }
 serde = "1.0.136"
 serde-pickle = "1.1.0"
