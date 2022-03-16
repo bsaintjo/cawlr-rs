@@ -43,6 +43,10 @@ impl LData {
     pub(crate) fn into_kmer(self) -> String {
         self.kmer
     }
+
+    pub(crate) fn kmer(&self) -> &str {
+        &self.kmer
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -69,6 +73,7 @@ pub(crate) struct LRead<T> {
     chrom: String,
     start: usize,
     length: usize,
+    seq: Vec<u8>,
     #[serde(flatten)]
     data: Vec<T>,
 }
@@ -79,6 +84,7 @@ impl<T> LRead<T> {
         chrom: String,
         start: usize,
         length: usize,
+        seq: Vec<u8>,
         data: Vec<T>,
     ) -> Self {
         LRead {
@@ -86,6 +92,7 @@ impl<T> LRead<T> {
             chrom,
             start,
             length,
+            seq,
             data,
         }
     }
@@ -112,6 +119,7 @@ impl<T> LRead<T> {
             chrom: self.chrom,
             start: self.start,
             length: self.length,
+            seq: self.seq,
             data: new_data,
         }
     }
@@ -138,6 +146,11 @@ impl<T> LRead<T> {
     pub(crate) fn stop(&self) -> usize {
         self.start + self.length
     }
+
+    /// Get a reference to the lread's seq.
+    pub(crate) fn seq(&self) -> &[u8] {
+        self.seq.as_ref()
+    }
 }
 
 impl LRead<Score> {
@@ -151,6 +164,7 @@ impl LRead<Score> {
             chrom: self.chrom,
             start: self.start,
             length: self.length,
+            seq: self.seq,
             data: arr,
         }
     }

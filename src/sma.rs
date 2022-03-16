@@ -1,9 +1,11 @@
-use std::collections::HashMap;
+use std::{collections::{HashMap, HashSet}, fs::File};
 
+use bio::io::fasta::IndexedReader;
 use criterion_stats::univariate::{
     kde::{kernel::Gaussian, Bandwidth, Kde},
     Sample,
 };
+use ndarray::{arr2, Array, Array2};
 
 use crate::reads::ScoredRead;
 
@@ -26,4 +28,33 @@ fn run(
         .collect::<Vec<f64>>();
     let neg_samples = Sample::new(&neg_samples);
     let neg_kde = Kde::new(neg_samples, Gaussian, Bandwidth::Silverman);
+}
+
+fn init_matrix(read: ScoredRead) -> Vec<Vec<Option<f64>>> {
+    unimplemented!()
+}
+
+fn arr_init_matrix(read: ScoredRead) -> Array2<Option<f64>> {
+    let len = read.length();
+    let mut matrix = Array::from_elem((147, len), None);
+    for x in matrix.column_mut(0) {
+        *x = Some(1. / 147.);
+    }
+    matrix
+}
+
+fn update_linker(idx: usize, score: f64, matrix: &mut Array2<Option<f64>>, kde: Kde<f64, Gaussian>) {
+    unimplemented!()
+}
+
+fn update_nucleosome(idx: usize, score: f64, matrix: &mut Array2<Option<f64>>, kde: Kde<f64, Gaussian>) {
+    unimplemented!()
+}
+
+fn is_modifiable(read: ScoredRead, valid: &mut HashSet<usize>, genome: &mut IndexedReader<File>) {
+    unimplemented!()
+}
+
+fn has_scores(read: ScoredRead, valid: &mut HashSet<usize>) {
+    unimplemented!()
 }

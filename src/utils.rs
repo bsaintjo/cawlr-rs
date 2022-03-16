@@ -20,48 +20,11 @@ pub(crate) trait CawlrIO {
         Self: Sized;
 }
 
-impl<T> CawlrIO for Vec<T>
-where
-    T: Serialize + DeserializeOwned + Sized,
-{
-    fn save<P>(&self, filename: P) -> Result<()>
-    where
-        P: AsRef<Path>,
-    {
-        let file = File::create(filename)?;
-        let schema = Schema::from_records(&self)?;
-        let batches = to_record_batch(&self, &schema)?;
-        let mut writer = ArrowWriter::try_new(file, batches.schema(), None)?;
-        writer.write(&batches)?;
-        writer.close()?;
-        Ok(())
-    }
-
-    fn load<P>(filename: P) -> Result<Self>
-    where
-        P: AsRef<Path>,
-    {
-        let file = File::open(filename)?;
-        let file_reader = SerializedFileReader::new(file)?;
-        let mut reader = ParquetFileArrowReader::new(Arc::new(file_reader));
-        let n = reader.get_metadata().num_row_groups();
-        let schema = reader.get_schema()?;
-        let schema = Schema::try_from(schema)?;
-        let record_reader = reader.get_record_reader(2048)?;
-        let mut acc = Vec::with_capacity(n);
-        for rb in record_reader.flatten() {
-            let mut xs = from_record_batch(&rb, &schema)?;
-            acc.append(&mut xs);
-        }
-        Ok(acc)
-    }
-}
 
 // todo switch to parquet
-impl<K, V> CawlrIO for HashMap<K, V>
+impl<T> CawlrIO for T
 where
-    K: Serialize + DeserializeOwned + Eq + Hash,
-    V: Serialize + DeserializeOwned,
+    T: Serialize + DeserializeOwned
 {
     fn save<P>(&self, filename: P) -> Result<()>
     where

@@ -43,6 +43,10 @@ enum Commands {
         bam: String,
 
         #[clap(short, long)]
+        /// path to genome file
+        genome: String,
+
+        #[clap(short, long)]
         /// path to output file in parquet format
         output: String,
 
@@ -169,6 +173,7 @@ fn main() -> Result<()> {
         Commands::Preprocess {
             input,
             bam,
+            genome,
             output,
             chrom,
             start,
@@ -179,14 +184,14 @@ fn main() -> Result<()> {
                 .chrom(chrom)
                 .start(start)
                 .stop(stop)
-                .run(input, bam)?;
+                .run(input, bam, genome)?;
             nprs.save(output)?;
         }
         Commands::Train { input, output } => {
             log::info!("Train command");
             let reads = CawlrIO::load(input)?;
-            let model_db = train::Train::new().run(reads)?;
-            model_db.save(output)?;
+            let model = train::Train::new().run(reads)?;
+            model.save(output)?;
         }
 
         Commands::Rank {

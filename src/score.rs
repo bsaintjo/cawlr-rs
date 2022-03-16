@@ -13,7 +13,7 @@ use rv::{
 
 use crate::{
     reads::{PreprocessRead, Score, ScoredRead},
-    train::ModelDB,
+    train::Model,
 };
 
 // TODO: test for positions after chr_len
@@ -75,20 +75,31 @@ fn choose_best_kmer<'a>(kmer_ranks: &HashMap<String, f64>, context: &'a [u8]) ->
 /// basis of gene expression. Genome Res. 29, 1329–1342 (2019).
 ///
 /// TODO explore use log-likelihood ratio instead of this scoring
-fn score_signal(signal: f32, pos_model: &Mixture<Gaussian>, neg_model: &Mixture<Gaussian>) -> f64 {
-    let pos_log_proba = pos_model.f(&signal);
-    let neg_log_proba = neg_model.f(&signal);
+fn score_signal(signal: f32, pos_mix: &Mixture<Gaussian>, neg_mix: &Mixture<Gaussian>) -> f64 {
+    let pos_log_proba = pos_mix.f(&signal);
+    let neg_log_proba = neg_mix.f(&signal);
     let score = pos_log_proba / (pos_log_proba + neg_log_proba);
 
     score.ln()
+}
+
+fn score_skip(kmer: String, pos_model: &Model, neg_model: &Model) -> Option<f64> {
+    let pos_frac = pos_model.skips().get(&kmer);
+    let neg_frac = neg_model.skips().get(&kmer);
+    match (pos_frac, neg_frac) {
+        (Some(&p), Some(&n)) => {
+            Some(p / (p + n))
+        }
+        _ => None,
+    }
 }
 
 // TODO use rayon for parallel scoring
 // TODO: add scoring of skipped events
 pub(crate) fn score<R>(
     nprs: Vec<PreprocessRead>,
-    pos_models: ModelDB,
-    neg_models: ModelDB,
+    pos_models: Model,
+    neg_models: Model,
     kmer_ranks: HashMap<String, f64>,
     mut genome: IndexedReader<R>,
 ) -> Vec<ScoredRead>
@@ -104,8 +115,8 @@ where
                     .expect("Failed to read genome fasta.");
                 let best_kmer = choose_best_kmer(&kmer_ranks, &ctxt);
                 let best_kmer = from_utf8(best_kmer).unwrap();
-                let pos_model = pos_models.get(best_kmer).unwrap();
-                let neg_model = neg_models.get(best_kmer).unwrap();
+                let pos_model = pos_models.gmms().get(best_kmer).unwrap();
+                let neg_model = neg_models.gmms().get(best_kmer).unwrap();
                 let signal_ll = score_signal(ld.mean() as f32, pos_model, neg_model);
                 Score::new(ld.pos(), signal_ll)
             })

@@ -1,15 +1,21 @@
 use std::{
     collections::{hash_map::Entry, HashMap},
+    fmt::Debug,
     fs::File,
     io::Read,
     path::Path,
 };
 
 use anyhow::Result;
+use bio::io::fasta::IndexedReader as GenomeReader;
 use bio_types::{genome::AbstractInterval, sequence::SequenceRead};
 use indicatif::{ProgressBar, ProgressFinish, ProgressStyle};
 use rstats::Stats;
-use rust_htslib::bam::{ext::BamRecordExtensions, IndexedReader, Read as BamRead, Record};
+use rust_htslib::bam::{
+    ext::BamRecordExtensions,
+    record::{Cigar, CigarStringView},
+    IndexedReader as BamReader, Read as BamRead, Record,
+};
 use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, CommaSeparator, StringWithSeparator};
 
@@ -18,12 +24,41 @@ use crate::reads::{LData, PreprocessRead};
 pub(crate) type ReadToPreprocessRead = HashMap<Vec<u8>, PreprocessRead>;
 pub(crate) type ReadPosToSamples = HashMap<(Vec<u8>, u64), Data>;
 
-fn process_bam<P>(filename: P) -> Result<ReadToPreprocessRead>
+struct QueryLength {
+    to_add: usize,
+    acc: usize,
+}
+
+impl QueryLength {
+    fn from_cigar(cigar_string: CigarStringView) -> Self {
+        let mut to_add = 0;
+        let mut acc = 0;
+        let mut citer = cigar_string.iter().peekable();
+        while let Some(cigar) = citer.next_if(|c| match c {
+            Cigar::SoftClip(_) | Cigar::HardClip(_) => true,
+            _ => false,
+        }) {
+            to_add += cigar.len();
+        }
+        for cigar in citer {
+            match cigar {
+                Cigar::SoftClip(_) | Cigar::HardClip(_) => continue,
+                c => acc += c.len(),
+            }
+        }
+        QueryLength {
+            to_add: to_add as usize,
+            acc: acc as usize,
+        }
+    }
+}
+
+fn process_bam<P>(filename: P, faidx: &mut GenomeReader<File>) -> Result<ReadToPreprocessRead>
 where
     P: AsRef<Path>,
 {
     let mut acc = HashMap::new();
-    let mut bam = IndexedReader::from_path(filename)?;
+    let mut bam = BamReader::from_path(filename)?;
     let mut record = Record::new();
     // TODO map only unique reads by filtering on mapq or flags
     // TODO should i grab the sequence and store it for later?
@@ -32,10 +67,14 @@ where
             let name = record.name().to_owned();
             let key_name = name.clone();
             let chrom = record.contig().to_owned();
-            let start = record.reference_start() as usize;
-            let len = record.seq_len() as usize;
+            let qlen = QueryLength::from_cigar(record.cigar());
+            let start = record.reference_start() as usize + qlen.to_add;
+            let length = qlen.acc;
+            faidx.fetch(&chrom, start as u64, (start + length) as u64)?;
+            let mut seq = Vec::new();
+            faidx.read(&mut seq)?;
             let data = Vec::new();
-            let read = PreprocessRead::new(name, chrom, start, len, data);
+            let read = PreprocessRead::new(name, chrom, start, length, seq, data);
             if let Some(ld) = acc.insert(key_name, read) {
                 log::warn!("Duplicate read of encountered in bam with data {:?}", ld);
             }
@@ -119,13 +158,18 @@ impl Process {
         self
     }
 
-    pub(crate) fn run<P, R>(&self, filename: P, bam_filename: R) -> Result<Vec<PreprocessRead>>
+    pub(crate) fn run<P>(
+        &self,
+        filename: P,
+        bam_filename: P,
+        genome: P,
+    ) -> Result<Vec<PreprocessRead>>
     where
-        P: AsRef<Path>,
-        R: AsRef<Path>,
+        P: AsRef<Path> + Debug,
     {
+        let mut faidx = GenomeReader::from_file(&genome)?;
         let rp_to_samples = self.with_file(filename)?;
-        let mut bam_to_pr = process_bam(bam_filename)?;
+        let mut bam_to_pr = process_bam(bam_filename, &mut faidx)?;
         for (key, datum) in rp_to_samples.into_iter() {
             if let Some(pr) = bam_to_pr.get_mut(&key.0) {
                 let mean = datum.samples.amean()?;
@@ -133,10 +177,7 @@ impl Process {
                 pr.get_mut_data().push(data);
             }
         }
-        Ok(bam_to_pr
-            .into_values()
-            .filter(|lr| lr.is_empty())
-            .collect())
+        Ok(bam_to_pr.into_values().filter(|lr| lr.is_empty()).collect())
     }
 
     pub(crate) fn with_file<P>(&self, filename: P) -> Result<ReadPosToSamples>
