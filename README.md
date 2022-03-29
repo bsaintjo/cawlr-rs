@@ -41,17 +41,20 @@ cawlr-preprocess
 Calculates mean per-read per-position and optionally filters data based on a given region
 
 USAGE:
-    cawlr preprocess [OPTIONS] --input <INPUT> --output <OUTPUT>
+    cawlr preprocess [OPTIONS] --input <INPUT> --bam <BAM> --genome <GENOME> --output <OUTPUT>
 
 OPTIONS:
+    -b, --bam <BAM>          path to nanopolish eventalign output with samples column
     -c, --chrom <CHROM>      output only includes data from this chromosome
+    -g, --genome <GENOME>    path to genome file
     -h, --help               Print help information
     -i, --input <INPUT>      path to nanopolish eventalign output with samples column
-    -o, --output <OUTPUT>    path to output file
+    -o, --output <OUTPUT>    path to output file in parquet format
         --start <START>      output only includes data that aligns at or after this position, should
-                             be set with --chrom
+                             be set with --chrom TODO: Throw error if set without --chrom
         --stop <STOP>        output only includes data that aligns at or before this position,
-                             should be set with --chrom
+                             should be set with --chrom TODO: Throw error if set without --chrom
+
 ```
 
 ### `cawlr train`

@@ -99,8 +99,10 @@ impl Train {
 
         let mut gmms = HashMap::new();
         for (kmer, kmer_mean) in self.acc.into_iter() {
-            let gmm = train_gmm(kmer_mean)?;
-            gmms.insert(kmer, gmm);
+            if kmer_mean.len() > 1 {
+                let gmm = train_gmm(kmer_mean)?;
+                gmms.insert(kmer, gmm);
+            }
         }
 
         let mut ratios = HashMap::new();

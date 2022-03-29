@@ -1,12 +1,11 @@
-use std::collections::{HashMap, HashSet};
-
+use fnv::{FnvHashMap, FnvHashSet};
 use rand::{prelude::SmallRng, SeedableRng};
 use rv::{
     prelude::{Gaussian, Mixture},
     traits::Rv,
 };
 
-use crate::train::ModelDB;
+use crate::train::Model;
 
 pub struct RankOptions {
     rng: SmallRng,
@@ -16,10 +15,7 @@ pub struct RankOptions {
 impl RankOptions {
     pub(crate) fn new(seed: u64, n_samples: usize) -> Self {
         let rng = SmallRng::seed_from_u64(seed);
-        RankOptions {
-            rng,
-            n_samples,
-        }
+        RankOptions { rng, n_samples }
     }
 
     // Approximate the Kulback-Leibler Divergence for the two GMMs as mentioned in
@@ -46,14 +42,14 @@ impl RankOptions {
         self.n_samples as f64
     }
 
-    pub(crate) fn rank(&mut self, pos_ctrl: ModelDB, neg_ctrl: ModelDB) -> HashMap<String, f64> {
-        let mut kmer_ranks = HashMap::new();
-        let pos_ctrl_kmers = pos_ctrl.keys().collect::<HashSet<&String>>();
-        let neg_ctrl_kmers = neg_ctrl.keys().collect::<HashSet<&String>>();
+    pub(crate) fn rank(&mut self, pos_ctrl: Model, neg_ctrl: Model) -> FnvHashMap<String, f64> {
+        let mut kmer_ranks = FnvHashMap::default();
+        let pos_ctrl_kmers = pos_ctrl.gmms().keys().collect::<FnvHashSet<&String>>();
+        let neg_ctrl_kmers = neg_ctrl.gmms().keys().collect::<FnvHashSet<&String>>();
         let kmers = pos_ctrl_kmers.intersection(&neg_ctrl_kmers);
         for &kmer in kmers {
-            let pos_ctrl_model = &pos_ctrl[kmer];
-            let neg_ctrl_model = &neg_ctrl[kmer];
+            let pos_ctrl_model = &pos_ctrl.gmms()[kmer];
+            let neg_ctrl_model = &neg_ctrl.gmms()[kmer];
             let kl = self.kl_approx(pos_ctrl_model, neg_ctrl_model);
             kmer_ranks.insert(kmer.clone(), kl);
         }

@@ -71,7 +71,7 @@ enum Commands {
     /// models to a file
     Train {
         #[clap(short, long)]
-        /// Parquet file of positive or negative control from cawlr preprocess
+        /// Positive or negative control output from cawlr preprocess
         input: String,
 
         #[clap(short, long)]

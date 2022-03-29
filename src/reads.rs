@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 
+use crate::utils;
+
 pub(crate) type PreprocessRead = LRead<LData>;
 pub(crate) type ScoredRead = LRead<Score>;
 
@@ -11,7 +13,7 @@ trait Position {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub(crate) struct LData {
     pos: u64,
     kmer: String,
@@ -49,7 +51,7 @@ impl LData {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub(crate) struct Score {
     pos: u64,
     score: f64,
@@ -67,7 +69,7 @@ impl Position for Score {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub(crate) struct LRead<T> {
     name: Vec<u8>,
     chrom: String,
@@ -94,6 +96,17 @@ impl<T> LRead<T> {
             length,
             seq,
             data,
+        }
+    }
+
+    fn empty(name: Vec<u8>, chrom: String, start: usize, length: usize, seq: Vec<u8>) -> Self {
+        LRead {
+            name,
+            chrom,
+            start,
+            length,
+            seq,
+            data: Vec::new(),
         }
     }
 
@@ -151,6 +164,11 @@ impl<T> LRead<T> {
     pub(crate) fn seq(&self) -> &[u8] {
         self.seq.as_ref()
     }
+
+    /// Get a reference to the lread's data.
+    pub(crate) fn data(&self) -> &[T] {
+        self.data.as_ref()
+    }
 }
 
 impl LRead<Score> {
@@ -171,5 +189,164 @@ impl LRead<Score> {
 
     pub(crate) fn into_means(self) -> impl Iterator<Item = f64> {
         self.data.into_iter().map(|s| s.score)
+    }
+}
+
+// TODO: Take self and flat_repr instead of ref
+pub trait Flatten {
+    type Target;
+
+    fn to_flat(self) -> Self::Target;
+    fn from_flat(flat_repr: Self::Target) -> Self;
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct FlatLReadScore {
+    name: Vec<u8>,
+    chrom: String,
+    start: usize,
+    length: usize,
+    seq: Vec<u8>,
+    pos: u64,
+    score: f64,
+}
+
+impl FlatLReadScore {
+    fn new(
+        name: &[u8],
+        chrom: &str,
+        start: usize,
+        length: usize,
+        seq: &[u8],
+        pos: u64,
+        score: f64,
+    ) -> Self {
+        Self {
+            name: name.to_owned(),
+            chrom: chrom.to_owned(),
+            start,
+            length,
+            seq: seq.to_owned(),
+            pos,
+            score,
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct FlatLReadLData {
+    name: String,
+    chrom: String,
+    start: usize,
+    length: usize,
+    seq: String,
+    pos: u64,
+    kmer: String,
+    mean: f64,
+    time: f64,
+}
+
+impl FlatLReadLData {
+    fn new(
+        name: &[u8],
+        chrom: &str,
+        start: usize,
+        length: usize,
+        seq: &[u8],
+        pos: u64,
+        kmer: &str,
+        mean: f64,
+        time: f64,
+    ) -> Self {
+        Self {
+            name: String::from_utf8(name.to_owned()).unwrap(),
+            chrom: chrom.to_owned(),
+            start,
+            length,
+            seq: String::from_utf8(seq.to_owned()).unwrap(),
+            pos,
+            kmer: kmer.to_owned(),
+            mean,
+            time,
+        }
+    }
+}
+
+#[derive(Hash, PartialEq, Eq)]
+pub(crate) struct ReprKey {
+    name: Vec<u8>,
+    chrom: String,
+    start: usize,
+}
+
+impl ReprKey {
+    pub(crate) fn new(name: &[u8], chrom: &str, start: usize) -> Self {
+        ReprKey {
+            name: name.to_owned(),
+            chrom: chrom.to_owned(),
+            start,
+        }
+    }
+}
+
+impl Flatten for Vec<LRead<LData>> {
+    type Target = Vec<FlatLReadLData>;
+
+    fn to_flat(self) -> Self::Target {
+        self.into_iter()
+            .flat_map(|lread| {
+                lread.data.into_iter().map(move |ldata| FlatLReadLData {
+                    name: String::from_utf8(lread.name.clone()).unwrap(),
+                    chrom: lread.chrom.clone(),
+                    start: lread.start,
+                    length: lread.length,
+                    seq: String::from_utf8(lread.seq.clone()).unwrap(),
+                    pos: ldata.pos,
+                    kmer: ldata.kmer,
+                    mean: ldata.mean,
+                    time: ldata.time,
+                })
+            })
+            .collect()
+    }
+
+    fn from_flat(flat_repr: Self::Target) -> Self {
+        let mut acc = utils::xxhashmap();
+        for flat in flat_repr.iter() {
+            let name = flat.name.to_owned();
+            let chrom = flat.chrom.to_owned();
+            let start = flat.start;
+            let repr_key = ReprKey::new(name.as_bytes(), &chrom, start);
+            let pos = flat.pos;
+            let mean = flat.mean;
+            let time = flat.time;
+            let kmer = flat.kmer.clone();
+            let ldata = LData::new(pos, kmer, mean, time);
+
+            let val = acc.entry(repr_key).or_insert_with(|| {
+                let length = flat.length;
+                let seq = flat.seq.to_owned();
+                LRead::empty(
+                    name.as_bytes().to_owned(),
+                    chrom,
+                    start,
+                    length,
+                    seq.as_bytes().to_owned(),
+                )
+            });
+            val.data.push(ldata);
+        }
+        acc.into_values().collect()
+    }
+}
+
+impl Flatten for Vec<LRead<Score>> {
+    type Target = Vec<FlatLReadScore>;
+    fn to_flat(self) -> Self::Target {
+        unimplemented!()
+    }
+
+    fn from_flat(flat_repr: Self::Target) -> Self {
+        unimplemented!()
     }
 }

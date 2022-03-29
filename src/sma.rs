@@ -1,11 +1,14 @@
-use std::{collections::{HashMap, HashSet}, fs::File};
+use std::{
+    collections::{HashMap, HashSet},
+    fs::File,
+};
 
 use bio::io::fasta::IndexedReader;
 use criterion_stats::univariate::{
     kde::{kernel::Gaussian, Bandwidth, Kde},
     Sample,
 };
-use ndarray::{arr2, Array, Array2};
+use ndarray::{Array, Array2};
 
 use crate::reads::ScoredRead;
 
@@ -43,11 +46,21 @@ fn arr_init_matrix(read: ScoredRead) -> Array2<Option<f64>> {
     matrix
 }
 
-fn update_linker(idx: usize, score: f64, matrix: &mut Array2<Option<f64>>, kde: Kde<f64, Gaussian>) {
+fn update_linker(
+    idx: usize,
+    score: f64,
+    matrix: &mut Array2<Option<f64>>,
+    kde: Kde<f64, Gaussian>,
+) {
     unimplemented!()
 }
 
-fn update_nucleosome(idx: usize, score: f64, matrix: &mut Array2<Option<f64>>, kde: Kde<f64, Gaussian>) {
+fn update_nucleosome(
+    idx: usize,
+    score: f64,
+    matrix: &mut Array2<Option<f64>>,
+    kde: Kde<f64, Gaussian>,
+) {
     unimplemented!()
 }
 

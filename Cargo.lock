@@ -279,7 +279,10 @@ dependencies = [
  "criterion-stats",
  "csv",
  "env_logger 0.9.0",
+ "escargot",
+ "fnv",
  "indicatif",
+ "lazy_static",
  "linfa",
  "linfa-clustering",
  "log",
@@ -295,6 +298,8 @@ dependencies = [
  "serde-pickle",
  "serde_arrow",
  "serde_with",
+ "test-log",
+ "xxhash-rust",
 ]
 
 [[package]]
@@ -618,6 +623,18 @@ dependencies = [
  "log",
  "regex",
  "termcolor",
+]
+
+[[package]]
+name = "escargot"
+version = "0.5.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f5584ba17d7ab26a8a7284f13e5bd196294dd2f2d79773cff29b9e9edef601a6"
+dependencies = [
+ "log",
+ "once_cell",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -2203,6 +2220,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "507e9898683b6c43a9aa55b64259b721b52ba226e0f3779137e50ad114a4c90b"
 
 [[package]]
+name = "test-log"
+version = "0.2.10"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4235dbf7ea878b3ef12dea20a59c134b405a66aafc4fc2c7b9935916e289e735"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "textwrap"
 version = "0.14.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2424,3 +2452,9 @@ name = "winapi-x86_64-pc-windows-gnu"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "712e227841d057c1ee1cd2fb22fa7e5a5461ae8e48fa2ca79ec42cfc1931183f"
+
+[[package]]
+name = "xxhash-rust"
+version = "0.8.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "83a16b7b403377d61184bb601d8349a4ff2c4cec08a305d004f710b7eaafef24"

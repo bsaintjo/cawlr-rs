@@ -73,14 +73,16 @@ fn choose_best_kmer<'a>(kmer_ranks: &HashMap<String, f64>, context: &'a [u8]) ->
 /// Scoring function based on:
 ///  Wang, Y. et al. Single-molecule long-read sequencing reveals the chromatin
 /// basis of gene expression. Genome Res. 29, 1329–1342 (2019).
+/// We don't take the ln(score) for now, only after the probability from the Kde
+/// later in cawlr sma
 ///
 /// TODO explore use log-likelihood ratio instead of this scoring
-fn score_signal(signal: f32, pos_mix: &Mixture<Gaussian>, neg_mix: &Mixture<Gaussian>) -> f64 {
+fn score_signal(signal: f64, pos_mix: &Mixture<Gaussian>, neg_mix: &Mixture<Gaussian>) -> Option<f64> {
     let pos_log_proba = pos_mix.f(&signal);
     let neg_log_proba = neg_mix.f(&signal);
     let score = pos_log_proba / (pos_log_proba + neg_log_proba);
 
-    score.ln()
+    Some(score)
 }
 
 fn score_skip(kmer: String, pos_model: &Model, neg_model: &Model) -> Option<f64> {
@@ -117,7 +119,7 @@ where
                 let best_kmer = from_utf8(best_kmer).unwrap();
                 let pos_model = pos_models.gmms().get(best_kmer).unwrap();
                 let neg_model = neg_models.gmms().get(best_kmer).unwrap();
-                let signal_ll = score_signal(ld.mean() as f32, pos_model, neg_model);
+                let signal_ll = score_signal(ld.mean(), pos_model, neg_model).unwrap();
                 Score::new(ld.pos(), signal_ll)
             })
         })

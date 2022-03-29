@@ -1,10 +1,4 @@
-use std::{
-    collections::{hash_map::Entry, HashMap},
-    fmt::Debug,
-    fs::File,
-    io::Read,
-    path::Path,
-};
+use std::{collections::hash_map::Entry, fmt::Debug, fs::File, io::Read, path::Path};
 
 use anyhow::Result;
 use bio::io::fasta::IndexedReader as GenomeReader;
@@ -14,16 +8,17 @@ use rstats::Stats;
 use rust_htslib::bam::{
     ext::BamRecordExtensions,
     record::{Cigar, CigarStringView},
-    IndexedReader as BamReader, Read as BamRead, Record,
+    Read as BamRead, Reader, Record,
 };
 use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, CommaSeparator, StringWithSeparator};
 
-use crate::reads::{LData, PreprocessRead};
+use crate::{
+    reads::{LData, LRead, PreprocessRead},
+    utils::{self, XHashMap},
+};
 
-pub(crate) type ReadToPreprocessRead = HashMap<Vec<u8>, PreprocessRead>;
-pub(crate) type ReadPosToSamples = HashMap<(Vec<u8>, u64), Data>;
-
+#[derive(Debug)]
 struct QueryLength {
     to_add: usize,
     acc: usize,
@@ -31,19 +26,21 @@ struct QueryLength {
 
 impl QueryLength {
     fn from_cigar(cigar_string: CigarStringView) -> Self {
+        log::debug!("Getting Cigar length");
         let mut to_add = 0;
         let mut acc = 0;
+
         let mut citer = cigar_string.iter().peekable();
-        while let Some(cigar) = citer.next_if(|c| match c {
-            Cigar::SoftClip(_) | Cigar::HardClip(_) => true,
-            _ => false,
-        }) {
+        log::debug!("citer length: {}", citer.len());
+        while let Some(cigar) = citer.next_if(|c| matches!(c, Cigar::SoftClip(_))) {
+            log::debug!("Checking for clips {cigar}");
             to_add += cigar.len();
         }
         for cigar in citer {
+            log::debug!("cigar {cigar}");
             match cigar {
-                Cigar::SoftClip(_) | Cigar::HardClip(_) => continue,
-                c => acc += c.len(),
+                Cigar::SoftClip(_) | Cigar::HardClip(_) | Cigar::Ins(_) => continue,
+                _ => acc += cigar.len(),
             }
         }
         QueryLength {
@@ -53,34 +50,60 @@ impl QueryLength {
     }
 }
 
-fn process_bam<P>(filename: P, faidx: &mut GenomeReader<File>) -> Result<ReadToPreprocessRead>
+#[derive(PartialEq, Eq, Hash, Debug)]
+struct ReadKey(Vec<u8>, String, usize, usize);
+
+type LReadMap = XHashMap<ReadKey, LRead<LData>>;
+type ReadKeyMap = XHashMap<(Vec<u8>, String), Vec<(usize, usize)>>;
+type ReadChrom = (Vec<u8>, String);
+type StartLen = (usize, usize);
+type ReadChromPos = (Vec<u8>, String, u64);
+
+fn process_bam<P>(filename: P, faidx: &mut GenomeReader<File>) -> Result<(LReadMap, ReadKeyMap)>
 where
     P: AsRef<Path>,
 {
-    let mut acc = HashMap::new();
-    let mut bam = BamReader::from_path(filename)?;
+    let mut acc: XHashMap<ReadKey, LRead<LData>> = utils::xxhashmap();
+    let mut read_keys: XHashMap<ReadChrom, Vec<StartLen>> = utils::xxhashmap();
+    let mut bam = Reader::from_path(filename)?;
     let mut record = Record::new();
     // TODO map only unique reads by filtering on mapq or flags
     // TODO should i grab the sequence and store it for later?
     while let Some(result) = bam.read(&mut record) {
         if result.is_ok() {
             let name = record.name().to_owned();
-            let key_name = name.clone();
+            log::debug!("Read name {}", String::from_utf8_lossy(&name));
+
             let chrom = record.contig().to_owned();
+            log::debug!("chrom {chrom}");
+
             let qlen = QueryLength::from_cigar(record.cigar());
+            log::debug!("QueryLength {qlen:?}");
+
             let start = record.reference_start() as usize + qlen.to_add;
+            log::debug!("start {start}");
+
             let length = qlen.acc;
+            log::debug!("length {length}");
+
             faidx.fetch(&chrom, start as u64, (start + length) as u64)?;
             let mut seq = Vec::new();
             faidx.read(&mut seq)?;
             let data = Vec::new();
+
+            let bam_key = ReadKey(name.clone(), chrom.clone(), start, length);
+            let read_key = (name.clone(), chrom.clone());
             let read = PreprocessRead::new(name, chrom, start, length, seq, data);
-            if let Some(ld) = acc.insert(key_name, read) {
+
+            let keys = read_keys.entry(read_key).or_default();
+            keys.push((start, length));
+
+            if let Some(ld) = acc.insert(bam_key, read) {
                 log::warn!("Duplicate read of encountered in bam with data {:?}", ld);
             }
         }
     }
-    Ok(acc)
+    Ok((acc, read_keys))
 }
 
 #[serde_as]
@@ -93,32 +116,32 @@ struct Npr {
     #[serde(skip)]
     _reference_kmer: String,
 
-    read_name: Vec<u8>,
+    read_name: String,
 
     #[serde(skip)]
     _strand: String,
 
     #[serde(skip)]
-    _event_index: u32,
+    _event_index: u64,
 
     #[serde(skip)]
-    _event_level_mean: f32,
+    _event_level_mean: f64,
 
     #[serde(skip)]
-    _event_stdv: f32,
+    _event_stdv: f64,
 
     event_length: f64,
 
     model_kmer: String,
 
     #[serde(skip)]
-    _model_mean: f32,
+    _model_mean: f64,
 
     #[serde(skip)]
-    _model_stdv: f32,
+    _model_stdv: f64,
 
     #[serde(skip)]
-    _standardized_level: f32,
+    _standardized_level: f64,
 
     #[serde_as(as = "StringWithSeparator::<CommaSeparator, f64>")]
     samples: Vec<f64>,
@@ -168,19 +191,44 @@ impl Process {
         P: AsRef<Path> + Debug,
     {
         let mut faidx = GenomeReader::from_file(&genome)?;
+        let (mut bam_to_pr, read_keys) = process_bam(bam_filename, &mut faidx)?;
+        log::debug!("bam map length {}", bam_to_pr.len());
+        log::debug!("read map length {}", read_keys.len());
         let rp_to_samples = self.with_file(filename)?;
-        let mut bam_to_pr = process_bam(bam_filename, &mut faidx)?;
         for (key, datum) in rp_to_samples.into_iter() {
-            if let Some(pr) = bam_to_pr.get_mut(&key.0) {
-                let mean = datum.samples.amean()?;
-                let data = LData::new(datum.pos, datum.kmer, mean, datum.time);
-                pr.get_mut_data().push(data);
+            if let Some(read_start_lens) = read_keys.get(&(key.0.clone(), key.1.clone())) {
+                if !read_start_lens.is_empty() {
+                    // Since reads can have multiple primary alignments and there is a potential for
+                    // the primary alignments to be on the same strand,
+                    let pos = datum.pos as usize;
+                    let within_read = read_start_lens.iter().filter(|&&(read_start, read_len)| {
+                        let stop = read_start + read_len;
+                        log::debug!("{read_start} <= {pos} <= {stop}");
+                        (read_start <= pos) && (pos <= stop)
+                    });
+                    for &(read_start, read_len) in within_read {
+                        let key = ReadKey(key.0.clone(), key.1.clone(), read_start, read_len);
+                        let mean = datum.samples.amean()?;
+                        let data = LData::new(datum.pos, datum.kmer.clone(), mean, datum.time);
+                        bam_to_pr
+                            .get_mut(&key)
+                            .expect("Read key not in bam map {key:?}")
+                            .get_mut_data()
+                            .push(data);
+                    }
+                } else {
+                    log::warn!("Read found with no starts and lengths!");
+                }
             }
         }
-        Ok(bam_to_pr.into_values().filter(|lr| lr.is_empty()).collect())
+        log::debug!("{bam_to_pr:?}");
+        Ok(bam_to_pr
+            .into_values()
+            .filter(|lr| !lr.is_empty())
+            .collect())
     }
 
-    pub(crate) fn with_file<P>(&self, filename: P) -> Result<ReadPosToSamples>
+    pub(crate) fn with_file<P>(&self, filename: P) -> Result<XHashMap<ReadChromPos, Data>>
     where
         P: AsRef<Path>,
     {
@@ -192,19 +240,20 @@ impl Process {
             .with_message("Processing data")
             .with_style(style)
             .wrap_read(file);
-        Ok(self.with_reader(file))
+        self.with_reader(file)
     }
 
-    pub(crate) fn with_reader<R>(&self, input: R) -> ReadPosToSamples
+    pub(crate) fn with_reader<R>(&self, input: R) -> Result<XHashMap<ReadChromPos, Data>>
     where
         R: Read,
     {
-        let mut acc: ReadPosToSamples = HashMap::new();
+        let mut acc: XHashMap<_, Data> = utils::xxhashmap();
         let mut reader = csv::ReaderBuilder::new()
             .delimiter(b'\t')
             .from_reader(input);
-        for line in reader.deserialize().flatten() {
-            log::debug!("{:?}", line);
+        for line in reader.deserialize() {
+            let line = line?;
+            log::debug!("csv line {:?}", line);
             let line: Npr = line;
 
             // Filter records that are not on chromosome
@@ -224,20 +273,22 @@ impl Process {
                 }
             }
 
-            let key = (line.read_name.clone(), line.position);
+            let key = (
+                line.read_name.as_bytes().to_owned(),
+                line.contig.clone(),
+                line.position,
+            );
             match acc.entry(key) {
                 Entry::Occupied(mut oe) => {
-                    log::debug!("Occupied");
                     oe.get_mut().update_from_npr(line);
                 }
                 Entry::Vacant(ve) => {
-                    log::debug!("Vacant");
                     let d = Data::new_from_npr(line);
                     ve.insert(d);
                 }
             }
         }
-        acc
+        Ok(acc)
     }
 }
 
@@ -274,16 +325,31 @@ impl Data {
 }
 
 #[cfg(test)]
-mod tests {
-    use std::io::Cursor;
+mod test_super {
+    use assert_fs::TempDir;
 
     use super::*;
+    use crate::{preprocess::Process, utils::CawlrIO};
 
-    #[test]
-    fn test_single_line() {
-        let line = b"chrI\t1\tCACACC\t6246746d-97e5-4ace-9362-60d2faffdb93\tt\t529\t96.94\t1.722\t0.00150\tCACACC\t96.60\t1.74\t0.16\t95.5522,99.8873,94.8586,96.2459,97.8065,97.2863";
-        let cursor = Cursor::new(line);
-        let p = Process::new().with_reader(cursor);
-        eprintln!("{:?}", p);
+    #[test_log::test]
+    fn test_save_load_preprocess() -> Result<()> {
+        let temp_dir = TempDir::new()?;
+        let output = temp_dir.path().join("output.pickle");
+
+        let input = "extra/single_read.eventalign.txt";
+        let bam = "extra/single_read.bam";
+        let genome = "hundred/sacCer3.fa";
+
+        let nprs = Process::new().run(input, bam, genome)?;
+        nprs.clone().save(output.clone())?;
+
+        let loaded: Vec<LRead<LData>> = CawlrIO::load(output)?;
+
+        log::debug!("save len {}", nprs.len());
+        log::debug!("loaded len {}", loaded.len());
+        assert_eq!(nprs.len(), loaded.len());
+        assert!(!nprs[0].data().is_empty());
+        assert!(!loaded[0].data().is_empty());
+        Ok(())
     }
 }
