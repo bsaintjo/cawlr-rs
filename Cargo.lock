@@ -288,6 +288,7 @@ dependencies = [
  "log",
  "mimalloc",
  "ndarray",
+ "openblas-src",
  "parquet",
  "quickcheck",
  "rand 0.8.5",

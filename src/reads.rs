@@ -351,6 +351,29 @@ impl Flatten for Vec<LRead<Score>> {
     }
 
     fn from_flat(flat_repr: Self::Target) -> Self {
-        unimplemented!()
+        let mut acc = utils::xxhashmap();
+        for flat in flat_repr.iter() {
+            let name = flat.name.to_owned();
+            let chrom = flat.chrom.to_owned();
+            let start = flat.start;
+            let repr_key = ReprKey::new(name.as_bytes(), &chrom, start);
+            let pos = flat.pos;
+            let likely = flat.score;
+            let ldata = Score::new(pos, likely);
+
+            let val = acc.entry(repr_key).or_insert_with(|| {
+                let length = flat.length;
+                let seq = flat.seq.to_owned();
+                LRead::empty(
+                    name.as_bytes().to_owned(),
+                    chrom,
+                    start,
+                    length,
+                    seq.as_bytes().to_owned(),
+                )
+            });
+            val.data.push(ldata);
+        }
+        acc.into_values().collect()
     }
 }

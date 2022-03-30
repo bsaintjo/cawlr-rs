@@ -1,5 +1,4 @@
 use std::{
-    cmp::Ordering,
     collections::HashMap,
     io::{Read, Seek},
     str::from_utf8,
@@ -60,8 +59,8 @@ fn choose_best_kmer<'a>(kmer_ranks: &HashMap<String, f64>, context: &'a [u8]) ->
         .windows(6)
         .map(|x| {
             let x_str = from_utf8(x).unwrap();
-            (x, kmer_ranks.get(x_str))}
-        )
+            (x, kmer_ranks.get(x_str))
+        })
         .filter(|x| x.1.is_some())
         .max_by(|a, b| a.partial_cmp(b).unwrap())
         .expect("Genomic context is empty.")
@@ -127,13 +126,9 @@ where
                     let neg_model = neg_models.gmms().get(best_kmer).unwrap();
                     let signal_score = score_signal(ld.mean(), pos_model, neg_model);
                     let skip_score = score_skip(ld.kmer().to_string(), &pos_models, &neg_models);
-                    if let Some(score) = signal_score {
-                        Some(Score::new(ld.pos(), score))
-                    } else if let Some(score) = skip_score {
-                        Some(Score::new(ld.pos(), score))
-                    } else {
-                        None
-                    }
+                    signal_score
+                        .or(skip_score)
+                        .map(|score| Score::new(ld.pos(), score))
                 })
                 .collect();
             npr.to_lread_with_data(results)
