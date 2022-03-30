@@ -338,7 +338,7 @@ mod test_super {
 
         let input = "extra/single_read.eventalign.txt";
         let bam = "extra/single_read.bam";
-        let genome = "extra/sacCer3.fa";
+        let genome = "./extra/sacCer3.fa";
 
         let nprs = Process::new().run(input, bam, genome)?;
         nprs.clone().save(output.clone())?;

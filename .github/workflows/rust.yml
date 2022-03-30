@@ -30,6 +30,10 @@ jobs:
         with:
           command: check
 
+      - name: Check extra directory
+        shell: bash
+        run: ls extra/
+
       - name: Run cargo test
         uses: actions-rs/cargo@v1
         with:
