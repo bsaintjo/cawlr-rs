@@ -1,1 +1,12 @@
 extra/ filter=lfs diff=lfs merge=lfs -text
+extra/sacCer3.fa filter=lfs diff=lfs merge=lfs -text
+extra/sacCer3.fa.fai filter=lfs diff=lfs merge=lfs -text
+extra/neg_control.bam filter=lfs diff=lfs merge=lfs -text
+extra/neg_control.eventalign.txt filter=lfs diff=lfs merge=lfs -text
+extra/pos_control.bam.bai filter=lfs diff=lfs merge=lfs -text
+extra/single_read.eventalign.txt filter=lfs diff=lfs merge=lfs -text
+extra/neg_control.bam.bai filter=lfs diff=lfs merge=lfs -text
+extra/pos_control.bam filter=lfs diff=lfs merge=lfs -text
+extra/pos_control.eventalign.txt filter=lfs diff=lfs merge=lfs -text
+extra/single_read.bam filter=lfs diff=lfs merge=lfs -text
+extra/single_read.bam.bai filter=lfs diff=lfs merge=lfs -text

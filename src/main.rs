@@ -134,7 +134,7 @@ enum Commands {
         /// samtools faidx
         genome: String,
 
-        #[clap(long)]
+        #[clap(long, default_value_t = 10.0)]
         /// TODO: Only score with kmers whose KL score is greater cutoff
         cutoff: f64,
     },
@@ -218,7 +218,7 @@ fn main() -> Result<()> {
         } => {
             let fai_file = format!("{}.fai", genome);
             let fai_file_exists = Path::new(&fai_file).exists();
-            if fai_file_exists {
+            if !fai_file_exists {
                 let mut cmd = Args::command();
                 cmd.error(
                     clap::ErrorKind::MissingRequiredArgument,

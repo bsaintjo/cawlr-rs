@@ -1,4 +1,5 @@
 use std::{
+    cmp::Ordering,
     collections::HashMap,
     io::{Read, Seek},
     str::from_utf8,
@@ -57,16 +58,14 @@ where
 fn choose_best_kmer<'a>(kmer_ranks: &HashMap<String, f64>, context: &'a [u8]) -> &'a [u8] {
     context
         .windows(6)
-        .max_by(|&x, &y| {
-            let x = from_utf8(x).unwrap();
-            let y = from_utf8(y).unwrap();
-
-            let x_rank = kmer_ranks.get(x).unwrap();
-            let y_rank = kmer_ranks.get(y).unwrap();
-
-            x_rank.partial_cmp(y_rank).unwrap()
-        })
+        .map(|x| {
+            let x_str = from_utf8(x).unwrap();
+            (x, kmer_ranks.get(x_str))}
+        )
+        .filter(|x| x.1.is_some())
+        .max_by(|a, b| a.partial_cmp(b).unwrap())
         .expect("Genomic context is empty.")
+        .0
 }
 
 /// Score given signal based on GMM from a positive and negative control.
@@ -75,23 +74,27 @@ fn choose_best_kmer<'a>(kmer_ranks: &HashMap<String, f64>, context: &'a [u8]) ->
 /// basis of gene expression. Genome Res. 29, 1329–1342 (2019).
 /// We don't take the ln(score) for now, only after the probability from the Kde
 /// later in cawlr sma
-///
-/// TODO explore use log-likelihood ratio instead of this scoring
-fn score_signal(signal: f64, pos_mix: &Mixture<Gaussian>, neg_mix: &Mixture<Gaussian>) -> Option<f64> {
+fn score_signal(
+    signal: f64,
+    pos_mix: &Mixture<Gaussian>,
+    neg_mix: &Mixture<Gaussian>,
+) -> Option<f64> {
     let pos_log_proba = pos_mix.f(&signal);
     let neg_log_proba = neg_mix.f(&signal);
     let score = pos_log_proba / (pos_log_proba + neg_log_proba);
 
-    Some(score)
+    if (pos_mix.ln_f(&signal) < -20.) && (neg_mix.ln_f(&signal) < -20.) {
+        None
+    } else {
+        Some(score)
+    }
 }
 
 fn score_skip(kmer: String, pos_model: &Model, neg_model: &Model) -> Option<f64> {
     let pos_frac = pos_model.skips().get(&kmer);
     let neg_frac = neg_model.skips().get(&kmer);
     match (pos_frac, neg_frac) {
-        (Some(&p), Some(&n)) => {
-            Some(p / (p + n))
-        }
+        (Some(&p), Some(&n)) => Some(p / (p + n)),
         _ => None,
     }
 }
@@ -112,16 +115,28 @@ where
     nprs.into_iter()
         .map(|npr| {
             let chrom = npr.chrom().to_owned();
-            npr.map_data(|ld| {
-                let ctxt = get_genomic_context(&chrom_lens, &mut genome, &chrom, ld.pos())
-                    .expect("Failed to read genome fasta.");
-                let best_kmer = choose_best_kmer(&kmer_ranks, &ctxt);
-                let best_kmer = from_utf8(best_kmer).unwrap();
-                let pos_model = pos_models.gmms().get(best_kmer).unwrap();
-                let neg_model = neg_models.gmms().get(best_kmer).unwrap();
-                let signal_ll = score_signal(ld.mean(), pos_model, neg_model).unwrap();
-                Score::new(ld.pos(), signal_ll)
-            })
+            let results = npr
+                .data()
+                .iter()
+                .flat_map(|ld| {
+                    let ctxt = get_genomic_context(&chrom_lens, &mut genome, &chrom, ld.pos())
+                        .expect("Failed to read genome fasta.");
+                    let best_kmer = choose_best_kmer(&kmer_ranks, &ctxt);
+                    let best_kmer = from_utf8(best_kmer).unwrap();
+                    let pos_model = pos_models.gmms().get(best_kmer).unwrap();
+                    let neg_model = neg_models.gmms().get(best_kmer).unwrap();
+                    let signal_score = score_signal(ld.mean(), pos_model, neg_model);
+                    let skip_score = score_skip(ld.kmer().to_string(), &pos_models, &neg_models);
+                    if let Some(score) = signal_score {
+                        Some(Score::new(ld.pos(), score))
+                    } else if let Some(score) = skip_score {
+                        Some(Score::new(ld.pos(), score))
+                    } else {
+                        None
+                    }
+                })
+                .collect();
+            npr.to_lread_with_data(results)
         })
         .collect()
 }

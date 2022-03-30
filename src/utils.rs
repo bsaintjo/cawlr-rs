@@ -1,6 +1,12 @@
-use std::{collections::HashMap, fs::File, hash::{Hash, BuildHasher}, path::Path, sync::Arc};
+use std::{
+    collections::HashMap,
+    fs::File,
+    hash::{BuildHasher, Hash},
+    path::Path,
+    sync::Arc,
+};
 
-use anyhow::Result;
+use anyhow::{Result, ensure};
 use parquet::{
     arrow::{ArrowReader, ArrowWriter, ParquetFileArrowReader},
     file::serialized_reader::SerializedFileReader,
@@ -22,7 +28,6 @@ pub(crate) fn xxhashmap<K, V>() -> HashMap<K, V, Xxh64Builder> {
     HashMap::with_hasher(s)
 }
 
-
 pub(crate) trait CawlrIO {
     fn save<P>(self, filename: P) -> Result<()>
     where
@@ -37,7 +42,7 @@ impl<K, V, S> CawlrIO for HashMap<K, V, S>
 where
     K: Eq + Hash + Serialize + DeserializeOwned,
     V: Serialize + DeserializeOwned,
-    S: BuildHasher + Default
+    S: BuildHasher + Default,
 {
     fn save<P>(self, filename: P) -> Result<()>
     where
@@ -78,7 +83,6 @@ impl CawlrIO for Model {
     }
 }
 
-// todo switch to parquet
 impl CawlrIO for Vec<LRead<LData>> {
     fn save<P>(self, filename: P) -> Result<()>
     where
@@ -86,8 +90,8 @@ impl CawlrIO for Vec<LRead<LData>> {
     {
         let file = File::create(filename)?;
         let results = self.to_flat();
+        ensure!(!results.is_empty(), "Cannot save: data is empty");
         let schema = trace_schema(&results)?;
-        log::debug!("schema {schema:?}");
         let batches = to_record_batch(&results, &schema)?;
         let mut writer = ArrowWriter::try_new(file, batches.schema(), None)?;
         writer.write(&batches)?;
@@ -122,6 +126,7 @@ impl CawlrIO for Vec<LRead<Score>> {
     {
         let file = File::create(filename)?;
         let results = self.to_flat();
+        ensure!(!results.is_empty(), "Cannot save: data is empty");
         let schema = Schema::from_records(&results)?;
         let batches = to_record_batch(&results, &schema)?;
         let mut writer = ArrowWriter::try_new(file, batches.schema(), None)?;

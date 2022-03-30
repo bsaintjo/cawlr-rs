@@ -41,11 +41,6 @@ impl LData {
         self.mean
     }
 
-    /// Get a reference to the ldata's kmer.
-    pub(crate) fn into_kmer(self) -> String {
-        self.kmer
-    }
-
     pub(crate) fn kmer(&self) -> &str {
         &self.kmer
     }
@@ -110,6 +105,21 @@ impl<T> LRead<T> {
         }
     }
 
+    pub(crate) fn to_empty_lread<U>(&self) -> LRead<U> {
+        LRead::empty(
+            self.name.clone(),
+            self.chrom.clone(),
+            self.start,
+            self.length,
+            self.seq.clone(),
+        )
+    }
+    pub(crate) fn to_lread_with_data<U>(&self, data: Vec<U>) -> LRead<U> {
+        let mut lread = LRead::to_empty_lread(self);
+        lread.data = data;
+        lread
+    }
+
     pub(crate) fn length(&self) -> usize {
         self.length
     }
@@ -122,27 +132,8 @@ impl<T> LRead<T> {
         &mut self.data
     }
 
-    pub(crate) fn map_data<F, U>(self, f: F) -> LRead<U>
-    where
-        F: FnMut(T) -> U,
-    {
-        let new_data = self.data.into_iter().map(f).collect();
-        LRead {
-            name: self.name,
-            chrom: self.chrom,
-            start: self.start,
-            length: self.length,
-            seq: self.seq,
-            data: new_data,
-        }
-    }
-
     pub(crate) fn iter(&self) -> impl Iterator<Item = &T> {
         self.data.iter()
-    }
-
-    pub(crate) fn into_iter(self) -> impl Iterator<Item = T> {
-        self.data.into_iter()
     }
 
     /// Get a reference to the lread's chrom.
@@ -173,7 +164,7 @@ impl<T> LRead<T> {
 
 impl LRead<Score> {
     fn into_array(self) -> LRead<Option<f64>> {
-        let mut arr = vec![None; self.length()];
+        let mut arr = vec![None; self.length];
         for score in self.iter() {
             arr[score.position()] = Some(score.score)
         }
@@ -202,22 +193,22 @@ pub trait Flatten {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct FlatLReadScore {
-    name: Vec<u8>,
+    name: String,
     chrom: String,
     start: usize,
     length: usize,
-    seq: Vec<u8>,
+    seq: String,
     pos: u64,
     score: f64,
 }
 
 impl FlatLReadScore {
     fn new(
-        name: &[u8],
+        name: &str,
         chrom: &str,
         start: usize,
         length: usize,
-        seq: &[u8],
+        seq: &str,
         pos: u64,
         score: f64,
     ) -> Self {
@@ -289,6 +280,7 @@ impl ReprKey {
     }
 }
 
+
 impl Flatten for Vec<LRead<LData>> {
     type Target = Vec<FlatLReadLData>;
 
@@ -343,7 +335,19 @@ impl Flatten for Vec<LRead<LData>> {
 impl Flatten for Vec<LRead<Score>> {
     type Target = Vec<FlatLReadScore>;
     fn to_flat(self) -> Self::Target {
-        unimplemented!()
+        self.into_iter()
+            .flat_map(|lread| {
+                lread.data.into_iter().map(move |score| FlatLReadScore {
+                    name: String::from_utf8(lread.name.clone()).unwrap(),
+                    chrom: lread.chrom.clone(),
+                    start: lread.start,
+                    length: lread.length,
+                    seq: String::from_utf8(lread.seq.clone()).unwrap(),
+                    pos: score.pos,
+                    score: score.score,
+                })
+            })
+            .collect()
     }
 
     fn from_flat(flat_repr: Self::Target) -> Self {

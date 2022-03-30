@@ -9,8 +9,12 @@
 - [cawlr 𓅨](#cawlr-𓅨)
   - [Installation](#installation)
     - [Installing rust via rustup](#installing-rust-via-rustup)
-    - [Compiling cawlr](#compiling-cawlr)
+    - [Installing cawlr](#installing-cawlr)
+      - [via `cargo install` (Not yet uploaded)](#via-cargo-install-not-yet-uploaded)
+      - [Latest from git](#latest-from-git)
+      - [(Optional) Run tests](#optional-run-tests)
     - [Python dependencies](#python-dependencies)
+  - [Running nanopolish](#running-nanopolish)
   - [Usage](#usage)
     - [`cawlr preprocess`](#cawlr-preprocess)
     - [`cawlr train`](#cawlr-train)
@@ -27,9 +31,40 @@
 
 ### Installing rust via rustup
 
-### Compiling cawlr
+It is recommended to use rustup to install the tools for compiling rust code at [rustup.rs](https://rustup.rs/).
+
+### Installing cawlr
+
+#### via `cargo install` (Not yet uploaded)
+
+```bash
+cargo install cawlr
+```
+
+#### Latest from git
+
+```bash
+git clone https://github.com/bsaintjo/cawlr-rs.git
+cd cawlr-rs
+cargo install --path .
+```
+
+#### (Optional) Run tests
+
+```bash
+cargo test
+```
 
 ### Python dependencies
+
+## Running nanopolish
+
+Example command of running nanopolish to set up inputs
+
+```bash
+nanopolish index -d path/to/fast5s reads.fasta
+minimap2
+```
 
 ## Usage
 
