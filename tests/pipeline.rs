@@ -11,7 +11,9 @@ fn pipeline() -> Result<(), Box<dyn Error>> {
     eprintln!("Building release cawlr");
     let run = CargoBuild::new().bin("cawlr").release().run()?;
     let cawlr = run.path().as_os_str();
-    let genome = dunce::realpath("extra/sacCer3.fa")?;
+    let genome = format!("{}/extra/sacCer3.fa", env!("CARGO_MANIFEST_DIR"));
+    // let fai = Path::new("extra/sacCer3.fa.fai");
+    // assert!(fai.exists());
 
     eprintln!("Preprocessing positive control");
     let pos_output = temp_dir.path().join("pos_control.parquet");
