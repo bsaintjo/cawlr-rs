@@ -29,10 +29,11 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: check
+          args: --release
 
       - name: Check extra directory
         shell: bash
-        run: ls extra/
+        run: ls -lh extra/
 
       - name: Run cargo test
         uses: actions-rs/cargo@v1
