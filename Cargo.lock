@@ -263,26 +263,20 @@ dependencies = [
  "assert_cmd",
  "assert_fs",
  "bio",
- "bio-types",
  "clap",
  "criterion-stats",
  "csv",
- "dunce",
- "env_logger 0.9.0",
+ "env_logger",
  "escargot",
  "fnv",
  "indicatif",
- "lazy_static",
- "libz-sys",
  "linfa",
  "linfa-clustering",
  "log",
  "mimalloc",
  "ndarray",
  "parquet",
- "quickcheck",
  "rand 0.8.5",
- "rstats",
  "rust-htslib",
  "rv",
  "serde",
@@ -547,12 +541,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fea41bba32d969b513997752735605054bc0dfa92b4c56bf1189f2e174be7a10"
 
 [[package]]
-name = "dunce"
-version = "1.0.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "453440c271cf5577fd2a40e4942540cb7d0d2f85e27c8d07dd0023c925a67541"
-
-[[package]]
 name = "either"
 version = "1.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -582,16 +570,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
-]
-
-[[package]]
-name = "env_logger"
-version = "0.8.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a19187fea3ac7e84da7dacf48de0c45d63c6a76f9490dae389aead16c243fce3"
-dependencies = [
- "log",
- "regex",
 ]
 
 [[package]]
@@ -872,12 +850,6 @@ dependencies = [
  "unicode-segmentation",
  "unicode-width",
 ]
-
-[[package]]
-name = "indxvec"
-version = "1.1.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5fd33e0e0b5c7d73805fbed8f6a4db042120c4dd6bc8e00e5c9ca2584f854e1f"
 
 [[package]]
 name = "instant"
@@ -1664,17 +1636,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a1d01941d82fa2ab50be1e79e6714289dd7cde78eba4c074bc5a4374f650dfe0"
 
 [[package]]
-name = "quickcheck"
-version = "1.0.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "588f6378e4dd99458b60ec275b4477add41ce4fa9f64dcba6f15adccb19b50d6"
-dependencies = [
- "env_logger 0.8.4",
- "log",
- "rand 0.8.5",
-]
-
-[[package]]
 name = "quote"
 version = "1.0.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1849,16 +1810,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3acd125665422973a33ac9d3dd2df85edad0f4ae9b00dafb1a05e43a9f5ef8e7"
 dependencies = [
  "winapi",
-]
-
-[[package]]
-name = "rstats"
-version = "1.0.13"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "91d3a716446a4ee219a0209529bc51732973b516ba84cf0fe795fa84c90bedf9"
-dependencies = [
- "anyhow",
- "indxvec",
 ]
 
 [[package]]
