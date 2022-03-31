@@ -331,25 +331,25 @@ mod test_super {
     use super::*;
     use crate::{preprocess::Process, utils::CawlrIO};
 
-    #[test_log::test]
-    fn test_save_load_preprocess() -> Result<()> {
-        let temp_dir = TempDir::new()?;
-        let output = temp_dir.path().join("output.pickle");
+    // #[test_log::test]
+    // fn test_save_load_preprocess() -> Result<()> {
+    //     let temp_dir = TempDir::new()?;
+    //     let output = temp_dir.path().join("output.pickle");
 
-        let input = "extra/single_read.eventalign.txt";
-        let bam = "extra/single_read.bam";
-        let genome = "./extra/sacCer3.fa";
+    //     let input = "extra/single_read.eventalign.txt";
+    //     let bam = "extra/single_read.bam";
+    //     let genome = "./extra/sacCer3.fa";
 
-        let nprs = Process::new().run(input, bam, genome)?;
-        nprs.clone().save(output.clone())?;
+    //     let nprs = Process::new().run(input, bam, genome)?;
+    //     nprs.clone().save(output.clone())?;
 
-        let loaded: Vec<LRead<LData>> = CawlrIO::load(output)?;
+    //     let loaded: Vec<LRead<LData>> = CawlrIO::load(output)?;
 
-        log::debug!("save len {}", nprs.len());
-        log::debug!("loaded len {}", loaded.len());
-        assert_eq!(nprs.len(), loaded.len());
-        assert!(!nprs[0].data().is_empty());
-        assert!(!loaded[0].data().is_empty());
-        Ok(())
-    }
+    //     log::debug!("save len {}", nprs.len());
+    //     log::debug!("loaded len {}", loaded.len());
+    //     assert_eq!(nprs.len(), loaded.len());
+    //     assert!(!nprs[0].data().is_empty());
+    //     assert!(!loaded[0].data().is_empty());
+    //     Ok(())
+    // }
 }
