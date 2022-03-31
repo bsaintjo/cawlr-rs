@@ -20,12 +20,6 @@ jobs:
         with:
           lfs: true
       
-      - name: Install system dependencies
-        run: |
-          sudo apt update
-          sudo apt install -y cmake
-          sudo apt install -y gfortan
-
       - name: rust-toolchain
         uses: actions-rs/toolchain@v1
         with:
