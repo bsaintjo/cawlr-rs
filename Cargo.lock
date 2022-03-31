@@ -263,6 +263,7 @@ dependencies = [
  "assert_cmd",
  "assert_fs",
  "bio",
+ "bio-types",
  "clap",
  "criterion-stats",
  "csv",
@@ -277,6 +278,7 @@ dependencies = [
  "ndarray",
  "parquet",
  "rand 0.8.5",
+ "rstats",
  "rust-htslib",
  "rv",
  "serde",
@@ -850,6 +852,12 @@ dependencies = [
  "unicode-segmentation",
  "unicode-width",
 ]
+
+[[package]]
+name = "indxvec"
+version = "1.1.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5fd33e0e0b5c7d73805fbed8f6a4db042120c4dd6bc8e00e5c9ca2584f854e1f"
 
 [[package]]
 name = "instant"
@@ -1810,6 +1818,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3acd125665422973a33ac9d3dd2df85edad0f4ae9b00dafb1a05e43a9f5ef8e7"
 dependencies = [
  "winapi",
+]
+
+[[package]]
+name = "rstats"
+version = "1.0.13"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "91d3a716446a4ee219a0209529bc51732973b516ba84cf0fe795fa84c90bedf9"
+dependencies = [
+ "anyhow",
+ "indxvec",
 ]
 
 [[package]]

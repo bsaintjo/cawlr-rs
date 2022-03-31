@@ -15,6 +15,7 @@ categories = ["science", "command-line-utilities"]
 [dependencies]
 anyhow = "1.0.55"
 bio = "0.39.2"
+bio-types = "0.12.1"
 clap = { version = "3.1.1", features = ["derive"] }
 criterion-stats = "0.3.0"
 csv = "1.1.6"
@@ -28,6 +29,7 @@ mimalloc = { version = "0.1.28", default-features = false }
 ndarray = "0.15.4"
 parquet = { version = "8.0.0", default-features = false, features=["arrow", "base64"] }
 rand = { version = "0.8.5", features = ["small_rng"] }
+rstats = "1.0.13"
 rust-htslib = { version = "0.38.2", default-features = false }
 rv = { version = "0.14.3", features = ["serde1"] }
 serde = "1.0.136"
