@@ -23,7 +23,7 @@ jobs:
       - name: Install OpenBlas by apt
         run: |
           sudo apt update
-          suod apt install -y libopenblas-dev
+          sudo apt install -y libopenblas-dev
 
       - name: rust-toolchain
         uses: actions-rs/toolchain@v1
