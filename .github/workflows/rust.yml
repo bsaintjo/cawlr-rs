@@ -27,10 +27,11 @@ jobs:
           override: true
           profile: minimal
 
-      - name: Run cargo check
+      - name: Run cargo build
         uses: actions-rs/cargo@v1
         with:
-          command: check
+          command: build
+          args: --release
 
       - name: Run cargo test
         uses: actions-rs/cargo@v1
