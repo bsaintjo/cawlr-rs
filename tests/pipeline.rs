@@ -11,7 +11,7 @@ fn pipeline() -> Result<(), Box<dyn Error>> {
     eprintln!("Building release cawlr");
     let run = CargoBuild::new().bin("cawlr").release().run()?;
     let cawlr = run.path().as_os_str();
-    let genome = Path::new("extra/sacCer3.fa");
+    let genome = dunce::realpath("extra/sacCer3.fa")?;
 
     eprintln!("Preprocessing positive control");
     let pos_output = temp_dir.path().join("pos_control.parquet");
@@ -22,7 +22,7 @@ fn pipeline() -> Result<(), Box<dyn Error>> {
         .arg("-i")
         .arg("extra/pos_control.eventalign.txt")
         .arg("-g")
-        .arg(genome)
+        .arg(&genome)
         .arg("-o")
         .arg(&pos_output)
         .env("RUST_BACKTRACE", "full")
@@ -38,7 +38,7 @@ fn pipeline() -> Result<(), Box<dyn Error>> {
         .arg("-i")
         .arg("extra/neg_control.eventalign.txt")
         .arg("-g")
-        .arg(genome)
+        .arg(&genome)
         .arg("-o")
         .arg(&neg_output)
         .env("RUST_BACKTRACE", "full")
@@ -54,7 +54,7 @@ fn pipeline() -> Result<(), Box<dyn Error>> {
         .arg("-i")
         .arg("extra/single_read.eventalign.txt")
         .arg("-g")
-        .arg(genome)
+        .arg(&genome)
         .arg("-o")
         .arg(&single_read_output)
         .env("RUST_BACKTRACE", "full")
@@ -112,7 +112,7 @@ fn pipeline() -> Result<(), Box<dyn Error>> {
         .arg("-r")
         .arg(&ranks)
         .arg("-g")
-        .arg(genome)
+        .arg(&genome)
         .arg("-o")
         .arg(scores)
         .env("RUST_BACKTRACE", "full")
