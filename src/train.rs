@@ -100,8 +100,12 @@ impl Train {
         let mut gmms = HashMap::new();
         for (kmer, kmer_mean) in self.acc.into_iter() {
             if kmer_mean.len() > 1 {
-                let gmm = train_gmm(kmer_mean)?;
-                gmms.insert(kmer, gmm);
+                let gmm = train_gmm(kmer_mean);
+                if let Ok(gmm) = gmm {
+                    gmms.insert(kmer, gmm);
+                } else {
+                    log::warn!("Failed to train for kmer {kmer}.");
+                }
             }
         }
 
