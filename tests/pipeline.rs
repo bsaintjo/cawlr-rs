@@ -1,4 +1,4 @@
-use std::{error::Error, path::Path, process::Command};
+use std::{error::Error, process::Command};
 
 use assert_cmd::prelude::OutputAssertExt;
 use assert_fs::TempDir;
@@ -11,9 +11,7 @@ fn pipeline() -> Result<(), Box<dyn Error>> {
     eprintln!("Building release cawlr");
     let run = CargoBuild::new().bin("cawlr").release().run()?;
     let cawlr = run.path().as_os_str();
-    let genome = format!("{}/extra/sacCer3.fa", env!("CARGO_MANIFEST_DIR"));
-    // let fai = Path::new("extra/sacCer3.fa.fai");
-    // assert!(fai.exists());
+    let genome = "extra/sacCer3.fa";
 
     eprintln!("Preprocessing positive control");
     let pos_output = temp_dir.path().join("pos_control.parquet");

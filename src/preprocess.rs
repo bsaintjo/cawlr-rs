@@ -20,31 +20,36 @@ use crate::{
 
 #[derive(Debug)]
 struct QueryLength {
-    to_add: usize,
     acc: usize,
 }
 
 impl QueryLength {
     fn from_cigar(cigar_string: CigarStringView) -> Self {
         log::debug!("Getting Cigar length");
-        let mut to_add = 0;
         let mut acc = 0;
 
-        let mut citer = cigar_string.iter().peekable();
-        log::debug!("citer length: {}", citer.len());
-        while let Some(cigar) = citer.next_if(|c| matches!(c, Cigar::SoftClip(_))) {
-            log::debug!("Checking for clips {cigar}");
-            to_add += cigar.len();
-        }
-        for cigar in citer {
-            log::debug!("cigar {cigar}");
-            match cigar {
-                Cigar::SoftClip(_) | Cigar::HardClip(_) | Cigar::Ins(_) => continue,
-                _ => acc += cigar.len(),
-            }
-        }
+        // let mut citer = cigar_string.iter().peekable();
+        // log::debug!("citer length: {}", citer.len());
+        // while let Some(cigar) = citer.next_if(|c| matches!(c, Cigar::SoftClip(_))) {
+        //     log::debug!("Checking for clips {cigar}");
+        //     to_add += cigar.len();
+        // }
+        cigar_string.iter().for_each(|cigar| {
+                log::debug!("cigar {cigar}");
+                match cigar {
+                    Cigar::SoftClip(_) | Cigar::HardClip(_) | Cigar::Ins(_) => {}
+                    _ => acc += cigar.len(),
+                }
+        });
+        // for cigar in citer {
+        //     log::debug!("cigar {cigar}");
+        //     match cigar {
+        //         Cigar::SoftClip(_) | Cigar::HardClip(_) | Cigar::Ins(_) => continue,
+        //         _ => acc += cigar.len(),
+        //     }
+        // }
         QueryLength {
-            to_add: to_add as usize,
+            // to_add: to_add as usize,
             acc: acc as usize,
         }
     }
@@ -80,7 +85,7 @@ where
             let qlen = QueryLength::from_cigar(record.cigar());
             log::debug!("QueryLength {qlen:?}");
 
-            let start = record.reference_start() as usize + qlen.to_add;
+            let start = record.reference_start() as usize;
             log::debug!("start {start}");
 
             let length = qlen.acc;
@@ -331,25 +336,25 @@ mod test_super {
     use super::*;
     use crate::{preprocess::Process, utils::CawlrIO};
 
-    // #[test_log::test]
-    // fn test_save_load_preprocess() -> Result<()> {
-    //     let temp_dir = TempDir::new()?;
-    //     let output = temp_dir.path().join("output.pickle");
+    #[test_log::test]
+    fn test_save_load_preprocess() -> Result<()> {
+        let temp_dir = TempDir::new()?;
+        let output = temp_dir.path().join("output.pickle");
 
-    //     let input = "extra/single_read.eventalign.txt";
-    //     let bam = "extra/single_read.bam";
-    //     let genome = "./extra/sacCer3.fa";
+        let input = "extra/single_read.eventalign.txt";
+        let bam = "extra/single_read.bam";
+        let genome = "./extra/sacCer3.fa";
 
-    //     let nprs = Process::new().run(input, bam, genome)?;
-    //     nprs.clone().save(output.clone())?;
+        let nprs = Process::new().run(input, bam, genome)?;
+        nprs.clone().save(output.clone())?;
 
-    //     let loaded: Vec<LRead<LData>> = CawlrIO::load(output)?;
+        let loaded: Vec<LRead<LData>> = CawlrIO::load(output)?;
 
-    //     log::debug!("save len {}", nprs.len());
-    //     log::debug!("loaded len {}", loaded.len());
-    //     assert_eq!(nprs.len(), loaded.len());
-    //     assert!(!nprs[0].data().is_empty());
-    //     assert!(!loaded[0].data().is_empty());
-    //     Ok(())
-    // }
+        log::debug!("save len {}", nprs.len());
+        log::debug!("loaded len {}", loaded.len());
+        assert_eq!(nprs.len(), loaded.len());
+        assert!(!nprs[0].data().is_empty());
+        assert!(!loaded[0].data().is_empty());
+        Ok(())
+    }
 }
