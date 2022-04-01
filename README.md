@@ -9,18 +9,24 @@
 - [cawlr 𓅨](#cawlr-𓅨)
   - [Installation](#installation)
     - [Installing rust via rustup](#installing-rust-via-rustup)
+    - [Installing system dependencies](#installing-system-dependencies)
+      - [Installing on Ubuntu/Debian](#installing-on-ubuntudebian)
+      - [Installing on MacOS](#installing-on-macos)
+      - [Installing on Windows](#installing-on-windows)
     - [Installing cawlr](#installing-cawlr)
-      - [via `cargo install` (Not yet uploaded)](#via-cargo-install-not-yet-uploaded)
       - [Latest from git](#latest-from-git)
+      - [via `cargo install` (Not yet uploaded)](#via-cargo-install-not-yet-uploaded)
       - [(Optional) Run tests](#optional-run-tests)
     - [Python dependencies](#python-dependencies)
-  - [Running nanopolish](#running-nanopolish)
+  - [Nanopore data preparation](#nanopore-data-preparation)
   - [Usage](#usage)
     - [`cawlr preprocess`](#cawlr-preprocess)
     - [`cawlr train`](#cawlr-train)
     - [`cawlr rank`](#cawlr-rank)
     - [`cawlr score`](#cawlr-score)
     - [`cawlr sma`](#cawlr-sma)
+  - [Models](#models)
+  - [Example `cawlr` vignette](#example-cawlr-vignette)
   - [QC Scripts](#qc-scripts)
     - [`plot_gmm_models.py`](#plot_gmm_modelspy)
     - [`plot_read_length_vs_mod_rate.py`](#plot_read_length_vs_mod_ratepy)
@@ -33,13 +39,29 @@
 
 It is recommended to use rustup to install the tools for compiling rust code at [rustup.rs](https://rustup.rs/).
 
-### Installing cawlr
+### Installing system dependencies
 
-#### via `cargo install` (Not yet uploaded)
+Ensure you have these installed on your system before installing.
+
+- cmake
+- openblas
+
+#### Installing on Ubuntu/Debian
 
 ```bash
-cargo install cawlr
+sudo apt update
+sudo apt install cmake libopenblas-dev
 ```
+
+#### Installing on MacOS
+
+TODO
+
+#### Installing on Windows
+
+TODO
+
+### Installing cawlr
 
 #### Latest from git
 
@@ -47,6 +69,12 @@ cargo install cawlr
 git clone https://github.com/bsaintjo/cawlr-rs.git
 cd cawlr-rs
 cargo install --path .
+```
+
+#### via `cargo install` (Not yet uploaded)
+
+```bash
+cargo install cawlr
 ```
 
 #### (Optional) Run tests
@@ -57,13 +85,26 @@ cargo test
 
 ### Python dependencies
 
-## Running nanopolish
+## Nanopore data preparation
+
+In order to prepare data for `cawlr` you need to install:
+
+- `samtools`
+- `nanopolish`
+- `minimap2`
 
 Example command of running nanopolish to set up inputs
 
 ```bash
 nanopolish index -d path/to/fast5s reads.fasta
-minimap2
+minimap2 -ax map-ont --sam-hit-only --secondary=no genome.fasta reads.fasta | \
+    samtools sort -o aln.sorted.bam -T reads.tmp
+samtools index aln.sorted.bam
+nanopolish eventalign --reads reads.fasta \
+    --bam aln.sorted.bam \
+    --genome genome.fasta \
+    --scale-events --samples \
+    --print-read-names >eventalign.txt
 ```
 
 ## Usage
@@ -149,6 +190,23 @@ OPTIONS:
 ```
 
 ### `cawlr sma`
+
+## Models
+
+TODO: Point out the models that are provided by `cawlr`
+
+## Example `cawlr` vignette
+
+```bash
+# Prepare control data
+cawlr preprocess
+cawlr preproces
+
+
+# Data to be analyzed
+cawlr
+
+```
 
 ## QC Scripts
 
