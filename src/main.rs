@@ -3,10 +3,11 @@ use std::path::Path;
 use anyhow::Result;
 use bio::io::fasta::IndexedReader;
 use clap::{IntoApp, Parser, Subcommand};
-
+use collapse::CollapseOptions;
 #[cfg(feature = "mimalloc")]
 use mimalloc::MiMalloc;
 
+mod collapse;
 mod preprocess;
 mod rank;
 mod reads;
@@ -68,6 +69,32 @@ enum Commands {
         /// should be set with --chrom
         /// TODO: Throw error if set without --chrom
         stop: Option<u64>,
+    },
+
+    Collapse {
+        #[clap(short, long)]
+        /// path to nanopolish eventalign output with samples column
+        input: String,
+
+        #[clap(short, long)]
+        /// path to output file in parquet format
+        output: String,
+        // TODO: Reimplement
+        // #[clap(short, long)]
+        // /// output only includes data from this chromosome
+        // chrom: Option<String>,
+
+        // #[clap(long)]
+        // /// output only includes data that aligns at or after this position,
+        // /// should be set with --chrom
+        // /// TODO: Throw error if set without --chrom
+        // start: Option<u64>,
+
+        // #[clap(long)]
+        // /// output only includes data that aligns at or before this position,
+        // /// should be set with --chrom
+        // /// TODO: Throw error if set without --chrom
+        // stop: Option<u64>,
     },
 
     /// For each kmer, train a two-component gaussian mixture model and save
@@ -173,6 +200,14 @@ fn main() -> Result<()> {
     let args = Args::parse();
     // TODO: Remove ref and fix rest of the functions
     match args.command {
+        Commands::Collapse {
+            input,
+            output,
+        } => {
+            let mut collapse = CollapseOptions::try_new(&input)?;
+            collapse.run(&output)?;
+            collapse.close()?;
+        }
         Commands::Preprocess {
             input,
             bam,

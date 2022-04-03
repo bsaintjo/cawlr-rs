@@ -28,35 +28,21 @@ impl QueryLength {
         log::debug!("Getting Cigar length");
         let mut acc = 0;
 
-        // let mut citer = cigar_string.iter().peekable();
-        // log::debug!("citer length: {}", citer.len());
-        // while let Some(cigar) = citer.next_if(|c| matches!(c, Cigar::SoftClip(_))) {
-        //     log::debug!("Checking for clips {cigar}");
-        //     to_add += cigar.len();
-        // }
         cigar_string.iter().for_each(|cigar| {
-                log::debug!("cigar {cigar}");
-                match cigar {
-                    Cigar::SoftClip(_) | Cigar::HardClip(_) | Cigar::Ins(_) => {}
-                    _ => acc += cigar.len(),
-                }
+            log::debug!("cigar {cigar}");
+            match cigar {
+                Cigar::SoftClip(_) | Cigar::HardClip(_) | Cigar::Ins(_) => {}
+                _ => acc += cigar.len(),
+            }
         });
-        // for cigar in citer {
-        //     log::debug!("cigar {cigar}");
-        //     match cigar {
-        //         Cigar::SoftClip(_) | Cigar::HardClip(_) | Cigar::Ins(_) => continue,
-        //         _ => acc += cigar.len(),
-        //     }
-        // }
-        QueryLength {
-            // to_add: to_add as usize,
-            acc: acc as usize,
-        }
+        QueryLength { acc: acc as usize }
     }
 }
 
 #[derive(PartialEq, Eq, Hash, Debug)]
 struct ReadKey(Vec<u8>, String, usize, usize);
+#[derive(PartialEq, Eq, Hash, Debug, Clone)]
+struct NprKey(Vec<u8>, String, u64);
 
 type LReadMap = XHashMap<ReadKey, LRead<LData>>;
 type ReadKeyMap = XHashMap<(Vec<u8>, String), Vec<(usize, usize)>>;

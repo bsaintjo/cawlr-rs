@@ -224,7 +224,7 @@ impl FlatLReadScore {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Default, Serialize, Deserialize)]
 pub struct FlatLReadLData {
     name: String,
     chrom: String,
@@ -238,7 +238,7 @@ pub struct FlatLReadLData {
 }
 
 impl FlatLReadLData {
-    fn new(
+    pub(crate) fn new(
         name: &[u8],
         chrom: &str,
         start: usize,
@@ -260,6 +260,11 @@ impl FlatLReadLData {
             mean,
             time,
         }
+    }
+
+    /// Get a mutable reference to the flat lread ldata's length.
+    pub(crate) fn length_mut(&mut self) -> &mut usize {
+        &mut self.length
     }
 }
 
