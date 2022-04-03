@@ -62,7 +62,17 @@ fn choose_best_kmer<'a>(kmer_ranks: &HashMap<String, f64>, context: &'a [u8]) ->
             (x, kmer_ranks.get(x_str))
         })
         .filter(|x| x.1.is_some())
-        .max_by(|a, b| a.partial_cmp(b).unwrap())
+        .reduce(|a, b| match (a.1, b.1) {
+            (None, _) => b,
+            (_, None) => a,
+            (Some(x), Some(y)) => {
+                if x > y {
+                    a
+                } else {
+                    b
+                }
+            }
+        })
         .expect("Genomic context is empty.")
         .0
 }
