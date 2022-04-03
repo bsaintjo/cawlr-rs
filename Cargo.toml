@@ -22,10 +22,11 @@ csv = "1.1.6"
 env_logger = "0.9.0"
 fnv = "1.0.7"
 indicatif = { version = "0.16.2", features = ["rayon", "improved_unicode"] }
+itertools = "0.10.3"
 linfa = { version = "0.5.0", features=["openblas-static"] }
 linfa-clustering = { version = "0.5.0", features=["serde"] }
 log = "0.4.14"
-mimalloc = { version = "0.1.28", default-features = false }
+mimalloc = { version = "0.1.28", default-features = false, optional = true }
 ndarray = "0.15.4"
 parquet = { version = "8.0.0", default-features = false, features=["arrow", "base64"] }
 rand = { version = "0.8.5", features = ["small_rng"] }
@@ -50,3 +51,7 @@ assert_cmd = "2.0.4"
 assert_fs = "1.0.7"
 test-log = "0.2.10"
 escargot = "0.5.7"
+
+[features]
+default = ["mimalloc"]
+alloc = []

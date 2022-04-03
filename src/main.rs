@@ -3,6 +3,8 @@ use std::path::Path;
 use anyhow::Result;
 use bio::io::fasta::IndexedReader;
 use clap::{IntoApp, Parser, Subcommand};
+
+#[cfg(feature = "mimalloc")]
 use mimalloc::MiMalloc;
 
 mod preprocess;
@@ -15,6 +17,7 @@ mod utils;
 
 use utils::CawlrIO;
 
+#[cfg(feature = "mimalloc")]
 #[global_allocator]
 static GLOBAL: MiMalloc = MiMalloc;
 

@@ -271,6 +271,7 @@ dependencies = [
  "escargot",
  "fnv",
  "indicatif",
+ "itertools",
  "linfa",
  "linfa-clustering",
  "log",
