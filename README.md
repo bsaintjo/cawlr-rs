@@ -20,6 +20,7 @@
     - [Python dependencies](#python-dependencies)
   - [Nanopore data preparation](#nanopore-data-preparation)
   - [Usage](#usage)
+    - [`cawlr collapse`](#cawlr-collapse)
     - [`cawlr preprocess`](#cawlr-preprocess)
     - [`cawlr train`](#cawlr-train)
     - [`cawlr rank`](#cawlr-rank)
@@ -108,6 +109,23 @@ nanopolish eventalign --reads reads.fasta \
 ```
 
 ## Usage
+
+### `cawlr collapse`
+
+```bash
+$ cawlr help collapse
+cawlr-collapse 
+
+USAGE:
+    cawlr collapse [OPTIONS] --input <INPUT> --output <OUTPUT>
+
+OPTIONS:
+    -c, --capacity <CAPACITY>    Number of eventalign records to hold in memory [default: 2048]
+    -h, --help                   Print help information
+    -i, --input <INPUT>          path to nanopolish eventalign output with samples column
+    -o, --output <OUTPUT>        path to output file in parquet format
+
+```
 
 ### `cawlr preprocess`
 

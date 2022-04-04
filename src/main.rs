@@ -84,6 +84,10 @@ enum Commands {
         // /// output only includes data from this chromosome
         // chrom: Option<String>,
 
+        #[clap(short, long, default_value_t=2048)]
+        /// Number of eventalign records to hold in memory.
+        capacity: usize
+
         // #[clap(long)]
         // /// output only includes data that aligns at or after this position,
         // /// should be set with --chrom
@@ -203,8 +207,17 @@ fn main() -> Result<()> {
         Commands::Collapse {
             input,
             output,
+            capacity,
         } => {
-            let mut collapse = CollapseOptions::try_new(&output)?;
+            if capacity == 0 {
+                let mut cmd = Args::command();
+                cmd.error(
+                    clap::ErrorKind::InvalidValue,
+                    "Capacity must be greater than 0",
+                )
+                .exit();
+            }
+            let mut collapse = CollapseOptions::try_new(&output, capacity)?;
             collapse.run(&input)?;
             collapse.close()?;
         }

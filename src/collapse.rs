@@ -1,6 +1,7 @@
-use std::{fs::File, path::Path};
+use std::{fs::File, io::Read, path::Path};
 
 use anyhow::Result;
+use indicatif::{ProgressBar, ProgressBarIter, ProgressFinish, ProgressStyle};
 use parquet::arrow::ArrowWriter;
 use rstats::Stats;
 use serde::Deserialize;
@@ -9,13 +10,25 @@ use serde_with::{serde_as, CommaSeparator, StringWithSeparator};
 
 use crate::reads::FlatLReadLData;
 
+/// Create spinner that wraps an IO read iterator
+fn spin_iter<I: Read>(iter: I) -> ProgressBarIter<I> {
+    let pb = ProgressBar::new_spinner();
+    let style = ProgressStyle::default_spinner()
+        .template("{spinner} [{elapsed_precise}] {binary_bytes_per_sec} {msg}")
+        .on_finish(ProgressFinish::AndLeave);
+    pb.with_message("Processing eventalign data")
+        .with_style(style)
+        .wrap_read(iter)
+}
+
 pub(crate) struct CollapseOptions {
     writer: ArrowWriter<File>,
     schema: Schema,
+    capacity: usize,
 }
 
 impl CollapseOptions {
-    pub(crate) fn try_new<P>(output: P) -> Result<Self>
+    pub(crate) fn try_new<P>(output: P, capacity: usize) -> Result<Self>
     where
         P: AsRef<Path>,
     {
@@ -24,7 +37,7 @@ impl CollapseOptions {
         let batches = to_record_batch(&example, &schema)?;
         let writer = File::create(output)?;
         let writer = ArrowWriter::try_new(writer, batches.schema(), None)?;
-        Ok(CollapseOptions { writer, schema })
+        Ok(CollapseOptions { writer, schema, capacity })
     }
 
     fn save_nprs(&mut self, nprs: &[Npr]) -> Result<()> {
@@ -64,13 +77,15 @@ impl CollapseOptions {
         P: AsRef<Path>,
     {
         let file = File::open(filepath)?;
+        let file = spin_iter(file);
         let mut builder = csv::ReaderBuilder::new().delimiter(b'\t').from_reader(file);
         let mut npr_iter = builder.deserialize().peekable();
+
+        let mut acc: Vec<Npr> = Vec::with_capacity(self.capacity);
 
         // First get a single line to intialize with, if None we have reached the end of
         // the iterator
         while let Some(line) = npr_iter.next() {
-            let mut acc: Vec<Npr> = Vec::new();
             let mut line: Npr = line?;
 
             // Peek at next lines and advance the iterator only if they belong to the same
@@ -89,9 +104,16 @@ impl CollapseOptions {
                     // Update line to look for possible repeating lines after it
                     line = read_line;
                 }
+                
+                // Save results intermittently to file if acc buffer is full
+                // to work on lower ram systems
+                if acc.len() >= self.capacity {
+                    self.save_nprs(&acc)?;
+                    acc.clear();
+                }
             }
-            // We are starting a new read so save the results before continuing
-            // with the next read
+        }
+        if !acc.is_empty() {
             self.save_nprs(&acc)?;
         }
         Ok(())
@@ -150,7 +172,7 @@ mod test {
         let temp_dir = TempDir::new()?;
         let filepath = "extra/single_read.eventalign.txt";
         let output = temp_dir.path().join("test");
-        let mut collapse = CollapseOptions::try_new(output)?;
+        let mut collapse = CollapseOptions::try_new(output, 8192)?;
         collapse.run(filepath)?;
         collapse.close()?;
         Ok(())
