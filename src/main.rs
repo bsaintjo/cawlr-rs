@@ -217,8 +217,8 @@ fn main() -> Result<()> {
                 )
                 .exit();
             }
-            let mut collapse = CollapseOptions::try_new(&output, capacity)?;
-            collapse.run(&input)?;
+            let mut collapse = CollapseOptions::try_new(&input, &output, capacity)?;
+            collapse.run()?;
             collapse.close()?;
         }
         Commands::Preprocess {

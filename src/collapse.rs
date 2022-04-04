@@ -22,13 +22,14 @@ fn spin_iter<I: Read>(iter: I) -> ProgressBarIter<I> {
 }
 
 pub(crate) struct CollapseOptions {
+    input: String,
     writer: ArrowWriter<File>,
     schema: Schema,
     capacity: usize,
 }
 
 impl CollapseOptions {
-    pub(crate) fn try_new<P>(output: P, capacity: usize) -> Result<Self>
+    pub(crate) fn try_new<P>(input: &str, output: P, capacity: usize) -> Result<Self>
     where
         P: AsRef<Path>,
     {
@@ -37,7 +38,12 @@ impl CollapseOptions {
         let batches = to_record_batch(&example, &schema)?;
         let writer = File::create(output)?;
         let writer = ArrowWriter::try_new(writer, batches.schema(), None)?;
-        Ok(CollapseOptions { writer, schema, capacity })
+        Ok(CollapseOptions {
+            input: input.to_owned(),
+            writer,
+            schema,
+            capacity,
+        })
     }
 
     fn save_nprs(&mut self, nprs: &[Npr]) -> Result<()> {
@@ -72,11 +78,8 @@ impl CollapseOptions {
         Ok(())
     }
 
-    pub(crate) fn run<P>(&mut self, filepath: P) -> Result<()>
-    where
-        P: AsRef<Path>,
-    {
-        let file = File::open(filepath)?;
+    pub(crate) fn run(&mut self) -> Result<()> {
+        let file = File::open(&self.input)?;
         let file = spin_iter(file);
         let mut builder = csv::ReaderBuilder::new().delimiter(b'\t').from_reader(file);
         let mut npr_iter = builder.deserialize().peekable();
@@ -104,7 +107,7 @@ impl CollapseOptions {
                     // Update line to look for possible repeating lines after it
                     line = read_line;
                 }
-                
+
                 // Save results intermittently to file if acc buffer is full
                 // to work on lower ram systems
                 if acc.len() >= self.capacity {
@@ -172,8 +175,8 @@ mod test {
         let temp_dir = TempDir::new()?;
         let filepath = "extra/single_read.eventalign.txt";
         let output = temp_dir.path().join("test");
-        let mut collapse = CollapseOptions::try_new(output, 8192)?;
-        collapse.run(filepath)?;
+        let mut collapse = CollapseOptions::try_new(filepath, output, 2048)?;
+        collapse.run()?;
         collapse.close()?;
         Ok(())
     }
