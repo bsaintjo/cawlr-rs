@@ -16,13 +16,9 @@ fn pipeline() -> Result<(), Box<dyn Error>> {
     eprintln!("Preprocessing positive control");
     let pos_output = temp_dir.path().join("pos_control.parquet");
     Command::new(cawlr)
-        .arg("preprocess")
-        .arg("-b")
-        .arg("extra/pos_control.bam")
+        .arg("collapse")
         .arg("-i")
         .arg("extra/pos_control.eventalign.txt")
-        .arg("-g")
-        .arg(&genome)
         .arg("-o")
         .arg(&pos_output)
         .env("RUST_BACKTRACE", "full")
@@ -32,13 +28,9 @@ fn pipeline() -> Result<(), Box<dyn Error>> {
     eprintln!("Preprocessing negative control");
     let neg_output = temp_dir.path().join("neg_control.parquet");
     Command::new(cawlr)
-        .arg("preprocess")
-        .arg("-b")
-        .arg("extra/neg_control.bam")
+        .arg("collapse")
         .arg("-i")
         .arg("extra/neg_control.eventalign.txt")
-        .arg("-g")
-        .arg(&genome)
         .arg("-o")
         .arg(&neg_output)
         .env("RUST_BACKTRACE", "full")
@@ -48,13 +40,9 @@ fn pipeline() -> Result<(), Box<dyn Error>> {
     eprintln!("Preprocessing single read.");
     let single_read_output = temp_dir.path().join("single_read.parquet");
     Command::new(cawlr)
-        .arg("preprocess")
-        .arg("-b")
-        .arg("extra/single_read.bam")
+        .arg("collapse")
         .arg("-i")
         .arg("extra/single_read.eventalign.txt")
-        .arg("-g")
-        .arg(&genome)
         .arg("-o")
         .arg(&single_read_output)
         .env("RUST_BACKTRACE", "full")
