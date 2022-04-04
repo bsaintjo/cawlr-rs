@@ -1,4 +1,4 @@
-use std::fs::File;
+use std::{fs::File, path::Path};
 
 use anyhow::Result;
 use parquet::arrow::ArrowWriter;
@@ -15,7 +15,10 @@ pub(crate) struct CollapseOptions {
 }
 
 impl CollapseOptions {
-    pub(crate) fn try_new(output: &str) -> Result<Self> {
+    pub(crate) fn try_new<P>(output: P) -> Result<Self>
+    where
+        P: AsRef<Path>,
+    {
         let example = vec![FlatLReadLData::default()];
         let schema = trace_schema(&example)?;
         let batches = to_record_batch(&example, &schema)?;
@@ -56,7 +59,10 @@ impl CollapseOptions {
         Ok(())
     }
 
-    pub(crate) fn run(&mut self, filepath: &str) -> Result<()> {
+    pub(crate) fn run<P>(&mut self, filepath: P) -> Result<()>
+    where
+        P: AsRef<Path>,
+    {
         let file = File::open(filepath)?;
         let mut builder = csv::ReaderBuilder::new().delimiter(b'\t').from_reader(file);
         let mut npr_iter = builder.deserialize().peekable();
@@ -131,4 +137,22 @@ struct Npr {
 
     #[serde_as(as = "StringWithSeparator::<CommaSeparator, f64>")]
     samples: Vec<f64>,
+}
+
+#[cfg(test)]
+mod test {
+    use assert_fs::TempDir;
+
+    use super::*;
+
+    #[test]
+    fn test_collapse() -> Result<()> {
+        let temp_dir = TempDir::new()?;
+        let filepath = "extra/single_read.eventalign.txt";
+        let output = temp_dir.path().join("test");
+        let mut collapse = CollapseOptions::try_new(output)?;
+        collapse.run(filepath)?;
+        collapse.close()?;
+        Ok(())
+    }
 }
