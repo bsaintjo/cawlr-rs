@@ -49,6 +49,7 @@ impl CollapseOptions {
     fn save_nprs(&mut self, nprs: &[Npr]) -> Result<()> {
         let read_start = nprs.get(0).ok_or(anyhow::anyhow!("Empty nprs"))?.position;
         log::debug!("Read start {read_start}");
+        log::debug!("nprs length: {}", nprs.len());
         let mut stop = 0;
         let mut acc = Vec::with_capacity(nprs.len());
         for npr in nprs.iter() {
@@ -86,7 +87,7 @@ impl CollapseOptions {
         let mut builder = csv::ReaderBuilder::new().delimiter(b'\t').from_reader(file);
         let mut npr_iter = builder.deserialize().peekable();
 
-        let mut acc: Vec<Npr> = Vec::with_capacity(self.capacity);
+        let mut acc: Vec<Npr> = Vec::new();
 
         // First get a single line to intialize with, if None we have reached the end of
         // the iterator
@@ -96,7 +97,8 @@ impl CollapseOptions {
             // Peek at next lines and advance the iterator only if they belong to the same
             // read
             while let Some(read_line) = npr_iter.next_if(|new_npr: &Result<Npr, _>| {
-                new_npr.as_ref().expect("Parsing failed").contig == line.contig
+                let new_read_name = &new_npr.as_ref().expect("Parsing failed").read_name;
+                new_read_name == &line.read_name
             }) {
                 let mut read_line = read_line?;
                 // Data from same position, split across two lines
@@ -109,13 +111,11 @@ impl CollapseOptions {
                     // Update line to look for possible repeating lines after it
                     line = read_line;
                 }
+            }
 
-                // Save results intermittently to file if acc buffer is full
-                // to work on lower ram systems
-                // if acc.len() >= self.capacity {
-                //     self.save_nprs(&acc)?;
-                //     acc.clear();
-                // }
+            // End of the iterator, handle the last value
+            if npr_iter.peek().is_none() {
+                acc.push(line)
             }
             self.save_nprs(&acc)?;
             acc.clear();
@@ -172,6 +172,8 @@ struct Npr {
 mod test {
     use assert_fs::TempDir;
 
+    use crate::{utils::CawlrIO, reads::{LRead, LData}};
+
     use super::*;
 
     #[test]
@@ -179,9 +181,15 @@ mod test {
         let temp_dir = TempDir::new()?;
         let filepath = "extra/single_read.eventalign.txt";
         let output = temp_dir.path().join("test");
-        let mut collapse = CollapseOptions::try_new(filepath, output, 2048)?;
+        let mut collapse = CollapseOptions::try_new(filepath, &output, 2048)?;
         collapse.run()?;
         collapse.close()?;
+
+        let xs: Vec<LRead<LData>> = CawlrIO::load(&output)?;
+        assert_eq!(xs.len(), 1);
+        assert_eq!(xs[0].data()[0].pos(), 182504);
+        let data_len = xs[0].data().len();
+        assert_eq!(xs[0].data()[data_len - 1].pos(), 182681);
         Ok(())
     }
 }
