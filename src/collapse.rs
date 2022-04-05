@@ -10,6 +10,34 @@ use serde_with::{serde_as, CommaSeparator, StringWithSeparator};
 
 use crate::reads::FlatLReadLData;
 
+fn nprs_to_flatreads(nprs: &[Npr]) -> Result<Vec<FlatLReadLData>> {
+    log::debug!("nprs length: {}", nprs.len());
+    let read_start = nprs.get(0).ok_or(anyhow::anyhow!("Empty nprs"))?.position;
+    log::debug!("Read start {read_start}");
+    let mut stop = 0;
+    let mut acc = Vec::with_capacity(nprs.len());
+    for npr in nprs.iter() {
+        let name = npr.read_name.as_bytes();
+        let chrom = &npr.contig;
+        stop = npr.position;
+        let start = read_start as usize;
+        let length = 0;
+        let seq: &[u8] = &[];
+        let position = npr.position;
+        let kmer = &npr.model_kmer;
+        let mean = npr.samples.amean().expect("No values");
+        let time = npr.event_length;
+        acc.push(FlatLReadLData::new(
+            name, chrom, start, length, seq, position, kmer, mean, time,
+        ));
+    }
+    log::debug!("Read stop {stop}");
+    acc.iter_mut().for_each(|fnpr| {
+        *fnpr.length_mut() = (stop - read_start) as usize;
+    });
+    Ok(acc)
+}
+
 /// Create spinner that wraps an IO read iterator
 fn spin_iter<I: Read>(iter: I) -> ProgressBarIter<I> {
     let pb = ProgressBar::new_spinner();
@@ -47,30 +75,7 @@ impl CollapseOptions {
     }
 
     fn save_nprs(&mut self, nprs: &[Npr]) -> Result<()> {
-        let read_start = nprs.get(0).ok_or(anyhow::anyhow!("Empty nprs"))?.position;
-        log::debug!("Read start {read_start}");
-        log::debug!("nprs length: {}", nprs.len());
-        let mut stop = 0;
-        let mut acc = Vec::with_capacity(nprs.len());
-        for npr in nprs.iter() {
-            let name = npr.read_name.as_bytes();
-            let chrom = &npr.contig;
-            stop = npr.position;
-            let start = read_start as usize;
-            let length = 0;
-            let seq: &[u8] = &[];
-            let position = npr.position;
-            let kmer = &npr.model_kmer;
-            let mean = npr.samples.amean().expect("No values");
-            let time = npr.event_length;
-            acc.push(FlatLReadLData::new(
-                name, chrom, start, length, seq, position, kmer, mean, time,
-            ));
-        }
-        log::debug!("Read stop {stop}");
-        acc.iter_mut().for_each(|fnpr| {
-            *fnpr.length_mut() = (stop - read_start) as usize;
-        });
+        let acc = nprs_to_flatreads(nprs)?;
         let batches = to_record_batch(&acc, &self.schema)?;
         self.writer.write(&batches)?;
         Ok(())
