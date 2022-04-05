@@ -116,9 +116,9 @@ impl CollapseOptions {
                 //     self.save_nprs(&acc)?;
                 //     acc.clear();
                 // }
-                self.save_nprs(&acc)?;
-                acc.clear();
             }
+            self.save_nprs(&acc)?;
+            acc.clear();
         }
         if !acc.is_empty() {
             self.save_nprs(&acc)?;
