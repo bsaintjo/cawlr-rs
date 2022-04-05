@@ -48,6 +48,7 @@ impl CollapseOptions {
 
     fn save_nprs(&mut self, nprs: &[Npr]) -> Result<()> {
         let read_start = nprs.get(0).ok_or(anyhow::anyhow!("Empty nprs"))?.position;
+        log::debug!("Read start {read_start}");
         let mut stop = 0;
         let mut acc = Vec::with_capacity(nprs.len());
         for npr in nprs.iter() {
@@ -65,6 +66,7 @@ impl CollapseOptions {
                 name, chrom, start, length, seq, position, kmer, mean, time,
             ));
         }
+        log::debug!("Read stop {stop}");
         acc.iter_mut().for_each(|fnpr| {
             *fnpr.length_mut() = (stop - read_start) as usize;
         });
@@ -110,10 +112,12 @@ impl CollapseOptions {
 
                 // Save results intermittently to file if acc buffer is full
                 // to work on lower ram systems
-                if acc.len() >= self.capacity {
-                    self.save_nprs(&acc)?;
-                    acc.clear();
-                }
+                // if acc.len() >= self.capacity {
+                //     self.save_nprs(&acc)?;
+                //     acc.clear();
+                // }
+                self.save_nprs(&acc)?;
+                acc.clear();
             }
         }
         if !acc.is_empty() {
