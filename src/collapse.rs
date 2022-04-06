@@ -81,6 +81,12 @@ impl CollapseOptions {
         Ok(())
     }
 
+    fn save_flatreads(&mut self, flat_reads: &[FlatLReadLData]) -> Result<()> {
+        let batches = to_record_batch(&flat_reads, &self.schema)?;
+        self.writer.write(&batches)?;
+        Ok(())
+    }
+
     pub(crate) fn close(mut self) -> Result<()> {
         self.writer.close()?;
         Ok(())
@@ -93,6 +99,7 @@ impl CollapseOptions {
         let mut npr_iter = builder.deserialize().peekable();
 
         let mut acc: Vec<Npr> = Vec::new();
+        let mut flats: Vec<FlatLReadLData> = Vec::with_capacity(self.capacity);
 
         // First get a single line to intialize with, if None we have reached the end of
         // the iterator
@@ -122,11 +129,21 @@ impl CollapseOptions {
             if npr_iter.peek().is_none() {
                 acc.push(line)
             }
-            self.save_nprs(&acc)?;
+            let mut flat_reads = nprs_to_flatreads(&acc)?;
+            flats.append(&mut flat_reads);
+            if flats.len() >= self.capacity {
+                self.save_flatreads(&flats)?;
+                flats.clear();
+            }
+
+            // self.save_nprs(&acc)?;
             acc.clear();
         }
+
         if !acc.is_empty() {
-            self.save_nprs(&acc)?;
+            let mut flat_reads = nprs_to_flatreads(&acc)?;
+            flats.append(&mut flat_reads);
+            self.save_flatreads(&flats)?;
         }
         Ok(())
     }
