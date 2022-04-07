@@ -4,7 +4,7 @@ use assert_cmd::prelude::OutputAssertExt;
 use assert_fs::TempDir;
 use escargot::CargoBuild;
 
-#[test]
+#[test_log::test]
 fn pipeline() -> Result<(), Box<dyn Error>> {
     let temp_dir = TempDir::new()?;
 

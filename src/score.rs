@@ -124,7 +124,7 @@ where
     nprs.into_iter()
         .map(|npr| {
             let chrom = npr.chrom().to_owned();
-            let results = npr
+            let results: Vec<Score> = npr
                 .data()
                 .iter()
                 .flat_map(|ld| {
@@ -132,15 +132,19 @@ where
                         .expect("Failed to read genome fasta.");
                     let best_kmer = choose_best_kmer(&kmer_ranks, &ctxt);
                     let best_kmer = from_utf8(best_kmer).unwrap();
+                    log::debug!("best_kmer: {best_kmer}");
                     let pos_model = pos_models.gmms().get(best_kmer).unwrap();
                     let neg_model = neg_models.gmms().get(best_kmer).unwrap();
                     let signal_score = score_signal(ld.mean(), pos_model, neg_model);
                     let skip_score = score_skip(ld.kmer().to_string(), &pos_models, &neg_models);
+                    log::debug!("signal score: {signal_score:?}");
+                    log::debug!("skip score: {skip_score:?}");
                     signal_score
                         .or(skip_score)
                         .map(|score| Score::new(ld.pos(), score))
                 })
                 .collect();
+            log::debug!("results len {}", results.len());
             npr.to_lread_with_data(results)
         })
         .collect()
