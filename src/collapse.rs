@@ -74,13 +74,6 @@ impl CollapseOptions {
         })
     }
 
-    fn save_nprs(&mut self, nprs: &[Npr]) -> Result<()> {
-        let acc = nprs_to_flatreads(nprs)?;
-        let batches = to_record_batch(&acc, &self.schema)?;
-        self.writer.write(&batches)?;
-        Ok(())
-    }
-
     fn save_flatreads(&mut self, flat_reads: &[FlatLReadLData]) -> Result<()> {
         let batches = to_record_batch(&flat_reads, &self.schema)?;
         self.writer.write(&batches)?;
@@ -129,6 +122,8 @@ impl CollapseOptions {
             if npr_iter.peek().is_none() {
                 acc.push(line)
             }
+            // Add converted reads to buffer and if buffer is full
+            // write to disc and clear buffer
             let mut flat_reads = nprs_to_flatreads(&acc)?;
             flats.append(&mut flat_reads);
             if flats.len() >= self.capacity {
@@ -136,7 +131,6 @@ impl CollapseOptions {
                 flats.clear();
             }
 
-            // self.save_nprs(&acc)?;
             acc.clear();
         }
 
