@@ -121,7 +121,8 @@ where
     R: Read + Seek,
 {
     let chrom_lens = get_genome_chrom_lens(&genome);
-    nprs.into_iter()
+    log::debug!("Len nprs {}", nprs.len());
+    let snprs: Vec<ScoredRead> = nprs.into_iter()
         .map(|npr| {
             let chrom = npr.chrom().to_owned();
             let results: Vec<Score> = npr
@@ -139,15 +140,20 @@ where
                     let skip_score = score_skip(ld.kmer().to_string(), &pos_models, &neg_models);
                     log::debug!("signal score: {signal_score:?}");
                     log::debug!("skip score: {skip_score:?}");
-                    signal_score
+                    let final_score = signal_score
                         .or(skip_score)
-                        .map(|score| Score::new(ld.pos(), score))
+                        .map(|score| Score::new(ld.pos(), score));
+                    log::debug!("Final score: {final_score:?}");
+                    final_score
                 })
                 .collect();
             log::debug!("results len {}", results.len());
             npr.to_lread_with_data(results)
         })
-        .collect()
+        .collect();
+        log::debug!("Scored len: {}", snprs.len());
+        log::debug!("Scored len: {:?}", snprs[0]);
+        snprs
 }
 
 #[cfg(test)]

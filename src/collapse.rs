@@ -98,6 +98,7 @@ impl CollapseOptions {
         // the iterator
         while let Some(line) = npr_iter.next() {
             let mut line: Npr = line?;
+            log::debug!("line: {:?}", line);
 
             // Peek at next lines and advance the iterator only if they belong to the same
             // read
@@ -106,11 +107,14 @@ impl CollapseOptions {
                 new_read_name == &line.read_name
             }) {
                 let mut read_line = read_line?;
+                log::debug!("same read: {:?}", read_line);
                 // Data from same position, split across two lines
                 if read_line.position == line.position {
+                    log::debug!("Same position");
                     line.samples.append(&mut read_line.samples);
                     line.event_length += read_line.event_length;
                 } else {
+                    log::debug!("New position, same read, pushing");
                     // Data from next position in read
                     acc.push(line);
                     // Update line to look for possible repeating lines after it
@@ -120,6 +124,7 @@ impl CollapseOptions {
 
             // End of the iterator, handle the last value
             if npr_iter.peek().is_none() {
+                log::debug!("Iterator finished");
                 acc.push(line)
             }
             // Add converted reads to buffer and if buffer is full
@@ -134,9 +139,8 @@ impl CollapseOptions {
             acc.clear();
         }
 
-        if !acc.is_empty() {
-            let mut flat_reads = nprs_to_flatreads(&acc)?;
-            flats.append(&mut flat_reads);
+        // If reads are left in the buffer, save those
+        if !flats.is_empty() {
             self.save_flatreads(&flats)?;
         }
         Ok(())

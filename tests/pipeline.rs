@@ -103,7 +103,7 @@ fn pipeline() -> Result<(), Box<dyn Error>> {
         .arg(&genome)
         .arg("-o")
         .arg(scores)
-        .env("RUST_BACKTRACE", "full")
+        .env("RUST_BACKTRACE", "1")
         .assert()
         .success();
 
