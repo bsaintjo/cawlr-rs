@@ -50,11 +50,16 @@ impl LData {
 pub(crate) struct Score {
     pos: u64,
     score: f64,
+    kmer: String,
 }
 
 impl Score {
-    pub(crate) fn new(pos: u64, score: f64) -> Self {
-        Self { pos, score }
+    pub(crate) fn new(pos: u64, score: f64, kmer: &str) -> Self {
+        Self {
+            pos,
+            score,
+            kmer: kmer.to_owned(),
+        }
     }
 }
 
@@ -191,6 +196,7 @@ pub struct FlatLReadScore {
     seq: String,
     pos: u64,
     score: f64,
+    kmer: String,
 }
 
 impl FlatLReadScore {
@@ -202,6 +208,7 @@ impl FlatLReadScore {
         seq: &[u8],
         pos: u64,
         score: f64,
+        kmer: &str,
     ) -> Self {
         Self {
             name: String::from_utf8(name.to_owned()).unwrap(),
@@ -211,6 +218,7 @@ impl FlatLReadScore {
             seq: String::from_utf8(seq.to_owned()).unwrap(),
             pos,
             score,
+            kmer: kmer.to_owned(),
         }
     }
 }
@@ -276,7 +284,6 @@ impl ReprKey {
     }
 }
 
-
 impl Flatten for Vec<LRead<LData>> {
     type Target = Vec<FlatLReadLData>;
 
@@ -341,6 +348,7 @@ impl Flatten for Vec<LRead<Score>> {
                     seq: String::from_utf8(lread.seq.clone()).unwrap(),
                     pos: score.pos,
                     score: score.score,
+                    kmer: score.kmer,
                 })
             })
             .collect()
@@ -355,7 +363,7 @@ impl Flatten for Vec<LRead<Score>> {
             let repr_key = ReprKey::new(name.as_bytes(), &chrom, start);
             let pos = flat.pos;
             let likely = flat.score;
-            let ldata = Score::new(pos, likely);
+            let ldata = Score::new(pos, likely, &flat.kmer);
 
             let val = acc.entry(repr_key).or_insert_with(|| {
                 let length = flat.length;

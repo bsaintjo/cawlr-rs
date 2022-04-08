@@ -112,6 +112,7 @@ impl ScoreOptions {
                         &[],
                         data.pos(),
                         score,
+                        best_kmer,
                     );
                     acc.push(snpr);
                 }
