@@ -1,7 +1,6 @@
 use std::path::Path;
 
 use anyhow::Result;
-use bio::io::fasta::IndexedReader;
 use clap::{IntoApp, Parser, Subcommand};
 use collapse::CollapseOptions;
 #[cfg(feature = "mimalloc")]
@@ -83,22 +82,19 @@ enum Commands {
         // #[clap(short, long)]
         // /// output only includes data from this chromosome
         // chrom: Option<String>,
-
-        #[clap(short, long, default_value_t=2048)]
+        #[clap(short, long, default_value_t = 2048)]
         /// Number of eventalign records to hold in memory.
-        capacity: usize
+        capacity: usize, /* #[clap(long)]
+                          * /// output only includes data that aligns at or after this position,
+                          * /// should be set with --chrom
+                          * /// TODO: Throw error if set without --chrom
+                          * start: Option<u64>, */
 
-        // #[clap(long)]
-        // /// output only includes data that aligns at or after this position,
-        // /// should be set with --chrom
-        // /// TODO: Throw error if set without --chrom
-        // start: Option<u64>,
-
-        // #[clap(long)]
-        // /// output only includes data that aligns at or before this position,
-        // /// should be set with --chrom
-        // /// TODO: Throw error if set without --chrom
-        // stop: Option<u64>,
+                         /* #[clap(long)]
+                          * /// output only includes data that aligns at or before this
+                          * position, /// should be set with --chrom
+                          * /// TODO: Throw error if set without --chrom
+                          * stop: Option<u64> */
     },
 
     /// For each kmer, train a two-component gaussian mixture model and save
@@ -277,13 +273,11 @@ fn main() -> Result<()> {
                 )
                 .exit();
             }
-            let nprs = CawlrIO::load(input)?;
-            let pos_ctrl_db = CawlrIO::load(pos_ctrl)?;
-            let neg_ctrl_db = CawlrIO::load(neg_ctrl)?;
-            let kmer_ranks = CawlrIO::load(ranks)?;
-            let genome = IndexedReader::from_file(&genome)?;
-            let snprs = score::score(nprs, pos_ctrl_db, neg_ctrl_db, kmer_ranks, genome);
-            snprs.save(output)?;
+            let mut scoring = score::ScoreOptions::try_new(
+                &input, &pos_ctrl, &neg_ctrl, &genome, &ranks, &output,
+            )?;
+            scoring.run()?;
+            scoring.close()?;
         }
 
         Commands::Sma { .. } => {

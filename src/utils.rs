@@ -128,6 +128,7 @@ impl CawlrIO for Vec<LRead<Score>> {
         let results = self.to_flat();
         ensure!(!results.is_empty(), "Cannot save: data is empty");
         let schema = Schema::from_records(&results)?;
+        log::debug!("schema: {schema:?}");
         let batches = to_record_batch(&results, &schema)?;
         let mut writer = ArrowWriter::try_new(file, batches.schema(), None)?;
         writer.write(&batches)?;

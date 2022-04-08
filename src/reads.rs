@@ -46,7 +46,7 @@ impl LData {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Default, Serialize, Deserialize, Clone)]
 pub(crate) struct Score {
     pos: u64,
     score: f64,
@@ -64,7 +64,7 @@ impl Position for Score {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Default, Debug, Serialize, Deserialize, Clone)]
 pub(crate) struct LRead<T> {
     name: Vec<u8>,
     chrom: String,
@@ -103,21 +103,6 @@ impl<T> LRead<T> {
             seq,
             data: Vec::new(),
         }
-    }
-
-    pub(crate) fn to_empty_lread<U>(&self) -> LRead<U> {
-        LRead::empty(
-            self.name.clone(),
-            self.chrom.clone(),
-            self.start,
-            self.length,
-            self.seq.clone(),
-        )
-    }
-    pub(crate) fn to_lread_with_data<U>(&self, data: Vec<U>) -> LRead<U> {
-        let mut lread = LRead::to_empty_lread(self);
-        lread.data = data;
-        lread
     }
 
     pub(crate) fn length(&self) -> usize {
@@ -160,6 +145,12 @@ impl<T> LRead<T> {
     pub(crate) fn data(&self) -> &[T] {
         self.data.as_ref()
     }
+
+    /// Get a reference to the lread's name.
+    #[must_use]
+    pub(crate) fn name(&self) -> &[u8] {
+        self.name.as_ref()
+    }
 }
 
 impl LRead<Score> {
@@ -191,7 +182,7 @@ pub trait Flatten {
     fn from_flat(flat_repr: Self::Target) -> Self;
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Default, Serialize, Deserialize)]
 pub struct FlatLReadScore {
     name: String,
     chrom: String,
@@ -203,21 +194,21 @@ pub struct FlatLReadScore {
 }
 
 impl FlatLReadScore {
-    fn new(
-        name: &str,
+    pub(crate) fn new(
+        name: &[u8],
         chrom: &str,
         start: usize,
         length: usize,
-        seq: &str,
+        seq: &[u8],
         pos: u64,
         score: f64,
     ) -> Self {
         Self {
-            name: name.to_owned(),
+            name: String::from_utf8(name.to_owned()).unwrap(),
             chrom: chrom.to_owned(),
             start,
             length,
-            seq: seq.to_owned(),
+            seq: String::from_utf8(seq.to_owned()).unwrap(),
             pos,
             score,
         }
@@ -380,5 +371,19 @@ impl Flatten for Vec<LRead<Score>> {
             val.data.push(ldata);
         }
         acc.into_values().collect()
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_empty_flatlreadscore() {
+        let x: LRead<Score> = Default::default();
+        assert!(x.data().is_empty());
+        let xs = vec![x];
+        let flats = xs.to_flat();
+        assert!(flats.is_empty());
     }
 }
