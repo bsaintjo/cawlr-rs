@@ -108,6 +108,9 @@ enum Commands {
         /// Path to resulting pickle file
         /// TODO: Move from pickle to parquet
         output: String,
+
+        #[clap(short, long)]
+        genome: String,
     },
 
     /// Rank each kmer by the Kulback-Leibler Divergence and between the trained
@@ -234,10 +237,11 @@ fn main() -> Result<()> {
                 .run(input, bam, genome)?;
             nprs.save(output)?;
         }
-        Commands::Train { input, output } => {
+        Commands::Train { input, output, genome} => {
             log::info!("Train command");
             let reads = CawlrIO::load(input)?;
-            let model = train::Train::new().run(reads)?;
+            let train = train::Train::try_new(&genome)?;
+            let model = train.run(reads)?;
             model.save(output)?;
         }
 

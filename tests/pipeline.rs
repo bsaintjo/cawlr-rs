@@ -53,6 +53,8 @@ fn pipeline() -> Result<(), Box<dyn Error>> {
     let pos_train = temp_dir.path().join("pos_control.train");
     Command::new(cawlr)
         .arg("train")
+        .arg("-g")
+        .arg(&genome)
         .arg("-i")
         .arg(&pos_output)
         .arg("-o")
@@ -65,6 +67,8 @@ fn pipeline() -> Result<(), Box<dyn Error>> {
     let neg_train = temp_dir.path().join("neg_control.train");
     Command::new(cawlr)
         .arg("train")
+        .arg("-g")
+        .arg(&genome)
         .arg("-i")
         .arg(&neg_output)
         .arg("-o")

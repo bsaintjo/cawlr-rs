@@ -1,6 +1,7 @@
-use std::collections::{HashMap, HashSet};
+use std::{collections::{HashMap, HashSet}, fs::File};
 
 use anyhow::Result;
+use bio::io::fasta::IndexedReader;
 use linfa::{traits::Fit, DatasetBase, ParamGuard};
 use linfa_clustering::GaussianMixtureModel;
 use ndarray::Array;
@@ -81,20 +82,23 @@ impl KmerSkips {
 pub(crate) struct Train {
     acc: KmerMeans,
     skips: KmerSkips,
+    genome: IndexedReader<File>,
 }
 
 impl Train {
-    pub(crate) fn new() -> Self {
-        Self {
+    pub(crate) fn try_new(genome: &str) -> Result<Self> {
+        let genome = IndexedReader::from_file(&genome)?;
+        Ok(Self {
             acc: HashMap::new(),
             skips: KmerSkips::new(),
-        }
+            genome,
+        })
     }
 
     pub(crate) fn run(mut self, reads: Vec<PreprocessRead>) -> Result<Model> {
         for read in reads.into_iter() {
             self.read_to_kmer_means(&read);
-            self.read_to_skip_counts(&read);
+            self.read_to_skip_counts(&read)?;
         }
 
         let mut gmms = HashMap::new();
@@ -129,16 +133,33 @@ impl Train {
         }
     }
 
-    fn read_to_skip_counts(&mut self, read: &PreprocessRead) {
+    fn read_to_skip_counts(&mut self, read: &PreprocessRead) -> Result<()> {
         let mut pos_scores = HashSet::new();
         for ld in read.iter() {
             pos_scores.insert(ld.pos() as usize);
         }
-        for (kmer, pos) in read.seq().windows(6).zip(read.start()..) {
+        let read_seq = self.get_read_seq(read)?;
+        for (kmer, pos) in read_seq.windows(6).zip(read.start()..) {
             let has_score = pos_scores.contains(&pos);
             let kskip = self.skips.0.entry(kmer.to_owned()).or_default();
             kskip.had_score(has_score);
         }
+        Ok(())
+    }
+
+    /// Get a mutable reference to the train's genome.
+    pub(crate) fn genome_mut(&mut self) -> &mut IndexedReader<File> {
+        &mut self.genome
+    }
+
+    fn get_read_seq(&mut self, read: &PreprocessRead) -> Result<Vec<u8>> {
+        let chrom = read.chrom();
+        let start = read.start() as u64;
+        let stop = read.stop() as u64;
+        self.genome_mut().fetch(chrom, start, stop)?;
+        let mut seq = Vec::new();
+        self.genome_mut().read(&mut seq)?;
+        Ok(seq)
     }
 }
 
