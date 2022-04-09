@@ -52,15 +52,15 @@ impl Skips {
         self.count += 1;
     }
 
-    fn plus_count(&mut self) {
-        self.count += 1;
+    fn plus_total(&mut self) {
+        self.total += 1;
     }
 
     fn had_score(&mut self, is_score: bool) {
         if is_score {
             self.plus_both();
         } else {
-            self.plus_count();
+            self.plus_total();
         }
     }
 }
