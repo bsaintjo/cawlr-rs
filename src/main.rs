@@ -7,7 +7,6 @@ use collapse::CollapseOptions;
 use mimalloc::MiMalloc;
 
 mod collapse;
-mod preprocess;
 mod rank;
 mod reads;
 mod score;
@@ -34,41 +33,6 @@ struct Args {
 
 #[derive(Subcommand, Debug)]
 enum Commands {
-    /// Calculates mean per-read per-position and optionally filters data based
-    /// on a given region.
-    Preprocess {
-        #[clap(short, long)]
-        /// path to nanopolish eventalign output with samples column
-        input: String,
-
-        #[clap(short, long)]
-        /// path to nanopolish eventalign output with samples column
-        bam: String,
-
-        #[clap(short, long)]
-        /// path to genome file
-        genome: String,
-
-        #[clap(short, long)]
-        /// path to output file in parquet format
-        output: String,
-
-        #[clap(short, long)]
-        /// output only includes data from this chromosome
-        chrom: Option<String>,
-
-        #[clap(long)]
-        /// output only includes data that aligns at or after this position,
-        /// should be set with --chrom
-        /// TODO: Throw error if set without --chrom
-        start: Option<u64>,
-
-        #[clap(long)]
-        /// output only includes data that aligns at or before this position,
-        /// should be set with --chrom
-        /// TODO: Throw error if set without --chrom
-        stop: Option<u64>,
-    },
 
     Collapse {
         #[clap(short, long)]
@@ -219,23 +183,6 @@ fn main() -> Result<()> {
             let mut collapse = CollapseOptions::try_new(&input, &output, capacity)?;
             collapse.run()?;
             collapse.close()?;
-        }
-        Commands::Preprocess {
-            input,
-            bam,
-            genome,
-            output,
-            chrom,
-            start,
-            stop,
-        } => {
-            log::info!("Preprocess command");
-            let nprs = preprocess::Process::new()
-                .chrom(chrom)
-                .start(start)
-                .stop(stop)
-                .run(input, bam, genome)?;
-            nprs.save(output)?;
         }
         Commands::Train { input, output, genome} => {
             log::info!("Train command");
