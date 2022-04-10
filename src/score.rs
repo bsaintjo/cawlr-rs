@@ -86,7 +86,9 @@ impl ScoreOptions {
         let positions = sixmer_postions(&self.chrom_lens, chrom, ld.pos());
         log::debug!("positions: {positions:?}");
         let kmers: Vec<&[u8]> = (positions.0..positions.1)
-            .map(|x| read_seq[&x].as_ref())
+            // .map(|x| read_seq[&x].as_ref())
+            .flat_map(|x| read_seq.get(&x))
+            .map(|x| x.as_ref())
             .collect();
         let best_kmer = choose_best_kmer(&self.rank, &kmers);
         let best_kmer = from_utf8(best_kmer)?.to_owned();
@@ -179,7 +181,7 @@ fn sixmer_postions(chrom_lens: &HashMap<String, u64>, chrom: &str, pos: u64) -> 
     } else {
         pos + 6
     };
-    (start_pos, stop)
+    (start_pos, stop + 1)
 }
 
 fn context_pos<R>(
@@ -212,8 +214,8 @@ where
     genome.read(&mut seq)?;
 
     // Will not iterate if (stop - 6) > start_pos
-    if (stop - 6) < start_pos {
-        log::warn!("Stop is greater than start, no sequence will be produced {read:?}");
+    if (stop - 13) < start_pos {
+        log::warn!("Stop is greater than start, no sequence will be produced {:?}", read.name());
     }
 
     let mut seq_map: HashMap<u64, Vec<u8>> = HashMap::new();
