@@ -23,10 +23,11 @@ use crate::{
 
 pub(crate) struct ScoreOptions {
     input: String,
-    pos_ctrl: String,
-    neg_ctrl: String,
-    genome: String,
-    rank: String,
+    pos_ctrl: Model,
+    neg_ctrl: Model,
+    genome: IndexedReader<File>,
+    chrom_lens: HashMap<String, u64>,
+    rank: HashMap<String, f64>,
     writer: ArrowWriter<File>,
     schema: Schema,
 }
@@ -48,12 +49,18 @@ impl ScoreOptions {
         let batches = to_record_batch(&example, &schema)?;
         let writer = File::create(output)?;
         let writer = ArrowWriter::try_new(writer, batches.schema(), None)?;
+        let kmer_ranks = CawlrIO::load(rank)?;
+        let genome = IndexedReader::from_file(&genome)?;
+        let chrom_lens = get_genome_chrom_lens(&genome);
+        let pos_ctrl_db = CawlrIO::load(&pos_ctrl)?;
+        let neg_ctrl_db = CawlrIO::load(&neg_ctrl)?;
         Ok(ScoreOptions {
             input: input.to_owned(),
-            pos_ctrl: pos_ctrl.to_owned(),
-            neg_ctrl: neg_ctrl.to_owned(),
-            genome: genome.to_owned(),
-            rank: rank.to_owned(),
+            pos_ctrl: pos_ctrl_db,
+            neg_ctrl: neg_ctrl_db,
+            genome,
+            chrom_lens,
+            rank: kmer_ranks,
             writer,
             schema,
         })
@@ -66,53 +73,69 @@ impl ScoreOptions {
 
     pub(crate) fn run(&mut self) -> Result<()> {
         let nprs: Vec<LRead<LData>> = CawlrIO::load(&self.input)?;
-        let pos_ctrl_db = CawlrIO::load(&self.pos_ctrl)?;
-        let neg_ctrl_db = CawlrIO::load(&self.neg_ctrl)?;
-        let kmer_ranks = CawlrIO::load(&self.rank)?;
-        let genome = IndexedReader::from_file(&self.genome)?;
-        self.score(nprs, pos_ctrl_db, neg_ctrl_db, kmer_ranks, genome)?;
+        self.score(nprs)?;
         Ok(())
     }
 
-    pub(crate) fn score<R>(
-        &mut self,
-        nprs: Vec<PreprocessRead>,
-        pos_models: Model,
-        neg_models: Model,
-        kmer_ranks: HashMap<String, f64>,
-        mut genome: IndexedReader<R>,
-    ) -> Result<()>
-    where
-        R: Read + Seek,
-    {
-        let chrom_lens = get_genome_chrom_lens(&genome);
+    fn score_data(&mut self, chrom: &str, ld: &LData) -> Result<Option<(f64, String)>> {
+        let ctxt = get_genomic_context(
+            &self.chrom_lens,
+            &mut self.genome,
+            chrom,
+            ld.pos(),
+            true,
+        )?;
+        let best_kmer = choose_best_kmer(&self.rank, &ctxt);
+        let best_kmer = from_utf8(best_kmer)?.to_owned();
+        log::debug!("best_kmer: {best_kmer}");
+        let pos_model = self.pos_ctrl.gmms().get(&best_kmer).unwrap();
+        let neg_model = self.neg_ctrl.gmms().get(&best_kmer).unwrap();
+        let signal_score = score_signal(ld.mean(), pos_model, neg_model);
+        let skip_score =
+            score_skip(ld.kmer().to_string(), &self.pos_ctrl, &self.neg_ctrl);
+        log::debug!("signal score: {signal_score:?}");
+        log::debug!("skip score: {skip_score:?}");
+        let final_score = signal_score.or(skip_score).map(|x| (x, best_kmer));
+        Ok(final_score)
+    }
+
+    fn score_skipped(&mut self, chrom: &str, pos: u64) -> Result<Option<(f64, String)>> {
+        let kmer =
+            get_genomic_context(&self.chrom_lens, &mut self.genome, chrom, pos, false)?;
+        let kmer = from_utf8(&kmer)?.to_owned();
+
+        let pos_skip = self.pos_ctrl.skips().get(&kmer);
+        let neg_skip = self.neg_ctrl.skips().get(&kmer);
+        match (pos_skip, neg_skip) {
+            (Some(p), Some(n)) => Ok(Some((p / (p + n), kmer))),
+            _ => Ok(None),
+        }
+    }
+
+    pub(crate) fn score(&mut self, nprs: Vec<PreprocessRead>) -> Result<()> {
         log::debug!("Len nprs {}", nprs.len());
         for npr in nprs.into_iter() {
             let chrom = npr.chrom().to_owned();
             let mut acc = Vec::new();
-            for data in npr.data().iter() {
-                let ctxt = get_genomic_context(&chrom_lens, &mut genome, &chrom, data.pos())?;
-                let best_kmer = choose_best_kmer(&kmer_ranks, &ctxt);
-                let best_kmer = from_utf8(best_kmer)?;
-                log::debug!("best_kmer: {best_kmer}");
-                let pos_model = pos_models.gmms().get(best_kmer).unwrap();
-                let neg_model = neg_models.gmms().get(best_kmer).unwrap();
-                let signal_score = score_signal(data.mean(), pos_model, neg_model);
-                let skip_score = score_skip(data.kmer().to_string(), &pos_models, &neg_models);
-                log::debug!("signal score: {signal_score:?}");
-                log::debug!("skip score: {skip_score:?}");
-                let final_score = signal_score.or(skip_score);
-                log::debug!("Final score: {final_score:?}");
-                if let Some(score) = final_score {
+            let data_pos = pos_with_data(&npr);
+            for pos in npr.start()..=npr.stop() {
+                let final_score = {
+                    if let Some(ld) = data_pos.get(&pos) {
+                        self.score_data(&chrom, ld)?
+                    } else {
+                        self.score_skipped(&chrom, pos as u64)?
+                    }
+                };
+                if let Some((score, kmer)) = final_score {
                     let snpr = FlatLReadScore::new(
                         npr.name(),
                         npr.chrom(),
                         npr.start(),
                         npr.length(),
                         &[],
-                        data.pos(),
+                        pos as u64,
                         score,
-                        best_kmer,
+                        &kmer,
                     );
                     acc.push(snpr);
                 }
@@ -132,27 +155,44 @@ impl ScoreOptions {
     }
 }
 
+fn pos_with_data(npr: &LRead<LData>) -> HashMap<usize, &LData> {
+    let mut avail_pos = HashMap::new();
+    for ld in npr.data().iter() {
+        avail_pos.insert(ld.pos() as usize, ld);
+    }
+    avail_pos
+}
+
 // TODO: test for positions after chr_len
 // TODO: Deal with +1 issue at chromosome ends
 fn get_genomic_context<R>(
     chrom_lens: &HashMap<String, u64>,
     genome: &mut IndexedReader<R>,
-    chr: &str,
+    chrom: &str,
     pos: u64,
+    window: bool,
 ) -> Result<Vec<u8>>
 where
     R: Read + Seek,
 {
-    let chr_len = chrom_lens.get(chr).unwrap();
-    let start = if pos < 5 { 0 } else { pos - 5 };
-    let stop = if (pos + 6) > *chr_len {
-        *chr_len
+    let chrom_len = chrom_lens.get(chrom).unwrap();
+    let start_pos = if window {
+        if pos < 5 {
+            0
+        } else {
+            pos - 5
+        }
+    } else {
+        pos
+    };
+    let stop = if (pos + 6) > *chrom_len {
+        *chrom_len
     } else {
         pos + 6
     };
-    genome.fetch(chr, start, stop)?;
+    genome.fetch(chrom, start_pos, stop)?;
     let mut seq = Vec::new();
-    genome.read_iter()?.flatten().for_each(|bp| seq.push(bp));
+    genome.read(&mut seq)?;
     Ok(seq)
 }
 
@@ -167,9 +207,6 @@ where
     chrom_lens
 }
 
-// TODO Remove unwrap to allow for using kmers that are above a threshold and
-// output is Option/Result
-// TODO Deal with possible failures from f64::partial_cmp
 fn choose_best_kmer<'a>(kmer_ranks: &HashMap<String, f64>, context: &'a [u8]) -> &'a [u8] {
     context
         .windows(6)
@@ -239,16 +276,16 @@ mod test {
         let pos = 7;
         let mut genome = IndexedReader::new(Cursor::new(FASTA_FILE), FAI_FILE).unwrap();
         let chrom_lens = get_genome_chrom_lens(&genome);
-        let seq = get_genomic_context(&chrom_lens, &mut genome, chrom, pos).unwrap();
+        let seq = get_genomic_context(&chrom_lens, &mut genome, chrom, pos, true).unwrap();
         assert_eq!(seq, b"AGGCTGAAAAC");
 
         let pos = 2;
-        let seq = get_genomic_context(&chrom_lens, &mut genome, chrom, pos).unwrap();
+        let seq = get_genomic_context(&chrom_lens, &mut genome, chrom, pos, true).unwrap();
         assert_eq!(seq, b"GTAGGCTG");
 
         // eprintln!("{:?}", genome.index.sequences());
         let pos = 14;
-        let seq = get_genomic_context(&chrom_lens, &mut genome, chrom, pos).unwrap();
+        let seq = get_genomic_context(&chrom_lens, &mut genome, chrom, pos, true).unwrap();
         assert_eq!(seq, b"AAACCCC");
     }
 }
