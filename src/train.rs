@@ -182,7 +182,7 @@ fn train_gmm(means: Vec<f64>) -> Result<Mixture<Gaussian>> {
     let covs = gmm.covariances().iter();
     let gausses = means
         .zip(covs)
-        .map(|(&mean, &sigma)| Gaussian::new(mean, sigma).unwrap())
+        .map(|(&mean, &sigma)| Gaussian::new(mean, sigma.sqrt()).unwrap())
         .collect::<Vec<Gaussian>>();
     let mm = Mixture::new_unchecked(weights, gausses);
 
