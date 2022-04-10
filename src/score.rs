@@ -109,8 +109,8 @@ impl ScoreOptions {
         let kmer = &read_seq[&pos];
         let kmer = from_utf8(kmer)?.to_owned();
 
-        let pos_skip = self.pos_ctrl.skips().get(&kmer);
-        let neg_skip = self.neg_ctrl.skips().get(&kmer);
+        let pos_skip = self.pos_ctrl.skips().get(&kmer).map(|x| 1. - x);
+        let neg_skip = self.neg_ctrl.skips().get(&kmer).map(|x| 1. - x);
         match (pos_skip, neg_skip) {
             (Some(p), Some(n)) => Ok(Some((p / (p + n), kmer))),
             _ => Ok(None),
@@ -285,10 +285,10 @@ fn score_signal(
 }
 
 fn score_skip(kmer: String, pos_model: &Model, neg_model: &Model) -> Option<f64> {
-    let pos_frac = pos_model.skips().get(&kmer);
-    let neg_frac = neg_model.skips().get(&kmer);
+    let pos_frac = pos_model.skips().get(&kmer).map(|x| 1. - x);
+    let neg_frac = neg_model.skips().get(&kmer).map(|x| 1. - x);
     match (pos_frac, neg_frac) {
-        (Some(&p), Some(&n)) => Some(p / (p + n)),
+        (Some(p), Some(n)) => Some(p / (p + n)),
         _ => None,
     }
 }
