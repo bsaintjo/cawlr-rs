@@ -198,7 +198,7 @@ where
         read.start() - 5
     } as u64;
     let stop = read.stop() as u64;
-    let stop = if (stop + 6) > *chrom_len {
+    let stop = if (stop + 13) > *chrom_len {
         *chrom_len
     } else {
         // Need to extend it again so we can get windows past the end of the read
