@@ -8,6 +8,7 @@ use std::{
 
 use anyhow::Result;
 use bio::io::fasta::IndexedReader;
+use indicatif::ProgressIterator;
 use parquet::arrow::ArrowWriter;
 use rv::{
     prelude::{Gaussian, Mixture},
@@ -121,7 +122,7 @@ impl ScoreOptions {
 
     pub(crate) fn score(&mut self, nprs: Vec<PreprocessRead>) -> Result<()> {
         log::debug!("Len nprs {}", nprs.len());
-        for npr in nprs.into_iter() {
+        for npr in nprs.into_iter().progress() {
             let chrom = npr.chrom().to_owned();
             let mut acc = Vec::new();
             log::debug!("Read start: {}", npr.start());
