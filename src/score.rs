@@ -94,7 +94,7 @@ impl ScoreOptions {
         let pos_model = self.pos_ctrl.gmms().get(&best_kmer).unwrap();
         let neg_model = self.neg_ctrl.gmms().get(&best_kmer).unwrap();
         let signal_score = score_signal(ld.mean(), pos_model, neg_model);
-        let skip_score = score_skip(ld.kmer().to_string(), &self.pos_ctrl, &self.neg_ctrl);
+        let skip_score = score_present(ld.kmer().to_string(), &self.pos_ctrl, &self.neg_ctrl);
         log::debug!("signal score: {signal_score:?}");
         log::debug!("skip score: {skip_score:?}");
         let final_score = signal_score.or(skip_score).map(|x| (x, best_kmer));
@@ -284,9 +284,9 @@ fn score_signal(
     }
 }
 
-fn score_skip(kmer: String, pos_model: &Model, neg_model: &Model) -> Option<f64> {
-    let pos_frac = pos_model.skips().get(&kmer).map(|x| 1. - x);
-    let neg_frac = neg_model.skips().get(&kmer).map(|x| 1. - x);
+fn score_present(kmer: String, pos_model: &Model, neg_model: &Model) -> Option<f64> {
+    let pos_frac = pos_model.skips().get(&kmer);
+    let neg_frac = neg_model.skips().get(&kmer);
     match (pos_frac, neg_frac) {
         (Some(p), Some(n)) => Some(p / (p + n)),
         _ => None,
