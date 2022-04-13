@@ -11,7 +11,7 @@ use ndarray::Array;
 use rv::prelude::{Gaussian, Mixture};
 use serde::{Deserialize, Serialize};
 
-use crate::reads::PreprocessRead;
+use crate::{reads::PreprocessRead, score::infer_strand};
 
 pub(crate) type ModelDB = HashMap<String, Mixture<Gaussian>>;
 type KmerMeans = HashMap<String, Vec<f64>>;
@@ -156,12 +156,18 @@ impl Train {
     }
 
     fn get_read_seq(&mut self, read: &PreprocessRead) -> Result<Vec<u8>> {
+        let strand = infer_strand(read, self.genome_mut())?;
         let chrom = read.chrom();
         let start = read.start() as u64;
         let stop = read.stop() as u64;
         self.genome_mut().fetch(chrom, start, stop)?;
         let mut seq = Vec::new();
         self.genome_mut().read(&mut seq)?;
+        let seq = if strand.is_plus_strand() {
+            seq
+        } else {
+            bio::alphabets::dna::revcomp(seq)
+        };
         Ok(seq)
     }
 }

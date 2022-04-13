@@ -84,16 +84,16 @@ impl ScoreOptions {
         ld: &LData,
         read_seq: &HashMap<u64, Vec<u8>>,
     ) -> Result<Option<(f64, String)>> {
-        let positions = sixmer_postions(&self.chrom_lens, chrom, ld.pos());
-        log::debug!("positions: {positions:?}");
-        let kmers: Vec<&[u8]> = (positions.0..positions.1)
-            // .map(|x| read_seq[&x].as_ref())
-            .flat_map(|x| read_seq.get(&x))
-            .map(|x| x.as_ref())
-            .collect();
-        let best_kmer = choose_best_kmer(&self.rank, &kmers);
-        let best_kmer = from_utf8(best_kmer)?.to_owned();
-        log::debug!("best_kmer: {best_kmer}");
+        // let positions = sixmer_postions(&self.chrom_lens, chrom, ld.pos());
+        // log::debug!("positions: {positions:?}");
+        // let kmers: Vec<&[u8]> = (positions.0..positions.1)
+        //     .flat_map(|x| read_seq.get(&x))
+        //     .map(|x| x.as_ref())
+        //     .collect();
+        // let best_kmer = choose_best_kmer(&self.rank, &kmers);
+        // let best_kmer = from_utf8(best_kmer)?.to_owned();
+        // log::debug!("best_kmer: {best_kmer}");
+        let best_kmer = ld.kmer().to_owned();
         let pos_model = self.pos_ctrl.gmms().get(&best_kmer).unwrap();
         let neg_model = self.neg_ctrl.gmms().get(&best_kmer).unwrap();
         let signal_score = score_signal(ld.mean(), pos_model, neg_model);
@@ -108,9 +108,16 @@ impl ScoreOptions {
         &mut self,
         pos: u64,
         read_seq: &HashMap<u64, Vec<u8>>,
+        strand: &Strand,
     ) -> Result<Option<(f64, String)>> {
-        let kmer = &read_seq[&pos];
-        let kmer = from_utf8(kmer)?.to_owned();
+        let kmer = read_seq[&pos].clone();
+
+        let kmer = match strand {
+            Strand::Plus => kmer,
+            Strand::Minus => bio::alphabets::dna::revcomp(kmer),
+        };
+
+        let kmer = from_utf8(&kmer)?.to_owned();
 
         let pos_skip = self.pos_ctrl.skips().get(&kmer).map(|x| 1. - x);
         let neg_skip = self.neg_ctrl.skips().get(&kmer).map(|x| 1. - x);
@@ -123,6 +130,7 @@ impl ScoreOptions {
     pub(crate) fn score(&mut self, nprs: Vec<PreprocessRead>) -> Result<()> {
         log::debug!("Len nprs {}", nprs.len());
         for npr in nprs.into_iter().progress() {
+            let strand = infer_strand(&npr, &mut self.genome)?;
             let chrom = npr.chrom().to_owned();
             let mut acc = Vec::new();
             log::debug!("Read start: {}", npr.start());
@@ -134,7 +142,7 @@ impl ScoreOptions {
                     if let Some(ld) = data_pos.get(&pos) {
                         self.score_data(&chrom, ld, &read_seq)?
                     } else {
-                        self.score_skipped(pos as u64, &read_seq)?
+                        self.score_skipped(pos as u64, &read_seq, &strand)?
                     }
                 };
                 if let Some((score, kmer)) = final_score {
@@ -205,7 +213,8 @@ where
         *chrom_len
     } else {
         // Need to extend it again so we can get windows past the end of the read
-        // (6 for last overlapping kmer) + (6 include sequence of last kmer) + (1 fetch is exclusive for ending)
+        // (6 for last overlapping kmer) + (6 include sequence of last kmer) + (1 fetch
+        // is exclusive for ending)
         stop + 13
     };
     log::debug!("Calc start: {}", start_pos);
@@ -216,7 +225,10 @@ where
 
     // Will not iterate if (stop - 6) > start_pos
     if (stop - 13) < start_pos {
-        log::warn!("Stop is greater than start, no sequence will be produced {:?}", read.name());
+        log::warn!(
+            "Stop is greater than start, no sequence will be produced {:?}",
+            read.name()
+        );
     }
 
     let mut seq_map: HashMap<u64, Vec<u8>> = HashMap::new();
@@ -225,7 +237,6 @@ where
     }
     Ok(seq_map)
 }
-
 
 fn get_genome_chrom_lens<R>(genome: &IndexedReader<R>) -> HashMap<String, u64>
 where
@@ -238,11 +249,7 @@ where
     chrom_lens
 }
 
-
-fn choose_best_kmer<'a>(
-    kmer_ranks: &HashMap<String, f64>,
-    kmers: &[&'a [u8]],
-) -> &'a [u8] {
+fn choose_best_kmer<'a>(kmer_ranks: &HashMap<String, f64>, kmers: &[&'a [u8]]) -> &'a [u8] {
     kmers
         .iter()
         .map(|x| {
@@ -296,31 +303,66 @@ fn score_present(kmer: String, pos_model: &Model, neg_model: &Model) -> Option<f
     }
 }
 
-// #[cfg(test)]
-// mod test {
-//     use std::io::Cursor;
+pub(crate) enum Strand {
+    Plus,
+    Minus,
+}
 
-//     use super::*;
+impl Strand {
+    pub(crate) fn is_plus_strand(&self) -> bool {
+        matches!(self, Strand::Plus)
+    }
+}
 
-//     #[test]
-//     fn test_get_genomic_context() {
-//         const FASTA_FILE: &[u8] = b">chr1\nGTAGGCTGAAAA\nCCCC";
-//         const FAI_FILE: &[u8] = b"chr1\t16\t6\t12\t13";
+// Nanopolish and everything else is zero-based
+pub(crate) fn infer_strand<R>(lread: &LRead<LData>, genome: &mut IndexedReader<R>) -> Result<Strand>
+where
+    R: Read + Seek,
+{
+    let ld = &lread.data()[0];
+    let chrom = lread.chrom();
+    let pos = ld.pos();
+    let kmer = ld.kmer();
 
-//         let chrom = "chr1";
-//         let pos = 7;
-//         let mut genome = IndexedReader::new(Cursor::new(FASTA_FILE), FAI_FILE).unwrap();
-//         let chrom_lens = get_genome_chrom_lens(&genome);
-//         let seq = get_genomic_context(&chrom_lens, &mut genome, chrom, pos, true).unwrap();
-//         assert_eq!(seq, b"AGGCTGAAAAC");
+    genome.fetch(chrom, pos, pos + 6)?;
+    let mut seq = Vec::new();
+    genome.read(&mut seq)?;
 
-//         let pos = 2;
-//         let seq = get_genomic_context(&chrom_lens, &mut genome, chrom, pos, true).unwrap();
-//         assert_eq!(seq, b"GTAGGCTG");
+    let seq = from_utf8(&seq)?;
+    if seq == kmer {
+        Ok(Strand::Plus)
+    } else {
+        Ok(Strand::Minus)
+    }
+}
 
-//         // eprintln!("{:?}", genome.index.sequences());
-//         let pos = 14;
-//         let seq = get_genomic_context(&chrom_lens, &mut genome, chrom, pos, true).unwrap();
-//         assert_eq!(seq, b"AAACCCC");
-//     }
-// }
+#[cfg(test)]
+mod test {
+    use std::io::Cursor;
+
+    use super::*;
+
+    #[test]
+    fn test_infer_strand() {
+        const FASTA_FILE: &[u8] = b">chr1\nGTAGGCTGAAAA\nCCCC";
+        const FAI_FILE: &[u8] = b"chr1\t16\t6\t12\t13";
+
+        let chrom = "chr1";
+        let mut genome = IndexedReader::new(Cursor::new(FASTA_FILE), FAI_FILE).unwrap();
+        let ld = LData::new(6, "TGAAAA".to_owned(), 0.0, 0.0);
+        let lread: LRead<LData> =
+            LRead::new(Vec::new(), chrom.to_owned(), 1, 20, Vec::new(), vec![ld]);
+        let ld = &lread.data()[0];
+        let chrom = lread.chrom();
+        let pos = ld.pos();
+        let kmer = ld.kmer();
+
+        genome.fetch(chrom, pos, pos + 6).unwrap();
+        let mut seq = Vec::new();
+        genome.read(&mut seq).unwrap();
+
+        let seq = from_utf8(&seq).unwrap();
+        assert_eq!(kmer, "TGAAAA");
+        assert_eq!(seq, "TGAAAA");
+    }
+}
