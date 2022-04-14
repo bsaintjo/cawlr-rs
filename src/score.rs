@@ -94,14 +94,19 @@ impl ScoreOptions {
         // let best_kmer = from_utf8(best_kmer)?.to_owned();
         // log::debug!("best_kmer: {best_kmer}");
         let best_kmer = ld.kmer().to_owned();
-        let pos_model = self.pos_ctrl.gmms().get(&best_kmer).unwrap();
-        let neg_model = self.neg_ctrl.gmms().get(&best_kmer).unwrap();
-        let signal_score = score_signal(ld.mean(), pos_model, neg_model);
-        let skip_score = score_present(ld.kmer().to_string(), &self.pos_ctrl, &self.neg_ctrl);
-        log::debug!("signal score: {signal_score:?}");
-        log::debug!("skip score: {skip_score:?}");
-        let final_score = signal_score.or(skip_score).map(|x| (x, best_kmer));
-        Ok(final_score)
+        let pos_model = self.pos_ctrl.gmms().get(&best_kmer);
+        let neg_model = self.neg_ctrl.gmms().get(&best_kmer);
+        match (pos_model, neg_model) {
+            (Some(pos_gmm), Some(neg_gmm)) => {
+                let signal_score = score_signal(ld.mean(), pos_gmm, neg_gmm);
+                let skip_score = score_present(ld.kmer().to_string(), &self.pos_ctrl, &self.neg_ctrl);
+                log::debug!("signal score: {signal_score:?}");
+                log::debug!("skip score: {skip_score:?}");
+                let final_score = signal_score.or(skip_score).map(|x| (x, best_kmer));
+                Ok(final_score)
+            }
+            _ => Ok(None)
+        }
     }
 
     fn score_skipped(
