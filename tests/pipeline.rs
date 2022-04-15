@@ -92,7 +92,7 @@ fn pipeline() -> Result<(), Box<dyn Error>> {
         .success();
 
     eprintln!("Scoring single read");
-    let scores = temp_dir.path().join("scores");
+    let scores = temp_dir.path().join("single_scores");
     Command::new(cawlr)
         .arg("score")
         .arg("--neg-ctrl")
@@ -101,6 +101,46 @@ fn pipeline() -> Result<(), Box<dyn Error>> {
         .arg(&pos_train)
         .arg("-i")
         .arg(&single_read_output)
+        .arg("-r")
+        .arg(&ranks)
+        .arg("-g")
+        .arg(&genome)
+        .arg("-o")
+        .arg(scores)
+        .env("RUST_BACKTRACE", "1")
+        .assert()
+        .success();
+
+    eprintln!("Scoring positive controls");
+    let scores = temp_dir.path().join("pos_scores");
+    Command::new(cawlr)
+        .arg("score")
+        .arg("--neg-ctrl")
+        .arg(&neg_train)
+        .arg("--pos-ctrl")
+        .arg(&pos_train)
+        .arg("-i")
+        .arg(&pos_output)
+        .arg("-r")
+        .arg(&ranks)
+        .arg("-g")
+        .arg(&genome)
+        .arg("-o")
+        .arg(scores)
+        .env("RUST_BACKTRACE", "1")
+        .assert()
+        .success();
+
+    eprintln!("Scoring negative controls");
+    let scores = temp_dir.path().join("neg_scores");
+    Command::new(cawlr)
+        .arg("score")
+        .arg("--neg-ctrl")
+        .arg(&neg_train)
+        .arg("--pos-ctrl")
+        .arg(&pos_train)
+        .arg("-i")
+        .arg(&neg_output)
         .arg("-r")
         .arg(&ranks)
         .arg("-g")
