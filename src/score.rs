@@ -265,6 +265,13 @@ fn choose_best_kmer<'a>(
         .0
 }
 
+fn choose_model(neg_mix: &Mixture<Gaussian>) -> &Gaussian {
+    let true_neg = rv::misc::argmax(neg_mix.weights());
+    let true_neg = true_neg[0];
+    let true_neg = &neg_mix.components()[true_neg];
+    true_neg
+}
+
 /// Score given signal based on GMM from a positive and negative control.
 /// Scoring function based on:
 ///  Wang, Y. et al. Single-molecule long-read sequencing reveals the chromatin
@@ -276,6 +283,7 @@ fn score_signal(
     pos_mix: &Mixture<Gaussian>,
     neg_mix: &Mixture<Gaussian>,
 ) -> Option<f64> {
+    let neg_mix = choose_model(neg_mix);
     let pos_log_proba = pos_mix.f(&signal);
     let neg_log_proba = neg_mix.f(&signal);
     let score = pos_log_proba / (pos_log_proba + neg_log_proba);
