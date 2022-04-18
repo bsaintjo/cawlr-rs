@@ -277,7 +277,7 @@ fn choose_best_kmer<'a>(kmer_ranks: &HashMap<String, f64>, kmers: &[&'a [u8]]) -
         .0
 }
 
-fn choose_model(neg_mix: &Mixture<Gaussian>) -> &Gaussian {
+pub(crate) fn choose_model(neg_mix: &Mixture<Gaussian>) -> &Gaussian {
     let true_neg = rv::misc::argmax(neg_mix.weights());
     let true_neg = true_neg[0];
     let true_neg = &neg_mix.components()[true_neg];
