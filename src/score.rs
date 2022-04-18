@@ -12,7 +12,7 @@ use indicatif::ProgressIterator;
 use parquet::arrow::ArrowWriter;
 use rv::{
     prelude::{Gaussian, Mixture},
-    traits::Rv,
+    traits::{Rv, KlDivergence},
 };
 use serde_arrow::{to_record_batch, trace_schema, Schema};
 
@@ -282,6 +282,18 @@ pub(crate) fn choose_model(neg_mix: &Mixture<Gaussian>) -> &Gaussian {
     let true_neg = true_neg[0];
     let true_neg = &neg_mix.components()[true_neg];
     true_neg
+}
+
+pub(crate) fn choose_pos_model<'a>(neg_comp: &Gaussian, pos_mix: &'a Mixture<Gaussian>) -> &'a Gaussian {
+    pos_mix.components().iter().reduce(|g1, g2| {
+        let g1_kl = g1.kl(neg_comp);
+        let g2_kl = g2.kl(neg_comp);
+        if g1_kl > g2_kl {
+            g1
+        } else {
+            g2
+        }
+    }).unwrap()
 }
 
 /// Score given signal based on GMM from a positive and negative control.
