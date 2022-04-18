@@ -5,7 +5,7 @@ use rv::{
     traits::Rv,
 };
 
-use crate::train::Model;
+use crate::{train::Model, score::choose_model};
 
 pub struct RankOptions {
     rng: SmallRng,
@@ -26,6 +26,7 @@ impl RankOptions {
     //
     // TODO: Check if some normalization is required for this
     fn kl_approx(&mut self, pos_ctrl: &Mixture<Gaussian>, neg_ctrl: &Mixture<Gaussian>) -> f64 {
+        let neg_ctrl = choose_model(neg_ctrl);
         let samples: Vec<f32> = pos_ctrl.sample(self.n_samples, &mut self.rng);
         let total: f64 = samples
             .into_iter()
