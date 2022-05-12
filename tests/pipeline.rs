@@ -14,7 +14,7 @@ fn pipeline() -> Result<(), Box<dyn Error>> {
     let genome = "extra/sacCer3.fa";
 
     eprintln!("Preprocessing positive control");
-    let pos_output = temp_dir.path().join("pos_control.parquet");
+    let pos_output = temp_dir.path().join("pos_control.output");
     Command::new(cawlr)
         .arg("collapse")
         .arg("-i")
@@ -26,7 +26,7 @@ fn pipeline() -> Result<(), Box<dyn Error>> {
         .success();
 
     eprintln!("Preprocessing negative control");
-    let neg_output = temp_dir.path().join("neg_control.parquet");
+    let neg_output = temp_dir.path().join("neg_control.output");
     Command::new(cawlr)
         .arg("collapse")
         .arg("-i")
@@ -38,7 +38,7 @@ fn pipeline() -> Result<(), Box<dyn Error>> {
         .success();
 
     eprintln!("Preprocessing single read.");
-    let single_read_output = temp_dir.path().join("single_read.parquet");
+    let single_read_output = temp_dir.path().join("single_read.output");
     Command::new(cawlr)
         .arg("collapse")
         .arg("-i")

@@ -4,7 +4,7 @@
 
 **C**hromatin **a**ccesibility **w**ith **l**ong **r**eads (`cawlr`) is a tool for detecting accessible regions of chromatin on single molecules. The tool works with nanopore data via [`nanopolish`](https://github.com/jts/nanopolish) or PacBio data via [`kineticsTools`](https://github.com/PacificBiosciences/kineticsTools).
 
-`cawlr` is flexible and can work with data that uses various modifications for chromatin accessibility detection. Outputs of all `cawlr` modules are in parquet format can be manipulated via any programming language that has an [Apache Arrow](https://arrow.apache.org/install/) library. Furthermore, `cawlr` includes various scripts for plotting and evaluating the results.
+`cawlr` is flexible and can work with data that uses various modifications for chromatin accessibility detection. Outputs of all `cawlr` modules are in Apache Arrow format can be manipulated via any programming language that has an [Apache Arrow](https://arrow.apache.org/install/) library. Furthermore, `cawlr` includes various scripts for plotting and evaluating the results.
 
 - [cawlr 𓅨](#cawlr-𓅨)
   - [Installation](#installation)
@@ -21,7 +21,6 @@
   - [Nanopore data preparation](#nanopore-data-preparation)
   - [Usage](#usage)
     - [`cawlr collapse`](#cawlr-collapse)
-    - [`cawlr preprocess`](#cawlr-preprocess)
     - [`cawlr train`](#cawlr-train)
     - [`cawlr rank`](#cawlr-rank)
     - [`cawlr score`](#cawlr-score)
@@ -108,12 +107,13 @@ nanopolish eventalign --reads reads.fasta \
     --print-read-names >eventalign.txt
 ```
 
+TODO unique mapping reads consideration
+
 ## Usage
 
 ### `cawlr collapse`
 
 ```bash
-$ cawlr help collapse
 cawlr-collapse 
 
 USAGE:
@@ -123,32 +123,7 @@ OPTIONS:
     -c, --capacity <CAPACITY>    Number of eventalign records to hold in memory [default: 2048]
     -h, --help                   Print help information
     -i, --input <INPUT>          path to nanopolish eventalign output with samples column
-    -o, --output <OUTPUT>        path to output file in parquet format
-
-```
-
-### `cawlr preprocess`
-
-```bash
-$ cawlr help preprocess
-cawlr-preprocess 
-Calculates mean per-read per-position and optionally filters data based on a given region
-
-USAGE:
-    cawlr preprocess [OPTIONS] --input <INPUT> --bam <BAM> --genome <GENOME> --output <OUTPUT>
-
-OPTIONS:
-    -b, --bam <BAM>          path to nanopolish eventalign output with samples column
-    -c, --chrom <CHROM>      output only includes data from this chromosome
-    -g, --genome <GENOME>    path to genome file
-    -h, --help               Print help information
-    -i, --input <INPUT>      path to nanopolish eventalign output with samples column
-    -o, --output <OUTPUT>    path to output file in parquet format
-        --start <START>      output only includes data that aligns at or after this position, should
-                             be set with --chrom TODO: Throw error if set without --chrom
-        --stop <STOP>        output only includes data that aligns at or before this position,
-                             should be set with --chrom TODO: Throw error if set without --chrom
-
+    -o, --output <OUTPUT>        path to output file in Apache Arrow format
 ```
 
 ### `cawlr train`
@@ -159,12 +134,14 @@ cawlr-train
 For each kmer, train a two-component gaussian mixture model and save models to a file
 
 USAGE:
-    cawlr train --input <INPUT> --output <OUTPUT>
+    cawlr train [OPTIONS] --input <INPUT> --output <OUTPUT> --genome <GENOME>
 
 OPTIONS:
-    -h, --help               Print help information
-    -i, --input <INPUT>      Parquet file of positive or negative control from cawlr preprocess
-    -o, --output <OUTPUT>    
+    -g, --genome <GENOME>      Path to genome fasta file
+    -h, --help                 Print help information
+    -i, --input <INPUT>        Positive or negative control output from cawlr collapse
+    -o, --output <OUTPUT>      Path to resulting pickle file
+    -s, --samples <SAMPLES>    Number of samples per kmer to allow [default: 50000]
 ```
 
 ### `cawlr rank`
@@ -172,18 +149,21 @@ OPTIONS:
 ```bash
 $ cawlr help rank
 cawlr-rank 
-Rank each kmer by the symmetrical Kulback-Leibler Divergence and output results
+Rank each kmer by the Kulback-Leibler Divergence and between the trained models
 
 USAGE:
     cawlr rank [OPTIONS] --pos-ctrl <POS_CTRL> --neg-ctrl <NEG_CTRL> --output <OUTPUT>
 
 OPTIONS:
     -h, --help                   Print help information
-        --neg-ctrl <NEG_CTRL>    
-    -o, --output <OUTPUT>        
-        --pos-ctrl <POS_CTRL>    
-        --samples <SAMPLES>      [default: 10000]
-        --seed <SEED>            [default: 2456]
+        --neg-ctrl <NEG_CTRL>    Negative control output from cawlr train
+    -o, --output <OUTPUT>        Path to output file
+        --pos-ctrl <POS_CTRL>    Positive control output from cawlr train
+        --samples <SAMPLES>      Ranks are estimated via sampling, higher value for samples means it
+                                 takes longer for cawlr rank to run but the ranks will be more
+                                 accurate [default: 100000]
+        --seed <SEED>            Ranks are estimated via sampling, so to keep values consistent
+                                 between subsequent runs a seed value is used [default: 2456]
 ```
 
 ### `cawlr score`
@@ -191,20 +171,22 @@ OPTIONS:
 ```text
 $ cawlr help score
 cawlr-score 
+Score each kmer with likelihood based on positive and negative controls
 
 USAGE:
-    cawlr score --input <INPUT> --output <OUTPUT> --pos-ctrl <POS_CTRL> --neg-ctrl <NEG_CTRL> --ranks <RANKS> --genome <GENOME> --cutoff <CUTOFF>
+    cawlr score [OPTIONS] --input <INPUT> --output <OUTPUT> --pos-ctrl <POS_CTRL> --neg-ctrl <NEG_CTRL> --ranks <RANKS> --genome <GENOME>
 
 OPTIONS:
-        --cutoff <CUTOFF>        
-    -g, --genome <GENOME>        
+        --cutoff <CUTOFF>        [default: 10]
+    -g, --genome <GENOME>        Path to fasta file for organisms genome, must have a .fai file from
+                                 samtools faidx
     -h, --help                   Print help information
-    -i, --input <INPUT>          
-        --neg-ctrl <NEG_CTRL>    
-    -o, --output <OUTPUT>        
-        --pos-ctrl <POS_CTRL>    
-    -r, --ranks <RANKS>          
-
+    -i, --input <INPUT>          Path to Apache Arrow file from cawlr collapse
+    -m, --motif <MOTIF>          
+        --neg-ctrl <NEG_CTRL>    Negative control file from cawlr train
+    -o, --output <OUTPUT>        Path to output file
+        --pos-ctrl <POS_CTRL>    Positive control file from cawlr train
+    -r, --ranks <RANKS>          Path to rank file from cawlr rank
 ```
 
 ### `cawlr sma`
@@ -215,16 +197,7 @@ TODO: Point out the models that are provided by `cawlr`
 
 ## Example `cawlr` vignette
 
-```bash
-# Prepare control data
-cawlr preprocess
-cawlr preproces
-
-
-# Data to be analyzed
-cawlr
-
-```
+TODO
 
 ## QC Scripts
 

@@ -23,7 +23,6 @@ use crate::{
 };
 
 pub(crate) struct ScoreOptions {
-    // input: String,
     pos_ctrl: Model,
     neg_ctrl: Model,
     genome: IndexedReader<File>,
@@ -196,6 +195,7 @@ where
             let x_str = from_utf8(x).unwrap();
             (x, kmer_ranks.get(x_str))
         })
+        // TODO Use filter map and avoid additional Options later
         .filter(|x| x.1.is_some())
         .reduce(|a, b| match (a.1, b.1) {
             (None, _) => b,

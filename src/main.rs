@@ -40,7 +40,7 @@ enum Commands {
         input: String,
 
         #[clap(short, long)]
-        /// path to output file in parquet format
+        /// path to output file in Apache Arrow format
         output: String,
         // TODO: Reimplement
         // #[clap(short, long)]
@@ -65,7 +65,7 @@ enum Commands {
     /// models to a file
     Train {
         #[clap(short, long)]
-        /// Positive or negative control output from cawlr preprocess
+        /// Positive or negative control output from cawlr collapse
         input: String,
 
         #[clap(short, long)]
@@ -111,7 +111,7 @@ enum Commands {
     /// Score each kmer with likelihood based on positive and negative controls
     Score {
         #[clap(short, long)]
-        /// Path to parquet file from cawlr preprocess
+        /// Path to Apache Arrow file from cawlr collapse
         input: String,
 
         #[clap(short, long)]
@@ -136,7 +136,6 @@ enum Commands {
         genome: String,
 
         #[clap(long, default_value_t = 10.0)]
-        /// TODO: Only score with kmers whose KL score is greater cutoff
         cutoff: f64,
 
         #[clap(short, long)]
@@ -172,7 +171,6 @@ enum Commands {
 fn main() -> Result<()> {
     env_logger::init();
     let args = Args::parse();
-    // TODO: Remove ref and fix rest of the functions
     match args.command {
         Commands::Collapse {
             input,

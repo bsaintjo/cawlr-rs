@@ -34,6 +34,7 @@ fn empty_from_npr(npr: &Npr) -> Eventalign {
 /// TODO: Strand inference will almost always work but needs to handle edge
 /// cases, ie mismatch in low complexity region at end of the read can lead to
 /// strand "switching"
+/// TODO Strand inference by difference in event_index
 fn nprs_to_eventalign(nprs: Vec<Npr>) -> Result<Option<Eventalign>> {
     let mut eventalign = nprs
         .get(0)
