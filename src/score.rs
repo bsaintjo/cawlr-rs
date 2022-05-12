@@ -99,17 +99,16 @@ impl ScoreOptions {
             choose_best_kmer(&self.rank, &kmers).unwrap_or_else(|| ld.kmer().as_bytes());
         let best_kmer = from_utf8(best_kmer)?.to_owned();
         log::debug!("best_kmer: {best_kmer}");
-        let best_kmer = ld.kmer().to_owned();
+        let ref_kmer = ld.kmer().to_owned();
         let pos_model = self.pos_ctrl.gmms().get(&best_kmer);
         let neg_model = self.neg_ctrl.gmms().get(&best_kmer);
         match (pos_model, neg_model) {
             (Some(pos_gmm), Some(neg_gmm)) => {
                 let signal_score = score_signal(ld.mean(), pos_gmm, neg_gmm, self.cutoff);
-                let skip_score =
-                    score_present(ld.kmer().to_string(), &self.pos_ctrl, &self.neg_ctrl);
+                let skip_score = score_present(&ref_kmer, &self.pos_ctrl, &self.neg_ctrl);
                 log::debug!("signal score: {signal_score:?}");
                 log::debug!("skip score: {skip_score:?}");
-                let final_score = signal_score.or(skip_score).map(|x| (x, best_kmer));
+                let final_score = signal_score.or(skip_score).map(|x| (x, ref_kmer));
                 Ok(final_score)
             }
             _ => Ok(None),
@@ -117,7 +116,9 @@ impl ScoreOptions {
     }
 
     fn score_skipped(&mut self, pos: u64, read_seq: &Context) -> Result<Option<(f64, String)>> {
-        let kmer = read_seq.sixmer_at(pos)?;
+        let kmer = read_seq.sixmer_at(pos).ok_or(anyhow::anyhow!(
+            "position kmer length < 6, incorrect position?"
+        ))?;
         let kmer = from_utf8(kmer)?;
 
         let pos_skip = self.pos_ctrl.skips().get(kmer).map(|x| 1. - x);
@@ -128,11 +129,13 @@ impl ScoreOptions {
         }
     }
 
+    // TODO Filter with motifs
     fn score_eventalign(&mut self, read: Eventalign) -> Result<ScoredRead> {
         let mut acc = Vec::new();
         let context = Context::from_read(&mut self.genome, &self.chrom_lens, &read)?;
         let data_pos = pos_with_data(&read);
         for pos in read.start_ob()..=read.stop_ob() {
+            // TODO Skip, probably using context and Context::sixmer_at
             let final_score = {
                 if let Some(ld) = data_pos.get(&pos) {
                     self.score_data(ld, &context)?
@@ -141,6 +144,8 @@ impl ScoreOptions {
                 }
             };
             if let Some((score, kmer)) = final_score {
+                // TODO Easiest atm to skip here but should refactor earlier section to skip
+                // back there
                 let score = Score::new(pos, kmer, score);
                 acc.push(score);
             }
@@ -268,9 +273,9 @@ fn score_signal(
     }
 }
 
-fn score_present(kmer: String, pos_model: &Model, neg_model: &Model) -> Option<f64> {
-    let pos_frac = pos_model.skips().get(&kmer);
-    let neg_frac = neg_model.skips().get(&kmer);
+fn score_present(kmer: &str, pos_model: &Model, neg_model: &Model) -> Option<f64> {
+    let pos_frac = pos_model.skips().get(kmer);
+    let neg_frac = neg_model.skips().get(kmer);
     match (pos_frac, neg_frac) {
         (Some(p), Some(n)) => Some(p / (p + n)),
         _ => None,
@@ -354,17 +359,10 @@ impl Context {
 
     /// Returns None if the position is near the end of the chromosome and it
     /// would return a position with a kmer size less than six
-    fn sixmer_at(&self, pos: u64) -> Result<&[u8]> {
+    fn sixmer_at(&self, pos: u64) -> Option<&[u8]> {
         let true_pos = (pos - self.read_start) + self.start_slop;
-        let ctxt_len = self.context.len() as u64;
-        if (true_pos + 5) < ctxt_len {
-            let true_pos = true_pos as usize;
-            Ok(&self.context[true_pos..=true_pos + 5])
-        } else {
-            Err(anyhow::anyhow!(
-                "position kmer length < 6, incorrect position?"
-            ))
-        }
+        let true_pos = true_pos as usize;
+        self.context.get(true_pos..=true_pos + 5)
     }
 }
 
