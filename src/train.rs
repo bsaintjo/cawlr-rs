@@ -1,25 +1,26 @@
-use std::{
-    collections::{HashMap, HashSet},
-    fs::File,
-};
+use std::{collections::HashMap, fs::File};
 
 use anyhow::Result;
 use bio::io::fasta::IndexedReader;
-use linfa::{traits::Fit, DatasetBase, ParamGuard};
-use linfa_clustering::GaussianMixtureModel;
+use fnv::{FnvHashMap, FnvHashSet};
+use linfa::{
+    traits::{Fit, Transformer},
+    DatasetBase, ParamGuard,
+};
+use linfa_clustering::{Dbscan, GaussianMixtureModel};
 use ndarray::Array;
 use rv::prelude::{Gaussian, Mixture};
 use serde::{Deserialize, Serialize};
 
-use crate::{reads::PreprocessRead, score::infer_strand};
+use crate::arrow::{load_apply, Eventalign};
 
-pub(crate) type ModelDB = HashMap<String, Mixture<Gaussian>>;
-type KmerMeans = HashMap<String, Vec<f64>>;
+pub(crate) type ModelDB = FnvHashMap<String, Mixture<Gaussian>>;
+type KmerMeans = FnvHashMap<String, Vec<f64>>;
 
 #[derive(Serialize, Deserialize)]
 pub(crate) struct Model {
     gmms: ModelDB,
-    skips: HashMap<String, f64>,
+    skips: FnvHashMap<String, f64>,
 }
 
 impl Model {
@@ -29,13 +30,13 @@ impl Model {
     }
 
     /// Get a reference to the model's skips.
-    pub(crate) fn skips(&self) -> &HashMap<String, f64> {
+    pub(crate) fn skips(&self) -> &FnvHashMap<String, f64> {
         &self.skips
     }
 }
 
 impl Model {
-    pub(crate) fn new(gmms: ModelDB, skips: HashMap<String, f64>) -> Self {
+    pub(crate) fn new(gmms: ModelDB, skips: FnvHashMap<String, f64>) -> Self {
         Self { gmms, skips }
     }
 }
@@ -74,11 +75,11 @@ impl Default for Skips {
     }
 }
 
-struct KmerSkips(HashMap<Vec<u8>, Skips>);
+struct KmerSkips(FnvHashMap<Vec<u8>, Skips>);
 
 impl KmerSkips {
     fn new() -> Self {
-        Self(HashMap::new())
+        Self(FnvHashMap::default())
     }
 }
 
@@ -86,29 +87,53 @@ pub(crate) struct Train {
     acc: KmerMeans,
     skips: KmerSkips,
     genome: IndexedReader<File>,
+    // TODO Maybe change to a Path
+    feather: String,
+    samples: usize,
 }
 
 impl Train {
-    pub(crate) fn try_new(genome: &str) -> Result<Self> {
+    pub(crate) fn try_new(
+        filename: &str,
+        genome: &str,
+        samples: usize,
+    ) -> Result<Self, anyhow::Error> {
         let genome = IndexedReader::from_file(&genome)?;
+        let feather = filename.to_owned();
         Ok(Self {
-            acc: HashMap::new(),
+            acc: FnvHashMap::default(),
             skips: KmerSkips::new(),
             genome,
+            feather,
+            samples,
         })
     }
 
-    pub(crate) fn run(mut self, reads: Vec<PreprocessRead>) -> Result<Model> {
-        for read in reads.into_iter() {
-            self.read_to_kmer_means(&read);
-            self.read_to_skip_counts(&read)?;
-        }
+    fn kmer_means_insufficient(&self) -> bool {
+        self.acc.is_empty() || insufficient(&self.acc, self.samples)
+    }
 
-        let mut gmms = HashMap::new();
+    fn kmer_skips_insufficient(&self) -> bool {
+        self.skips.0.is_empty() || self.skips.0.values().any(|x| x.total < self.samples)
+    }
+
+    pub(crate) fn run(mut self) -> Result<Model> {
+        let file = File::open(&self.feather)?;
+        load_apply(file, |eventaligns| {
+            for eventalign in eventaligns.into_iter() {
+                if self.kmer_means_insufficient() || self.kmer_skips_insufficient() {
+                    self.read_to_kmer_means(&eventalign);
+                    self.read_to_skip_counts(&eventalign)?;
+                }
+            }
+            Ok(())
+        })?;
+
+        let mut gmms = FnvHashMap::default();
         for (kmer, kmer_mean) in self.acc.into_iter() {
             if kmer_mean.len() > 1 {
                 let gmm = train_gmm(kmer_mean);
-                if let Ok(gmm) = gmm {
+                if let Ok(Some(gmm)) = gmm {
                     gmms.insert(kmer, gmm);
                 } else {
                     log::warn!("Failed to train for kmer {kmer}.");
@@ -116,7 +141,7 @@ impl Train {
             }
         }
 
-        let mut ratios = HashMap::new();
+        let mut ratios = FnvHashMap::default();
         for (kmer, skips) in self.skips.0.into_iter() {
             let kmer = String::from_utf8(kmer)?;
             let ratio = (skips.count as f64) / (skips.total as f64);
@@ -128,21 +153,24 @@ impl Train {
         Ok(model)
     }
 
-    fn read_to_kmer_means(&mut self, read: &PreprocessRead) {
-        for ld in read.iter() {
-            let mean = ld.mean();
-            let kmer = ld.kmer().to_owned();
+    fn read_to_kmer_means(&mut self, read: &Eventalign) {
+        for signal in read.signal_iter() {
+            if let Some(true) = self.acc.get(signal.kmer()).map(|v| v.len() > self.samples) {
+                continue;
+            }
+            let mean = signal.mean();
+            let kmer = signal.kmer().to_owned();
             self.acc.entry(kmer).or_default().push(mean);
         }
     }
 
-    fn read_to_skip_counts(&mut self, read: &PreprocessRead) -> Result<()> {
-        let mut pos_scores = HashSet::new();
-        for ld in read.iter() {
-            pos_scores.insert(ld.pos() as usize);
+    fn read_to_skip_counts(&mut self, read: &Eventalign) -> Result<()> {
+        let mut pos_scores = FnvHashSet::default();
+        for signal in read.signal_iter() {
+            pos_scores.insert(signal.pos());
         }
         let read_seq = self.get_read_seq(read)?;
-        for (kmer, pos) in read_seq.windows(6).zip(read.start()..) {
+        for (kmer, pos) in read_seq.windows(6).zip(read.start_zb()..) {
             let has_score = pos_scores.contains(&pos);
             let kskip = self.skips.0.entry(kmer.to_owned()).or_default();
             kskip.had_score(has_score);
@@ -155,15 +183,15 @@ impl Train {
         &mut self.genome
     }
 
-    fn get_read_seq(&mut self, read: &PreprocessRead) -> Result<Vec<u8>> {
-        let strand = infer_strand(read, self.genome_mut())?;
+    // TODO: Use Context instead
+    fn get_read_seq(&mut self, read: &Eventalign) -> Result<Vec<u8>> {
+        let strand = read.strand();
         let chrom = read.chrom();
-        let start = read.start() as u64;
-        let stop = read.stop() as u64;
-        self.genome_mut().fetch(chrom, start, stop)?;
+        let start = read.start_zb();
+        self.genome_mut().fetch(chrom, start, read.seq_stop_zb())?;
         let mut seq = Vec::new();
         self.genome_mut().read(&mut seq)?;
-        let seq = if strand.is_plus_strand() {
+        let seq = if strand == crate::arrow::Strand::plus() {
             seq
         } else {
             bio::alphabets::dna::revcomp(seq)
@@ -172,10 +200,51 @@ impl Train {
     }
 }
 
-fn train_gmm(means: Vec<f64>) -> Result<Mixture<Gaussian>> {
+fn train_gmm(means: Vec<f64>) -> Result<Option<Mixture<Gaussian>>> {
     let len = means.len();
     let shape = (len, 1);
     let means = Array::from_shape_vec(shape, means)?;
+    let data = DatasetBase::from(means);
+    let min_points = 3;
+    let data = Dbscan::params(min_points)
+        .tolerance(1e-3)
+        .check()?
+        .transform(data);
+
+    // Filter the noise from the Dbscan output
+    // TODO: Should be a faster way to do this but for now convert to vec and back
+    // before training
+
+    let recs = data
+        .records()
+        .as_slice()
+        .expect("Getting records failed after DBSCAN");
+    let targets = data
+        .targets()
+        .as_slice()
+        .expect("Getting targets failed after DBSCAN");
+
+    let obs: Vec<f64> = recs
+        .iter()
+        .zip(targets.iter())
+        .filter_map(
+            |(&x, cluster)| {
+                if cluster.is_some() {
+                    Some(x)
+                } else {
+                    None
+                }
+            },
+        )
+        .collect();
+    if obs.len() < 2 {
+        log::warn!("Not enough values left in observations");
+        return Ok(None);
+    }
+
+    let len = obs.len();
+    let shape = (len, 1);
+    let means = Array::from_shape_vec(shape, obs)?;
     let data = DatasetBase::from(means);
 
     let n_clusters = 2;
@@ -195,7 +264,11 @@ fn train_gmm(means: Vec<f64>) -> Result<Mixture<Gaussian>> {
         .collect::<Vec<Gaussian>>();
     let mm = Mixture::new_unchecked(weights, gausses);
 
-    Ok(mm)
+    Ok(Some(mm))
+}
+
+fn insufficient<K, V, S>(dict: &HashMap<K, Vec<V>, S>, n: usize) -> bool {
+    dict.values().any(|f| f.len() < n)
 }
 
 #[cfg(test)]
@@ -204,6 +277,20 @@ mod test {
     use rv::traits::Rv;
 
     use super::*;
+
+    #[test]
+    fn test_insufficient() {
+        let n = 5;
+        let x = vec![0; 10];
+        let y = vec![1; 20];
+        let mut dict = HashMap::new();
+        dict.insert('x', x);
+        dict.insert('y', y);
+        assert!(!insufficient(&dict, n));
+
+        let n = 40;
+        assert!(insufficient(&dict, n))
+    }
 
     #[test]
     fn test_linfa_to_rv() {
@@ -232,7 +319,11 @@ mod test {
 
         let weights = gmm.weights().iter().cloned().collect::<Vec<f64>>();
         let means = gmm.means().iter().collect::<Vec<_>>();
-        let sigmas = gmm.covariances().iter().map(|x| x.sqrt()).collect::<Vec<_>>();
+        let sigmas = gmm
+            .covariances()
+            .iter()
+            .map(|x| x.sqrt())
+            .collect::<Vec<_>>();
         eprintln!("Original weights: 0.5");
         eprintln!("weights: {weights:?}");
         eprintln!("Original means: 80, 105");

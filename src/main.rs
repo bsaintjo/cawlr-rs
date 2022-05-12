@@ -6,14 +6,15 @@ use collapse::CollapseOptions;
 #[cfg(feature = "mimalloc")]
 use mimalloc::MiMalloc;
 
+mod arrow;
 mod collapse;
 mod rank;
-mod reads;
 mod score;
 mod sma;
 mod train;
 mod utils;
 
+use train::Model;
 use utils::CawlrIO;
 
 #[cfg(feature = "mimalloc")]
@@ -33,7 +34,6 @@ struct Args {
 
 #[derive(Subcommand, Debug)]
 enum Commands {
-
     Collapse {
         #[clap(short, long)]
         /// path to nanopolish eventalign output with samples column
@@ -70,11 +70,15 @@ enum Commands {
 
         #[clap(short, long)]
         /// Path to resulting pickle file
-        /// TODO: Move from pickle to parquet
         output: String,
 
         #[clap(short, long)]
+        /// Path to genome fasta file
         genome: String,
+
+        #[clap(short, long, default_value_t = 50_000)]
+        /// Number of samples per kmer to allow
+        samples: usize,
     },
 
     /// Rank each kmer by the Kulback-Leibler Divergence and between the trained
@@ -100,7 +104,7 @@ enum Commands {
         /// Ranks are estimated via sampling, higher value for samples means it
         /// takes longer for cawlr rank to run but the ranks will be more
         /// accurate
-        #[clap(long, default_value_t = 10_000_usize)]
+        #[clap(long, default_value_t = 100_000_usize)]
         samples: usize,
     },
 
@@ -134,6 +138,9 @@ enum Commands {
         #[clap(long, default_value_t = 10.0)]
         /// TODO: Only score with kmers whose KL score is greater cutoff
         cutoff: f64,
+
+        #[clap(short, long)]
+        motif: Option<Vec<String>>,
     },
     Sma {
         #[clap(short, long)]
@@ -144,21 +151,21 @@ enum Commands {
         /// Path to output file
         output: String,
 
+        #[clap(long)]
+        pos_control_samples: String,
+
+        #[clap(long)]
+        neg_control_samples: String,
+
+        #[clap(long)]
+        pos_control_model: String,
+
+        #[clap(long)]
+        neg_control_model: String,
+
         #[clap(short, long)]
-        /// output only includes data from this chromosome
-        chrom: String,
-
-        #[clap(long)]
-        /// output only includes data that aligns at or after this position,
-        /// should be set with --chrom
-        /// TODO: Throw error if set without --chrom
-        start: u32,
-
-        #[clap(long)]
-        /// output only includes data that aligns at or before this position,
-        /// should be set with --chrom
-        /// TODO: Throw error if set without --chrom
-        stop: u32,
+        // Motif context to use
+        motifs: Option<Vec<String>>,
     },
 }
 
@@ -180,15 +187,18 @@ fn main() -> Result<()> {
                 )
                 .exit();
             }
-            let mut collapse = CollapseOptions::try_new(&input, &output, capacity)?;
+            let collapse = CollapseOptions::try_new(&input, &output, capacity)?;
             collapse.run()?;
-            collapse.close()?;
         }
-        Commands::Train { input, output, genome} => {
+        Commands::Train {
+            input,
+            output,
+            genome,
+            samples,
+        } => {
             log::info!("Train command");
-            let reads = CawlrIO::load(input)?;
-            let train = train::Train::try_new(&genome)?;
-            let model = train.run(reads)?;
+            let train = train::Train::try_new(&input, &genome, samples)?;
+            let model = train.run()?;
             model.save(output)?;
         }
 
@@ -199,8 +209,8 @@ fn main() -> Result<()> {
             seed,
             samples,
         } => {
-            let pos_ctrl_db = CawlrIO::load(pos_ctrl)?;
-            let neg_ctrl_db = CawlrIO::load(neg_ctrl)?;
+            let pos_ctrl_db = Model::load(pos_ctrl)?;
+            let neg_ctrl_db = Model::load(neg_ctrl)?;
             let kmer_ranks = rank::RankOptions::new(seed, samples).rank(pos_ctrl_db, neg_ctrl_db);
             kmer_ranks.save(output)?;
         }
@@ -212,7 +222,8 @@ fn main() -> Result<()> {
             neg_ctrl,
             ranks,
             genome,
-            ..
+            cutoff,
+            motif,
         } => {
             let fai_file = format!("{}.fai", genome);
             let fai_file_exists = Path::new(&fai_file).exists();
@@ -224,11 +235,20 @@ fn main() -> Result<()> {
                 )
                 .exit();
             }
-            let mut scoring = score::ScoreOptions::try_new(
-                &input, &pos_ctrl, &neg_ctrl, &genome, &ranks, &output,
+            for m in motif.iter() {
+                if m.len() > 6 {
+                    let mut cmd = Args::command();
+                    cmd.error(
+                        clap::ErrorKind::InvalidValue,
+                        "Length of motif must be less than 6 (size of kmer)",
+                    )
+                    .exit();
+                }
+            }
+            let scoring = score::ScoreOptions::try_new(
+                &pos_ctrl, &neg_ctrl, &genome, &ranks, &output, cutoff, motif,
             )?;
-            scoring.run()?;
-            scoring.close()?;
+            scoring.run(input)?;
         }
 
         Commands::Sma { .. } => {

@@ -5,7 +5,10 @@ use rv::{
     traits::Rv,
 };
 
-use crate::{train::Model, score::{choose_model, choose_pos_model}};
+use crate::{
+    score::{choose_model, choose_pos_model},
+    train::Model,
+};
 
 pub struct RankOptions {
     rng: SmallRng,

@@ -1,41 +1,88 @@
-use std::{fs::File, io::Read, path::Path};
+use std::{
+    fs::File,
+    io::{BufWriter, Read, Write},
+    path::Path,
+};
 
 use anyhow::Result;
+use arrow2::io::ipc::write::FileWriter;
+use bio::alphabets::dna::revcomp;
 use indicatif::{ProgressBar, ProgressBarIter, ProgressFinish, ProgressStyle};
-use parquet::arrow::ArrowWriter;
 use rstats::Stats;
 use serde::Deserialize;
-use serde_arrow::{to_record_batch, trace_schema, Schema};
 use serde_with::{serde_as, CommaSeparator, StringWithSeparator};
 
-use crate::reads::FlatLReadLData;
+use crate::arrow::{self, save, Eventalign, Signal};
 
-fn nprs_to_flatreads(nprs: &[Npr]) -> Result<Vec<FlatLReadLData>> {
-    log::debug!("nprs length: {}", nprs.len());
-    let read_start = nprs.get(0).ok_or(anyhow::anyhow!("Empty nprs"))?.position;
-    log::debug!("Read start {read_start}");
-    let mut stop = 0;
-    let mut acc = Vec::with_capacity(nprs.len());
-    for npr in nprs.iter() {
-        let name = npr.read_name.as_bytes();
-        let chrom = &npr.contig;
+fn empty_from_npr(npr: &Npr) -> Eventalign {
+    let name = npr.read_name.clone();
+    let chrom = npr.contig.clone();
+    let start = npr.position;
+    let length = 0;
+    let seq = String::new();
+    Eventalign::empty(name, chrom, start, length, seq)
+}
+
+/// Takes a vector of nanpolish records and converts them into a Eventalign.
+/// Since strand info isn't immediately available, it is inferred by comparing
+/// the reference kmer to the model kmer. If they are the same then it is a plus
+/// strand read, if it isn't
+/// Differences between model kmer and reference kmer can be due to,
+/// - Mismatch
+/// - NNNNNN, ie nanopolish failed to choose any 6-mer model
+/// - Opposite strand +? above
+/// TODO: Strand inference will almost always work but needs to handle edge
+/// cases, ie mismatch in low complexity region at end of the read can lead to
+/// strand "switching"
+fn nprs_to_eventalign(nprs: Vec<Npr>) -> Result<Option<Eventalign>> {
+    let mut eventalign = nprs
+        .get(0)
+        .ok_or(anyhow::anyhow!("Empty nprs"))
+        .map(empty_from_npr)?;
+    let mut stop = eventalign.start_zb();
+    for npr in nprs.into_iter() {
         stop = npr.position;
-        let start = read_start as usize;
-        let length = 0;
-        let seq: &[u8] = &[];
         let position = npr.position;
-        let kmer = &npr.model_kmer;
-        let mean = npr.samples.amean().expect("No values");
+        let kmer = npr.model_kmer;
+        let ref_kmer = npr.reference_kmer;
+        if kmer == ref_kmer {
+            *eventalign.strand_mut() = arrow::Strand::plus();
+        }
+        let rev_ref_kmer = revcomp(ref_kmer.as_bytes());
+        if kmer.as_bytes() == rev_ref_kmer {
+            *eventalign.strand_mut() = arrow::Strand::minus();
+        }
+        let mean = npr
+            .samples
+            .amean()
+            .expect("No signal sample values to take mean of, malformed input?");
         let time = npr.event_length;
-        acc.push(FlatLReadLData::new(
-            name, chrom, start, length, seq, position, kmer, mean, time,
-        ));
+        let signal = Signal::new(position, ref_kmer, mean, time);
+        eventalign.signal_data_mut().push(signal);
     }
     log::debug!("Read stop {stop}");
-    acc.iter_mut().for_each(|fnpr| {
-        *fnpr.length_mut() = (stop - read_start) as usize;
-    });
-    Ok(acc)
+
+    // Handle last edge case with multi-mapped reads, throwing away the read if
+    // length calculation leads to overflow
+    if let Some(len) = stop.checked_sub(eventalign.start_zb()) {
+        *eventalign.length_mut() = len + 1;
+    } else {
+        return Ok(None);
+    }
+
+    // Unable to infer read strand so we remove the read
+    if eventalign.strand().is_unknown_strand() {
+        return Ok(None);
+    }
+
+    if eventalign.strand().is_minus_strand() {
+        for signal in eventalign.signal_data_mut().iter_mut() {
+            let rev_kmer = revcomp(signal.kmer().as_bytes());
+            let rev_kmer = String::from_utf8(rev_kmer)?;
+            signal.set_kmer(rev_kmer)
+        }
+    }
+    Ok(Some(eventalign))
 }
 
 /// Create spinner that wraps an IO read iterator
@@ -49,62 +96,75 @@ fn spin_iter<I: Read>(iter: I) -> ProgressBarIter<I> {
         .wrap_read(iter)
 }
 
-pub(crate) struct CollapseOptions {
+pub(crate) struct CollapseOptions<W: Write> {
     input: String,
-    writer: ArrowWriter<File>,
-    schema: Schema,
+    writer: FileWriter<BufWriter<W>>,
     capacity: usize,
 }
 
-impl CollapseOptions {
+impl CollapseOptions<File> {
     pub(crate) fn try_new<P>(input: &str, output: P, capacity: usize) -> Result<Self>
     where
         P: AsRef<Path>,
     {
-        let example = vec![FlatLReadLData::default()];
-        let schema = trace_schema(&example)?;
-        let batches = to_record_batch(&example, &schema)?;
         let writer = File::create(output)?;
-        let writer = ArrowWriter::try_new(writer, batches.schema(), None)?;
+        CollapseOptions::from_writer(input, writer, capacity)
+    }
+}
+
+impl<W: Write> CollapseOptions<W> {
+    pub(crate) fn from_writer(input: &str, writer: W, capacity: usize) -> Result<Self> {
+        let schema = arrow::Eventalign::schema();
+        let writer = BufWriter::new(writer);
+        let writer = arrow::wrap_writer(writer, &schema)?;
         Ok(CollapseOptions {
             input: input.to_owned(),
             writer,
-            schema,
             capacity,
         })
     }
 
-    fn save_flatreads(&mut self, flat_reads: &[FlatLReadLData]) -> Result<()> {
-        let batches = to_record_batch(&flat_reads, &self.schema)?;
-        self.writer.write(&batches)?;
+    fn save_eventalign(&mut self, eventaligns: &[Eventalign]) -> Result<()> {
+        save(&mut self.writer, eventaligns)
+    }
+
+    fn close(mut self) -> Result<()> {
+        self.writer.finish()?;
         Ok(())
     }
 
-    pub(crate) fn close(mut self) -> Result<()> {
-        self.writer.close()?;
-        Ok(())
-    }
-
-    pub(crate) fn run(&mut self) -> Result<()> {
+    pub(crate) fn run(mut self) -> Result<()> {
         let file = File::open(&self.input)?;
         let file = spin_iter(file);
         let mut builder = csv::ReaderBuilder::new().delimiter(b'\t').from_reader(file);
         let mut npr_iter = builder.deserialize().peekable();
 
-        let mut acc: Vec<Npr> = Vec::new();
-        let mut flats: Vec<FlatLReadLData> = Vec::with_capacity(self.capacity);
+        let mut flats = Vec::with_capacity(self.capacity);
 
         // First get a single line to intialize with, if None we have reached the end of
         // the iterator
         while let Some(line) = npr_iter.next() {
+            let mut acc: Vec<Npr> = Vec::new();
             let mut line: Npr = line?;
             log::debug!("line: {:?}", line);
 
             // Peek at next lines and advance the iterator only if they belong to the same
             // read
+            // Since multiple mapping reads can potentially be next to each other, we need
+            // to use the event index to differentiate between the reads. This can
+            // potentially cause subtle bugs when the event index of the first multi-mapped
+            // read is one minus the event index of the next read.
+            // eg. chrom position read_name event_index
+            // chr1 100 .. ABC .. 82
+            // chr1 10 .. ABC .. 83  <-- New alignment of same read but event_index happens
+            // to show the read as being contiguous
+            // In order to handle this last
+            // case if the length calculation fails in creating the Eventalign,
+            // the read will get thrown out.
             while let Some(read_line) = npr_iter.next_if(|new_npr: &Result<Npr, _>| {
-                let new_read_name = &new_npr.as_ref().expect("Parsing failed").read_name;
-                new_read_name == &line.read_name
+                let new_npr = new_npr.as_ref().expect("Parsing failed");
+                (new_npr.read_name == line.read_name)
+                    && (new_npr.event_index.abs_diff(line.event_index) == 1)
             }) {
                 let mut read_line = read_line?;
                 log::debug!("same read: {:?}", read_line);
@@ -113,6 +173,7 @@ impl CollapseOptions {
                     log::debug!("Same position");
                     line.samples.append(&mut read_line.samples);
                     line.event_length += read_line.event_length;
+                    line.event_index = read_line.event_index
                 } else {
                     log::debug!("New position, same read, pushing");
                     // Data from next position in read
@@ -129,41 +190,38 @@ impl CollapseOptions {
             }
             // Add converted reads to buffer and if buffer is full
             // write to disc and clear buffer
-            let mut flat_reads = nprs_to_flatreads(&acc)?;
-            flats.append(&mut flat_reads);
+            if let Some(eventalign) = nprs_to_eventalign(acc)? {
+                flats.push(eventalign);
+            }
             if flats.len() >= self.capacity {
-                self.save_flatreads(&flats)?;
+                self.save_eventalign(&flats)?;
                 flats.clear();
             }
-
-            acc.clear();
         }
 
         // If reads are left in the buffer, save those
         if !flats.is_empty() {
-            self.save_flatreads(&flats)?;
+            self.save_eventalign(&flats)?;
         }
-        Ok(())
+        self.close()
     }
 }
 
 #[serde_as]
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Default, Clone, Debug, Deserialize)]
 struct Npr {
     contig: String,
 
     position: u64,
 
-    #[serde(skip)]
-    _reference_kmer: String,
+    reference_kmer: String,
 
     read_name: String,
 
     #[serde(skip)]
     _strand: String,
 
-    #[serde(skip)]
-    _event_index: u64,
+    event_index: i64,
 
     #[serde(skip)]
     _event_level_mean: f64,
@@ -190,26 +248,54 @@ struct Npr {
 
 #[cfg(test)]
 mod test {
+
     use assert_fs::TempDir;
 
-    use crate::{utils::CawlrIO, reads::{LRead, LData}};
-
     use super::*;
+    use crate::arrow::{load_apply, load_iter};
 
     #[test]
     fn test_collapse() -> Result<()> {
         let temp_dir = TempDir::new()?;
         let filepath = "extra/single_read.eventalign.txt";
         let output = temp_dir.path().join("test");
-        let mut collapse = CollapseOptions::try_new(filepath, &output, 2048)?;
+        let collapse = CollapseOptions::try_new(filepath, &output, 2048)?;
         collapse.run()?;
-        collapse.close()?;
 
-        let xs: Vec<LRead<LData>> = CawlrIO::load(&output)?;
-        assert_eq!(xs.len(), 1);
-        assert_eq!(xs[0].data()[0].pos(), 182504);
-        let data_len = xs[0].data().len();
-        assert_eq!(xs[0].data()[data_len - 1].pos(), 182681);
+        let output = File::open(output)?;
+        let x = load_iter(output).next().unwrap().unwrap();
+        assert_eq!(x.len(), 1);
+        let read = &x[0];
+        assert_eq!(read.strand(), arrow::Strand::plus());
+        assert_eq!(read.chrom(), "chrXIII");
+        assert_eq!(read.start_zb(), 182504);
+        assert_eq!(read.stop_zb(), 182681);
+        assert_eq!(read.length(), 178);
+        assert_eq!(read.seq_stop_zb(), 182686);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_collapse_big() -> Result<()> {
+        let temp_dir = TempDir::new()?;
+        let filepath = "extra/neg_control.eventalign.txt";
+        let output = temp_dir.path().join("test");
+        let collapse = CollapseOptions::try_new(filepath, &output, 2048)?;
+        collapse.run()?;
+
+        let output = File::open(output)?;
+        let mut loads = 0;
+        let mut acc = Vec::new();
+        load_apply(output, |eventaligns| {
+            loads += 1;
+            for eventalign in eventaligns.into_iter() {
+                acc.push(eventalign);
+            }
+            Ok(())
+        })?;
+        assert_eq!(loads, 1);
+        assert_eq!(acc.len(), 98);
         Ok(())
     }
 }

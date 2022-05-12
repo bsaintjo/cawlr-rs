@@ -9,7 +9,7 @@ fn pipeline() -> Result<(), Box<dyn Error>> {
     let temp_dir = TempDir::new()?;
 
     eprintln!("Building release cawlr");
-    let run = CargoBuild::new().bin("cawlr").release().run()?;
+    let run = CargoBuild::new().bin("cawlr").release().no_default_features().run()?;
     let cawlr = run.path().as_os_str();
     let genome = "extra/sacCer3.fa";
 
