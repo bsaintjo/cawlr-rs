@@ -14,7 +14,7 @@ categories = ["science", "command-line-utilities"]
 
 [dependencies]
 anyhow = "1.0.55"
-arrow2 = { version = "0.9.2", features = ["io_parquet", "io_ipc"] }
+arrow2 = { version = "0.9.2", features = ["io_ipc"] }
 arrow2_convert = { version = "0.1.0", features = ["derive", "arrow2_convert_derive"] }
 bio = "0.39.2"
 bio-types = "0.12.1"
