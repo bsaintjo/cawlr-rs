@@ -266,7 +266,7 @@ fn score_signal(
     let neg_log_proba = neg_mix.f(&signal);
     let score = pos_log_proba / (pos_log_proba + neg_log_proba);
 
-    if (pos_mix.ln_f(&signal) < -cutoff) || (neg_mix.ln_f(&signal) < -cutoff) {
+    if (pos_mix.ln_f(&signal) > -cutoff) && (neg_mix.ln_f(&signal) > -cutoff) {
         None
     } else {
         Some(score)
