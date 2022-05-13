@@ -56,7 +56,7 @@ fn run_read(
         {
             let first: &mut f64 = col.get_mut(0).expect("No values in matrix.");
             let val: f64 = match score {
-                Some(score) => prev_max * pos_kde.estimate(score.score()),
+                Some(score) => prev_max + pos_kde.estimate(score.score()).ln(),
                 None => prev_max,
             };
             *first = val;
@@ -64,7 +64,7 @@ fn run_read(
         for rest in 1..147 {
             let next = col.get_mut(rest).expect("Failed to get column value");
             let val = match score {
-                Some(score) => prev_max * neg_kde.estimate(score.score()),
+                Some(score) => prev_max + neg_kde.estimate(score.score()).ln(),
                 None => prev_max,
             };
             *next = val;
@@ -76,7 +76,7 @@ fn run_read(
 // TODO Make initial value 10/157 for linker, 1/157 for nucleosome positions
 fn init_dmatrix(read: &ScoredRead) -> DMatrix<f64> {
     let mut dm = DMatrix::from_element(147usize, read.length() as usize + 1, f64::MIN);
-    dm.column_mut(0).fill(1. / 147.);
+    dm.column_mut(0).fill((1. / 147.0f64).ln());
     dm
 }
 
