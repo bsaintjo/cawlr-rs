@@ -114,10 +114,7 @@ impl ScoreOptions {
         }
     }
 
-    fn score_skipped(&mut self, pos: u64, read_seq: &Context) -> Result<Option<(f64, String)>> {
-        let kmer = read_seq.sixmer_at(pos).ok_or(anyhow::anyhow!(
-            "position kmer length < 6, incorrect position?"
-        ))?;
+    fn score_skipped(&mut self, kmer: &[u8]) -> Result<Option<(f64, String)>> {
         let kmer = from_utf8(kmer)?;
 
         let pos_skip = self.pos_ctrl.skips().get(kmer).map(|x| 1. - x);
@@ -128,25 +125,34 @@ impl ScoreOptions {
         }
     }
 
-    // TODO Filter with motifs
     fn score_eventalign(&mut self, read: Eventalign) -> Result<ScoredRead> {
         let mut acc = Vec::new();
         let context = Context::from_read(&mut self.genome, &self.chrom_lens, &read)?;
         let data_pos = pos_with_data(&read);
         for pos in read.start_ob()..=read.stop_ob() {
-            // TODO Skip, probably using context and Context::sixmer_at
-            let final_score = {
-                if let Some(ld) = data_pos.get(&pos) {
-                    self.score_data(ld, &context)?
+            // Get kmer and check if kmer matches the motifs, if there are any supplied
+            let pos_kmer = context.sixmer_at(pos).filter(|k| {
+                if let Some(motifs) = &self.motifs {
+                    motifs.iter().any(|m| {
+                        let m = m.as_bytes();
+                        k.starts_with(m)
+                    })
                 } else {
-                    self.score_skipped(pos as u64, &context)?
+                    true
                 }
-            };
-            if let Some((score, kmer)) = final_score {
-                // TODO Easiest atm to skip here but should refactor earlier section to skip
-                // back there
-                let score = Score::new(pos, kmer, score);
-                acc.push(score);
+            });
+            if let Some(kmer) = pos_kmer {
+                let final_score = {
+                    if let Some(ld) = data_pos.get(&pos) {
+                        self.score_data(ld, &context)?
+                    } else {
+                        self.score_skipped(kmer)?
+                    }
+                };
+                if let Some((score, kmer)) = final_score {
+                    let score = Score::new(pos, kmer, score);
+                    acc.push(score);
+                }
             }
         }
         let scored_read = ScoredRead::from_read_with_scores(read, acc);
