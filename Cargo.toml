@@ -1,4 +1,4 @@
-cargo-features = ["profile-rustflags"]
+#cargo-features = ["profile-rustflags"]
 
 [package]
 name = "cawlr"
@@ -41,7 +41,7 @@ serde_with = "1.12.0"
 
 [profile.release]
 lto = "fat"
-rustflags = ["-C", "target-cpu=native"]
+#rustflags = ["-C", "target-cpu=native"]
 
 [dev-dependencies]
 assert_cmd = "2.0.4"
