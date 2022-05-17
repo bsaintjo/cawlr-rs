@@ -3,6 +3,7 @@ use std::{
     fs::File,
     hash::BuildHasher,
     io::{Read, Seek},
+    ops::RangeInclusive,
     path::Path,
     str::from_utf8,
 };
@@ -142,22 +143,86 @@ impl ScoreOptions {
                 }
             });
             if let Some(kmer) = pos_kmer {
-                let final_score = {
-                    if let Some(ld) = data_pos.get(&pos) {
-                        self.score_data(ld, &context)?
-                    } else {
-                        self.score_skipped(kmer)?
+                // let final_score = {
+                //     if let Some(ld) = data_pos.get(&pos) {
+                //         self.score_data(ld, &context)?
+                //     } else {
+                //         self.score_skipped(kmer)?
+                //     }
+                // };
+                // if let Some((score, kmer)) = final_score {
+                //     let score = Score::new(pos, kmer, score);
+                //     acc.push(score);
+                // }
+                let sur_signals = surrounding_signal(pos, &data_pos);
+                let best_signal = best_surrounding_signal(sur_signals, &self.rank);
+                let signal_score = best_signal.and_then(|sig| {
+                    let mean = sig.mean();
+                    let kmer = sig.kmer();
+                    let pos_mix = self.pos_ctrl.gmms().get(kmer);
+                    let neg_mix = self.neg_ctrl.gmms().get(kmer);
+                    match (pos_mix, neg_mix) {
+                        (Some(pos_gmm), Some(neg_gmm)) => {
+                            score_signal(mean, pos_gmm, neg_gmm, self.cutoff)
+                        }
+                        _ => None,
                     }
-                };
-                if let Some((score, kmer)) = final_score {
-                    let score = Score::new(pos, kmer, score);
-                    acc.push(score);
-                }
+                });
             }
         }
         let scored_read = ScoredRead::from_read_with_scores(read, acc);
         Ok(scored_read)
     }
+}
+
+fn surrounding_pos(pos: u64) -> RangeInclusive<u64> {
+    let start = if pos < 5 { 0 } else { pos - 5 };
+    start..=pos
+}
+
+fn surrounding_signal<'a, S>(
+    pos: u64,
+    signal_map: &HashMap<u64, &'a Signal, S>,
+) -> Option<Vec<&'a Signal>>
+where
+    S: BuildHasher,
+{
+    let positions = surrounding_pos(pos);
+    let acc = positions
+        .flat_map(|p| signal_map.get(&p))
+        .cloned()
+        .collect::<Vec<_>>();
+    if acc.is_empty() {
+        None
+    } else {
+        Some(acc)
+    }
+}
+
+fn best_surrounding_signal<'a, S>(
+    surrounding: Option<Vec<&'a Signal>>,
+    ranks: &HashMap<String, f64, S>,
+) -> Option<&'a Signal>
+where
+    S: BuildHasher,
+{
+    surrounding.and_then(|signals| {
+        signals.into_iter().reduce(|x, y| {
+            let x_rank = ranks.get(x.kmer());
+            let y_rank = ranks.get(y.kmer());
+            match (x_rank, y_rank) {
+                (None, _) => y,
+                (_, None) => x,
+                (Some(a), Some(b)) => {
+                    if a > b {
+                        x
+                    } else {
+                        y
+                    }
+                }
+            }
+        })
+    })
 }
 
 /// Returns HashMap mapping positions as u64 to the respective signal data

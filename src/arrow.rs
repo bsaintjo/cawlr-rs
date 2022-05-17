@@ -1,6 +1,8 @@
 use std::{
     io::{Read, Seek, Write},
-    sync::Arc, ops::Index, slice::SliceIndex,
+    ops::Index,
+    slice::SliceIndex,
+    sync::Arc,
 };
 
 use anyhow::Result;
