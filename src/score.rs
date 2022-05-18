@@ -181,7 +181,7 @@ impl ScoreOptions {
                     }
                 }).collect::<Vec<_>>();
         
-        skipping_scores.newmedian().expect("No skipping scores")
+        skipping_scores.median().expect("No skipping scores").median
     }
 
     fn calc_signal_score(&self, pos: u64, data_pos: &FnvHashMap<u64, &Signal>) -> Option<f64> {
