@@ -215,12 +215,29 @@ impl Eventalign {
 pub(crate) struct Score {
     pos: u64,
     kmer: String,
+    skipped: bool,
+    signal_score: Option<f64>,
+    skip_score: f64,
     score: f64,
 }
 
 impl Score {
-    pub(crate) fn new(pos: u64, kmer: String, score: f64) -> Self {
-        Self { pos, kmer, score }
+    pub(crate) fn new(
+        pos: u64,
+        kmer: String,
+        skipped: bool,
+        signal_score: Option<f64>,
+        skip_score: f64,
+        score: f64,
+    ) -> Self {
+        Self {
+            pos,
+            kmer,
+            skipped,
+            signal_score,
+            skip_score,
+            score,
+        }
     }
 
     /// Get the score's score.
@@ -265,7 +282,7 @@ impl ScoredRead {
         &self.scores
     }
 
-    pub(crate) fn to_expanded_scores<'a>(&'a self) -> ExpandedScores<'a> {
+    pub(crate) fn to_expanded_scores(&self) -> ExpandedScores {
         let n = self.length() as usize;
         let mut acc = vec![None; n];
         for score in self.scores.iter() {

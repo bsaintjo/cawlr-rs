@@ -12,6 +12,7 @@ use anyhow::Result;
 use arrow2::io::ipc::write::FileWriter;
 use bio::{alphabets::dna, io::fasta::IndexedReader};
 use fnv::FnvHashMap;
+use rstats::Stats;
 use rv::{
     prelude::{Gaussian, Mixture},
     traits::{KlDivergence, Rv},
@@ -143,41 +144,74 @@ impl ScoreOptions {
                 }
             });
             if let Some(kmer) = pos_kmer {
-                // let final_score = {
-                //     if let Some(ld) = data_pos.get(&pos) {
-                //         self.score_data(ld, &context)?
-                //     } else {
-                //         self.score_skipped(kmer)?
-                //     }
-                // };
-                // if let Some((score, kmer)) = final_score {
-                //     let score = Score::new(pos, kmer, score);
-                //     acc.push(score);
-                // }
-                let sur_signals = surrounding_signal(pos, &data_pos);
-                let best_signal = best_surrounding_signal(sur_signals, &self.rank);
-                let signal_score = best_signal.and_then(|sig| {
-                    let mean = sig.mean();
-                    let kmer = sig.kmer();
-                    let pos_mix = self.pos_ctrl.gmms().get(kmer);
-                    let neg_mix = self.neg_ctrl.gmms().get(kmer);
-                    match (pos_mix, neg_mix) {
-                        (Some(pos_gmm), Some(neg_gmm)) => {
-                            score_signal(mean, pos_gmm, neg_gmm, self.cutoff)
-                        }
-                        _ => None,
-                    }
-                });
+                let kmer = std::str::from_utf8(kmer).unwrap().to_string();
+                let signal_score = self.calc_signal_score(pos, &data_pos);
+                let skipping_score = self.calc_skipping_score(pos, &data_pos, &context);
+                let final_score = signal_score.map_or(skipping_score, |x| x.max(skipping_score));
+                let score = Score::new(pos, kmer, signal_score.is_none(), signal_score, skipping_score, final_score);
+                acc.push(score)
             }
         }
         let scored_read = ScoredRead::from_read_with_scores(read, acc);
         Ok(scored_read)
+    }
+
+    fn calc_skipping_score(&self, pos: u64, data_pos: &FnvHashMap<u64, &Signal>, context: &Context) -> f64 {
+        let sur_kmers = context.surrounding(pos);
+        let sur_has_data = surround_has_data(pos, data_pos);
+        let skipping_scores =
+            sur_kmers
+                .into_iter()
+                .zip(sur_has_data.into_iter())
+                .flat_map(|(kmer, has_data)| {
+                    let kmer = std::str::from_utf8(kmer).expect("Invalid kmer");
+                    let pos_presence = self.pos_ctrl.skips().get(kmer);
+                    let neg_presence = self.neg_ctrl.skips().get(kmer);
+                    match (pos_presence, neg_presence) {
+                        (Some(&pos_presence), Some(&neg_presence)) => {
+                            if has_data {
+                                Some(pos_presence / (pos_presence + neg_presence))
+                            } else {
+                                let pos_absent = 1. - pos_presence;
+                                let neg_absent = 1. - neg_presence;
+                                Some(pos_absent / (pos_absent + neg_absent))
+                            }
+                        }
+                        _ => None,
+                    }
+                }).collect::<Vec<_>>();
+        
+        skipping_scores.newmedian().expect("No skipping scores")
+    }
+
+    fn calc_signal_score(&self, pos: u64, data_pos: &FnvHashMap<u64, &Signal>) -> Option<f64> {
+        let sur_signals = surrounding_signal(pos, data_pos);
+        let best_signal = best_surrounding_signal(sur_signals, &self.rank);
+
+        best_signal.and_then(|sig| {
+            let mean = sig.mean();
+            let kmer = sig.kmer();
+            let pos_mix = self.pos_ctrl.gmms().get(kmer);
+            let neg_mix = self.neg_ctrl.gmms().get(kmer);
+            match (pos_mix, neg_mix) {
+                (Some(pos_gmm), Some(neg_gmm)) => score_signal(mean, pos_gmm, neg_gmm, self.cutoff),
+                _ => None,
+            }
+        })
     }
 }
 
 fn surrounding_pos(pos: u64) -> RangeInclusive<u64> {
     let start = if pos < 5 { 0 } else { pos - 5 };
     start..=pos
+}
+
+fn surround_has_data<S>(pos: u64, signal_map: &HashMap<u64, &Signal, S>) -> Vec<bool>
+where
+    S: BuildHasher,
+{
+    let positions = surrounding_pos(pos);
+    positions.map(|p| signal_map.get(&p).is_some()).collect()
 }
 
 fn surrounding_signal<'a, S>(
