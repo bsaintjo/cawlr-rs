@@ -1,3 +1,5 @@
+use std::iter;
+
 use criterion_stats::univariate::{
     kde::{kernel::Gaussian, Bandwidth, Kde},
     Sample,
@@ -87,4 +89,28 @@ fn arr_init_matrix(read: ScoredRead) -> Array2<Option<f64>> {
         *x = Some(1. / 147.);
     }
     matrix
+}
+
+#[derive(Copy, Clone)]
+enum States {
+    Linker,
+    Nucleosome,
+}
+
+fn backtrace(matrix: DMatrix<f64>) -> Vec<States> {
+    let mut pos = matrix.ncols();
+    let mut acc = Vec::new();
+    while pos > 0 {
+        let col = matrix.column(pos).argmax().0;
+        if col == 0 {
+            acc.push(States::Linker);
+            pos -= 1;
+        } else {
+            let n = if pos > col { col } else { 0 };
+            acc.extend(iter::repeat(States::Nucleosome).take(n));
+            pos -= col;
+        }
+    }
+    acc.reverse();
+    acc
 }
