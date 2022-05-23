@@ -14,6 +14,7 @@ mod sma;
 mod train;
 mod utils;
 
+use sma::SmaOptions;
 use train::Model;
 use utils::CawlrIO;
 
@@ -151,16 +152,10 @@ enum Commands {
         output: String,
 
         #[clap(long)]
-        pos_control_samples: String,
+        pos_control_scores: String,
 
         #[clap(long)]
-        neg_control_samples: String,
-
-        #[clap(long)]
-        pos_control_model: String,
-
-        #[clap(long)]
-        neg_control_model: String,
+        neg_control_scores: String,
 
         #[clap(short, long)]
         // Motif context to use
@@ -249,8 +244,15 @@ fn main() -> Result<()> {
             scoring.run(input)?;
         }
 
-        Commands::Sma { .. } => {
-            unimplemented!()
+        Commands::Sma { 
+            input,
+            output,
+            pos_control_scores,
+            neg_control_scores,
+            motifs
+         } => {
+            let sma = SmaOptions::try_new(pos_control_scores, neg_control_scores)?;
+            sma.run(input)?;
         }
     }
     Ok(())

@@ -1,18 +1,59 @@
+use std::{fs::File, path::Path};
+
+use anyhow::Result;
 use criterion_stats::univariate::{
     kde::{kernel::Gaussian, Bandwidth, Kde},
     Sample,
 };
-use fnv::FnvHashMap;
 use nalgebra::DMatrix;
-use ndarray::{Array, Array2};
 
-use crate::arrow::ScoredRead;
+use crate::arrow::{load_apply, ScoredRead};
+
+pub(crate) struct SmaOptions {
+    pos_scores: Vec<f64>,
+    neg_scores: Vec<f64>,
+}
+
+impl SmaOptions {
+    fn new(pos_scores: Vec<f64>, neg_scores: Vec<f64>) -> Self {
+        Self {
+            pos_scores,
+            neg_scores,
+        }
+    }
+
+    pub(crate) fn try_new(
+        pos_scores_filepath: String,
+        neg_scores_filepath: String,
+    ) -> Result<Self> {
+        let pos_scores_file = File::open(pos_scores_filepath)?;
+        let pos_scores = extract_samples_from_file(pos_scores_file)?;
+
+        let neg_scores_file = File::open(neg_scores_filepath)?;
+        let neg_scores = extract_samples_from_file(neg_scores_file)?;
+
+        Ok(Self::new(pos_scores, neg_scores))
+    }
+
+    pub(crate) fn run<P>(self, scores_filepath: P) -> Result<()>
+    where
+        P: AsRef<Path>,
+    {
+        let scores_file = File::open(scores_filepath)?;
+        load_apply(scores_file, |reads| {
+            for read in reads {
+                let matrix = run_read(read, todo!(), todo!(), todo!());
+                let result = backtrace(matrix);
+            }
+            Ok(())
+        })
+    }
+}
 
 fn run(
     pos_scores: Vec<ScoredRead>,
     neg_scores: Vec<ScoredRead>,
     reads: Vec<ScoredRead>,
-    ranks: FnvHashMap<String, f64>,
 ) {
     let pos_samples = extract_samples(&pos_scores);
     let pos_kde = sample_kde(&pos_samples);
@@ -23,7 +64,7 @@ fn run(
 
 fn extract_samples(reads: &[ScoredRead]) -> Vec<f64> {
     reads
-        .into_iter()
+        .iter()
         .flat_map(|lr| {
             lr.scores()
                 .iter()
@@ -31,6 +72,16 @@ fn extract_samples(reads: &[ScoredRead]) -> Vec<f64> {
                 .collect::<Vec<_>>()
         })
         .collect()
+}
+
+fn extract_samples_from_file(file: File) -> Result<Vec<f64>> {
+    let mut scores = Vec::new();
+    load_apply(file, |reads: Vec<ScoredRead>| {
+        let mut samples = extract_samples(&reads);
+        scores.append(&mut samples);
+        Ok(())
+    })?;
+    Ok(scores)
 }
 
 fn sample_kde(samples: &[f64]) -> Kde<f64, Gaussian> {
@@ -80,19 +131,14 @@ fn init_dmatrix(read: &ScoredRead) -> DMatrix<f64> {
     dm
 }
 
-fn arr_init_matrix(read: ScoredRead) -> Array2<Option<f64>> {
-    let len = read.length() as usize;
-    let mut matrix = Array::from_elem((147, len + 1), None);
-    for x in matrix.column_mut(0) {
-        *x = Some(1. / 147.);
-    }
-    matrix
-}
-
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 enum States {
     Linker,
     Nucleosome,
+}
+
+fn states_to_bool(states: &[States]) -> Vec<bool> {
+    unimplemented!()
 }
 
 fn backtrace(matrix: DMatrix<f64>) -> Vec<States> {
@@ -124,7 +170,6 @@ mod test {
         let matrix = dmatrix![0.1, 0.9, 0.9;
                                                                 0.2, 0.3, 0.4;
                                                                 0.9, 0.0, 0.0];
-        assert_eq!(matrix[(0, 0)], 0.1);
         assert_eq!(matrix[(0, 1)], 0.9);
 
         let answer = vec![States::Linker, States::Linker];
