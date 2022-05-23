@@ -1,5 +1,3 @@
-use std::iter;
-
 use criterion_stats::univariate::{
     kde::{kernel::Gaussian, Bandwidth, Kde},
     Sample,
@@ -91,14 +89,14 @@ fn arr_init_matrix(read: ScoredRead) -> Array2<Option<f64>> {
     matrix
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 enum States {
     Linker,
     Nucleosome,
 }
 
 fn backtrace(matrix: DMatrix<f64>) -> Vec<States> {
-    let mut pos = matrix.ncols();
+    let mut pos = matrix.ncols() - 1;
     let mut acc = Vec::new();
     while pos > 0 {
         let col = matrix.column(pos).argmax().0;
@@ -107,10 +105,29 @@ fn backtrace(matrix: DMatrix<f64>) -> Vec<States> {
             pos -= 1;
         } else {
             let n = if pos > col { col } else { 0 };
-            acc.extend(iter::repeat(States::Nucleosome).take(n));
+            acc.append(&mut vec![States::Nucleosome; n]);
             pos -= col;
         }
     }
     acc.reverse();
     acc
+}
+
+#[cfg(test)]
+mod test {
+    use nalgebra::dmatrix;
+
+    use super::*;
+
+    #[test]
+    fn test_backtrace() {
+        let matrix = dmatrix![0.1, 0.9, 0.9;
+                                                                0.2, 0.3, 0.4;
+                                                                0.9, 0.0, 0.0];
+        assert_eq!(matrix[(0, 0)], 0.1);
+        assert_eq!(matrix[(0, 1)], 0.9);
+
+        let answer = vec![States::Linker, States::Linker];
+        assert_eq!(backtrace(matrix), answer);
+    }
 }
