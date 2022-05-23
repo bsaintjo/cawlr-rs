@@ -17,7 +17,7 @@ use arrow2::{
     },
 };
 use arrow2_convert::{
-    deserialize::TryIntoCollection,
+    deserialize::{TryIntoCollection, ArrowDeserialize},
     field::ArrowField,
     serialize::{ArrowSerialize, TryIntoArrow},
     ArrowField,
@@ -343,20 +343,23 @@ where
     Ok(reader)
 }
 
-pub(crate) fn load_apply<R, F>(reader: R, mut func: F) -> Result<()>
+/// Apply a function to chunks of data loaded from an Arrow Feather File.
+pub(crate) fn load_apply<R, F, T>(reader: R, mut func: F) -> Result<()>
 where
     R: Read + Seek,
-    F: FnMut(Vec<Eventalign>) -> anyhow::Result<()>,
+    F: FnMut(Vec<T>) -> anyhow::Result<()>,
+    T: ArrowField<Type=T> + ArrowDeserialize + 'static,
+    for<'a> &'a <T as ArrowDeserialize>::ArrayType: IntoIterator,
 {
     let feather = load(reader)?;
     for read in feather {
         if let Ok(chunk) = read {
             for arr in chunk.into_arrays().into_iter() {
-                let eventaligns: Vec<Eventalign> = arr.try_into_collection()?;
+                let eventaligns: Vec<T> = arr.try_into_collection()?;
                 func(eventaligns)?;
             }
         } else {
-            log::warn!("Train::run Failed to read chunk")
+            log::warn!("Failed to load arrow chunk")
         }
     }
     Ok(())

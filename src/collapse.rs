@@ -288,7 +288,7 @@ mod test {
         let output = File::open(output)?;
         let mut loads = 0;
         let mut acc = Vec::new();
-        load_apply(output, |eventaligns| {
+        load_apply(output, |eventaligns: Vec<Eventalign>| {
             loads += 1;
             for eventalign in eventaligns.into_iter() {
                 acc.push(eventalign);
