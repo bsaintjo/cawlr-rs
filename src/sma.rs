@@ -12,19 +12,22 @@ use crate::arrow::{load_apply, ScoredRead};
 pub(crate) struct SmaOptions {
     pos_scores: Vec<f64>,
     neg_scores: Vec<f64>,
+    motifs: Vec<String>,
 }
 
 impl SmaOptions {
-    fn new(pos_scores: Vec<f64>, neg_scores: Vec<f64>) -> Self {
+    fn new(pos_scores: Vec<f64>, neg_scores: Vec<f64>, motifs: Vec<String>) -> Self {
         Self {
             pos_scores,
             neg_scores,
+            motifs,
         }
     }
 
     pub(crate) fn try_new(
         pos_scores_filepath: String,
         neg_scores_filepath: String,
+        motifs: Option<Vec<String>>,
     ) -> Result<Self> {
         let pos_scores_file = File::open(pos_scores_filepath)?;
         let pos_scores = extract_samples_from_file(pos_scores_file)?;
@@ -32,34 +35,31 @@ impl SmaOptions {
         let neg_scores_file = File::open(neg_scores_filepath)?;
         let neg_scores = extract_samples_from_file(neg_scores_file)?;
 
-        Ok(Self::new(pos_scores, neg_scores))
+        let motifs = motifs.unwrap_or_else(|| vec![
+            "A".to_string(),
+            "T".to_string(),
+            "C".to_string(),
+            "G".to_string(),
+        ]);
+
+        Ok(Self::new(pos_scores, neg_scores, motifs))
     }
 
     pub(crate) fn run<P>(self, scores_filepath: P) -> Result<()>
     where
         P: AsRef<Path>,
     {
+        let pos_kde = sample_kde(&self.pos_scores);
+        let neg_kde = sample_kde(&self.neg_scores);
         let scores_file = File::open(scores_filepath)?;
         load_apply(scores_file, |reads| {
             for read in reads {
-                let matrix = run_read(read, todo!(), todo!(), todo!());
+                let matrix = run_read(read, &pos_kde, &neg_kde, self.motifs.as_slice());
                 let result = backtrace(matrix);
             }
             Ok(())
         })
     }
-}
-
-fn run(
-    pos_scores: Vec<ScoredRead>,
-    neg_scores: Vec<ScoredRead>,
-    reads: Vec<ScoredRead>,
-) {
-    let pos_samples = extract_samples(&pos_scores);
-    let pos_kde = sample_kde(&pos_samples);
-
-    let neg_samples = extract_samples(&neg_scores);
-    let neg_kde = sample_kde(&neg_samples);
 }
 
 fn extract_samples(reads: &[ScoredRead]) -> Vec<f64> {
@@ -93,7 +93,7 @@ fn run_read(
     read: ScoredRead,
     pos_kde: &Kde<f64, Gaussian>,
     neg_kde: &Kde<f64, Gaussian>,
-    motifs: &[&str],
+    motifs: &[String],
 ) -> DMatrix<f64> {
     let mut matrix = init_dmatrix(&read);
     let scores = read.to_expanded_scores();
@@ -101,7 +101,7 @@ fn run_read(
         let col_idx = col_idx as usize;
         // Score will be None if a) No data at that position, or b) Position kmer didn't
         // contain motif of interest
-        let score = scores[col_idx - 1].filter(|s| motifs.iter().any(|&m| s.kmer().contains(m)));
+        let score = scores[col_idx - 1].filter(|s| motifs.iter().any(|m| s.kmer().contains(m)));
         let prev_max = matrix.column(col_idx - 1).max();
         let mut col = matrix.column_mut(col_idx);
         {

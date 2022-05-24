@@ -251,7 +251,7 @@ fn main() -> Result<()> {
             neg_control_scores,
             motifs
          } => {
-            let sma = SmaOptions::try_new(pos_control_scores, neg_control_scores)?;
+            let sma = SmaOptions::try_new(pos_control_scores, neg_control_scores, motifs)?;
             sma.run(input)?;
         }
     }
