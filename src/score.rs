@@ -5,7 +5,6 @@ use std::{
     io::{Read, Seek},
     ops::RangeInclusive,
     path::Path,
-    str::from_utf8,
 };
 
 use anyhow::Result;
@@ -92,39 +91,6 @@ impl ScoreOptions {
 
     pub(crate) fn save(&mut self, scored: Vec<ScoredRead>) -> Result<()> {
         save(&mut self.writer, &scored)
-    }
-
-    fn score_data(&mut self, ld: &Signal, read_seq: &Context) -> Result<Option<(f64, String)>> {
-        let kmers = read_seq.surrounding(ld.pos());
-        let best_kmer =
-            choose_best_kmer(&self.rank, &kmers).unwrap_or_else(|| ld.kmer().as_bytes());
-        let best_kmer = from_utf8(best_kmer)?.to_owned();
-        log::debug!("best_kmer: {best_kmer}");
-        let ref_kmer = ld.kmer().to_owned();
-        let pos_model = self.pos_ctrl.gmms().get(&best_kmer);
-        let neg_model = self.neg_ctrl.gmms().get(&best_kmer);
-        match (pos_model, neg_model) {
-            (Some(pos_gmm), Some(neg_gmm)) => {
-                let signal_score = score_signal(ld.mean(), pos_gmm, neg_gmm, self.cutoff);
-                let skip_score = score_present(&ref_kmer, &self.pos_ctrl, &self.neg_ctrl);
-                log::debug!("signal score: {signal_score:?}");
-                log::debug!("skip score: {skip_score:?}");
-                let final_score = signal_score.or(skip_score).map(|x| (x, ref_kmer));
-                Ok(final_score)
-            }
-            _ => Ok(None),
-        }
-    }
-
-    fn score_skipped(&mut self, kmer: &[u8]) -> Result<Option<(f64, String)>> {
-        let kmer = from_utf8(kmer)?;
-
-        let pos_skip = self.pos_ctrl.skips().get(kmer).map(|x| 1. - x);
-        let neg_skip = self.neg_ctrl.skips().get(kmer).map(|x| 1. - x);
-        match (pos_skip, neg_skip) {
-            (Some(p), Some(n)) => Ok(Some((p / (p + n), kmer.to_owned()))),
-            _ => Ok(None),
-        }
     }
 
     fn score_eventalign(&mut self, read: Eventalign) -> Result<ScoredRead> {
@@ -296,41 +262,6 @@ where
     chrom_lens
 }
 
-/// Based on the kmer ranks, as determined by KL Divergence between a negative
-/// and positive control, return the kmer within a list of kmers that has the
-/// highest KL divergence.
-fn choose_best_kmer<'a, S>(
-    kmer_ranks: &HashMap<String, f64, S>,
-    kmers: &[&'a [u8]],
-) -> Option<&'a [u8]>
-where
-    S: BuildHasher,
-{
-    let res = kmers
-        .iter()
-        .map(|x| {
-            let x_str = from_utf8(x).unwrap();
-            (x, kmer_ranks.get(x_str))
-        })
-        // TODO Use filter map and avoid additional Options later
-        .filter(|x| x.1.is_some())
-        .reduce(|a, b| match (a.1, b.1) {
-            (None, _) => b,
-            (_, None) => a,
-            (Some(x), Some(y)) => {
-                if x > y {
-                    a
-                } else {
-                    b
-                }
-            }
-        });
-    if res.is_none() {
-        log::warn!("Genomic context is empty or no overlap between ranks and kmers. Maybe training with too few samples");
-    }
-    res.map(|(&x, _)| x)
-}
-
 /// Return the Gaussian with the highest component weight. This is a heuristic
 /// that expects that the highest weight component in the negative control
 /// should represent the data from the true negative control distribution.
@@ -387,15 +318,6 @@ fn score_signal(
         None
     } else {
         Some(score)
-    }
-}
-
-fn score_present(kmer: &str, pos_model: &Model, neg_model: &Model) -> Option<f64> {
-    let pos_frac = pos_model.skips().get(kmer);
-    let neg_frac = neg_model.skips().get(kmer);
-    match (pos_frac, neg_frac) {
-        (Some(p), Some(n)) => Some(p / (p + n)),
-        _ => None,
     }
 }
 
@@ -621,30 +543,4 @@ mod test {
         Ok(())
     }
 
-    #[test]
-    fn test_choose_best_kmer() {
-        let mut kmers: Vec<&[u8]> = vec![b"ATTAGC", b"TTTTTT"];
-        let mut kmer_ranks = HashMap::new();
-        kmer_ranks.insert("ATTAGC".to_string(), 0.1);
-        kmer_ranks.insert("TTTTTT".to_string(), 0.2);
-        assert_eq!(
-            choose_best_kmer(&kmer_ranks, kmers.as_slice()),
-            Some(b"TTTTTT".as_slice())
-        );
-
-        kmer_ranks.insert("AAAAAA".to_string(), 0.3);
-        assert_eq!(
-            choose_best_kmer(&kmer_ranks, kmers.as_slice()),
-            Some(b"TTTTTT".as_slice())
-        );
-
-        kmers.push(b"CCCCCC");
-        assert_eq!(
-            choose_best_kmer(&kmer_ranks, kmers.as_slice()),
-            Some(b"TTTTTT".as_slice())
-        );
-
-        let kmer_ranks = HashMap::new();
-        assert_eq!(choose_best_kmer(&kmer_ranks, kmers.as_slice()), None);
-    }
 }
