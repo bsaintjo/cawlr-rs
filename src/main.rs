@@ -147,15 +147,15 @@ enum Commands {
         /// Path to scored data from cawlr score
         input: String,
 
-        #[clap(short, long)]
-        /// Path to output file
-        output: String,
+        // #[clap(short, long)]
+        // /// Path to output file
+        // output: String,
 
         #[clap(long)]
-        pos_control_scores: String,
+        pos_ctrl_scores: String,
 
         #[clap(long)]
-        neg_control_scores: String,
+        neg_ctrl_scores: String,
 
         #[clap(short, long)]
         // Motif context to use
@@ -246,9 +246,9 @@ fn main() -> Result<()> {
 
         Commands::Sma { 
             input,
-            output,
-            pos_control_scores,
-            neg_control_scores,
+            // output,
+            pos_ctrl_scores: pos_control_scores,
+            neg_ctrl_scores: neg_control_scores,
             motifs
          } => {
             let sma = SmaOptions::try_new(pos_control_scores, neg_control_scores, motifs)?;

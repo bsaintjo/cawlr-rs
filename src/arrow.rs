@@ -51,6 +51,36 @@ impl Metadata {
             seq,
         }
     }
+
+    /// Get a reference to the metadata's name.
+    #[must_use]
+    pub(crate) fn name(&self) -> &str {
+        self.name.as_ref()
+    }
+
+    /// Get a reference to the metadata's chrom.
+    #[must_use]
+    pub(crate) fn chrom(&self) -> &str {
+        self.chrom.as_ref()
+    }
+
+    /// Get the metadata's start.
+    #[must_use]
+    pub(crate) fn start(&self) -> u64 {
+        self.start
+    }
+
+    /// Get the metadata's length.
+    #[must_use]
+    pub(crate) fn length(&self) -> u64 {
+        self.length
+    }
+
+    /// Get the metadata's strand.
+    #[must_use]
+    pub(crate) fn strand(&self) -> Strand {
+        self.strand
+    }
 }
 
 #[derive(Debug, Clone, ArrowField)]
@@ -124,6 +154,16 @@ impl Strand {
 
     pub(crate) fn is_unknown_strand(&self) -> bool {
         self == &Strand::unknown()
+    }
+
+    pub(crate) fn as_str(&self) -> &str {
+        if self.is_plus_strand() {
+            "+"
+        } else if self.is_minus_strand() {
+            "-"
+        } else {
+            "."
+        }
     }
 }
 
@@ -262,6 +302,10 @@ pub(crate) struct ScoredRead {
 impl ScoredRead {
     fn new(metadata: Metadata, scores: Vec<Score>) -> Self {
         ScoredRead { metadata, scores }
+    }
+
+    pub(crate) fn metadata(&self) -> &Metadata {
+        &self.metadata
     }
 
     pub(crate) fn length(&self) -> u64 {

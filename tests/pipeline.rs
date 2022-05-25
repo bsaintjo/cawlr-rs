@@ -9,7 +9,11 @@ fn pipeline() -> Result<(), Box<dyn Error>> {
     let temp_dir = TempDir::new()?;
 
     eprintln!("Building release cawlr");
-    let run = CargoBuild::new().bin("cawlr").release().no_default_features().run()?;
+    let run = CargoBuild::new()
+        .bin("cawlr")
+        .release()
+        .no_default_features()
+        .run()?;
     let cawlr = run.path().as_os_str();
     let genome = "extra/sacCer3.fa";
 
@@ -106,13 +110,13 @@ fn pipeline() -> Result<(), Box<dyn Error>> {
         .arg("-g")
         .arg(&genome)
         .arg("-o")
-        .arg(scores)
+        .arg(&scores)
         .env("RUST_BACKTRACE", "1")
         .assert()
         .success();
 
     eprintln!("Scoring positive controls");
-    let scores = temp_dir.path().join("pos_scores");
+    let pos_scores = temp_dir.path().join("pos_scores");
     Command::new(cawlr)
         .arg("score")
         .arg("--neg-ctrl")
@@ -126,13 +130,13 @@ fn pipeline() -> Result<(), Box<dyn Error>> {
         .arg("-g")
         .arg(&genome)
         .arg("-o")
-        .arg(scores)
+        .arg(&pos_scores)
         .env("RUST_BACKTRACE", "1")
         .assert()
         .success();
 
     eprintln!("Scoring negative controls");
-    let scores = temp_dir.path().join("neg_scores");
+    let neg_scores = temp_dir.path().join("neg_scores");
     Command::new(cawlr)
         .arg("score")
         .arg("--neg-ctrl")
@@ -146,10 +150,19 @@ fn pipeline() -> Result<(), Box<dyn Error>> {
         .arg("-g")
         .arg(&genome)
         .arg("-o")
-        .arg(scores)
+        .arg(&neg_scores)
         .env("RUST_BACKTRACE", "1")
         .assert()
         .success();
+
+    Command::new(cawlr)
+        .arg("sma")
+        .arg("--input")
+        .arg(scores)
+        .arg("--pos-ctrl-scores")
+        .arg(pos_scores)
+        .arg("--neg-ctrl-scores")
+        .arg(neg_scores);
 
     temp_dir.close()?;
     Ok(())
