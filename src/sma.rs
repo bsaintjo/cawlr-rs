@@ -1,4 +1,8 @@
-use std::{fs::File, path::Path, io::{stdout, Write}};
+use std::{
+    fs::File,
+    io::{stdout, Write},
+    path::Path,
+};
 
 use anyhow::Result;
 use criterion_stats::univariate::{
@@ -6,6 +10,10 @@ use criterion_stats::univariate::{
     Sample,
 };
 use nalgebra::DMatrix;
+use rand::{
+    prelude::{SliceRandom, SmallRng},
+    SeedableRng,
+};
 
 use crate::arrow::{load_apply, ScoredRead};
 
@@ -13,14 +21,24 @@ pub(crate) struct SmaOptions {
     pos_scores: Vec<f64>,
     neg_scores: Vec<f64>,
     motifs: Vec<String>,
+    kde_samples: usize,
+    seed: u64,
 }
 
 impl SmaOptions {
-    fn new(pos_scores: Vec<f64>, neg_scores: Vec<f64>, motifs: Vec<String>) -> Self {
+    fn new(
+        pos_scores: Vec<f64>,
+        neg_scores: Vec<f64>,
+        motifs: Vec<String>,
+        kde_samples: usize,
+        seed: u64,
+    ) -> Self {
         Self {
             pos_scores,
             neg_scores,
             motifs,
+            kde_samples,
+            seed,
         }
     }
 
@@ -28,6 +46,8 @@ impl SmaOptions {
         pos_scores_filepath: String,
         neg_scores_filepath: String,
         motifs: Option<Vec<String>>,
+        kde_samples: usize,
+        seed: u64,
     ) -> Result<Self> {
         let pos_scores_file = File::open(pos_scores_filepath)?;
         let pos_scores = extract_samples_from_file(pos_scores_file)?;
@@ -44,7 +64,7 @@ impl SmaOptions {
             ]
         });
 
-        Ok(Self::new(pos_scores, neg_scores, motifs))
+        Ok(Self::new(pos_scores, neg_scores, motifs, kde_samples, seed))
     }
 
     pub(crate) fn run<P>(self, scores_filepath: P) -> Result<()>
@@ -53,8 +73,19 @@ impl SmaOptions {
     {
         let stdout = stdout();
         let mut handle = stdout.lock();
-        let pos_kde = sample_kde(&self.pos_scores);
-        let neg_kde = sample_kde(&self.neg_scores);
+        let mut rng = SmallRng::seed_from_u64(self.seed);
+        let pos_scores: Vec<f64> = self
+            .pos_scores
+            .choose_multiple(&mut rng, self.kde_samples)
+            .cloned()
+            .collect();
+        let neg_scores: Vec<f64> = self
+            .neg_scores
+            .choose_multiple(&mut rng, self.kde_samples)
+            .cloned()
+            .collect();
+        let pos_kde = sample_kde(&pos_scores);
+        let neg_kde = sample_kde(&neg_scores);
         let scores_file = File::open(scores_filepath)?;
         load_apply(scores_file, |reads| {
             for read in reads {
@@ -69,7 +100,10 @@ impl SmaOptions {
                     let strand = strand.as_str();
                     let name = read.metadata().name();
 
-                    write!(&mut handle, "{chrom}\t{start}\t{stop}\t{name}\t0\t{strand}\t{state}\t{size}")?;
+                    write!(
+                        &mut handle,
+                        "{chrom}\t{start}\t{stop}\t{name}\t0\t{strand}\t{state}\t{size}"
+                    )?;
                 }
             }
             Ok(())
@@ -155,7 +189,9 @@ enum States {
 /// Converts a slice of States into a more readable format, to make it easier
 /// for downstream parsing in python
 fn states_to_readable(states: &[States]) -> Vec<(String, u64)> {
-    let init_state = *states.get(0).expect("Failed to convert, empty States slice");
+    let init_state = *states
+        .get(0)
+        .expect("Failed to convert, empty States slice");
     let mut curr = (init_state, 1);
     let mut acc = Vec::new();
     for &state in &states[1..] {
@@ -237,6 +273,4 @@ mod test {
         ];
         assert_eq!(states_to_readable(&states), answer);
     }
-
-
 }

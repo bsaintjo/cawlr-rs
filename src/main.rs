@@ -150,7 +150,6 @@ enum Commands {
         // #[clap(short, long)]
         // /// Path to output file
         // output: String,
-
         #[clap(long)]
         pos_ctrl_scores: String,
 
@@ -160,6 +159,12 @@ enum Commands {
         #[clap(short, long)]
         // Motif context to use
         motifs: Option<Vec<String>>,
+
+        #[clap(long, default_value_t = 100_000_usize)]
+        kde_samples: usize,
+
+        #[clap(long, default_value_t=2456_u64)]
+        seed: u64,
     },
 }
 
@@ -244,14 +249,17 @@ fn main() -> Result<()> {
             scoring.run(input)?;
         }
 
-        Commands::Sma { 
+        Commands::Sma {
             input,
             // output,
             pos_ctrl_scores: pos_control_scores,
             neg_ctrl_scores: neg_control_scores,
-            motifs
-         } => {
-            let sma = SmaOptions::try_new(pos_control_scores, neg_control_scores, motifs)?;
+            motifs,
+            kde_samples,
+            seed,
+        } => {
+            let sma =
+                SmaOptions::try_new(pos_control_scores, neg_control_scores, motifs, kde_samples, seed)?;
             sma.run(input)?;
         }
     }
