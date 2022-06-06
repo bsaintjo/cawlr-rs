@@ -100,7 +100,7 @@ impl SmaOptions {
                     let strand = strand.as_str();
                     let name = read.metadata().name();
 
-                    write!(
+                    writeln!(
                         &mut handle,
                         "{chrom}\t{start}\t{stop}\t{name}\t0\t{strand}\t{state}\t{size}"
                     )?;
