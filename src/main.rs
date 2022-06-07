@@ -160,7 +160,7 @@ enum Commands {
         // Motif context to use
         motifs: Option<Vec<String>>,
 
-        #[clap(long, default_value_t = 100_000_usize)]
+        #[clap(long, default_value_t = 10_000_usize)]
         kde_samples: usize,
 
         #[clap(long, default_value_t=2456_u64)]
