@@ -50,5 +50,5 @@ test-log = "0.2.10"
 escargot = "0.5.7"
 
 [features]
-default = ["mimalloc"]
-alloc = []
+default = []
+fast = ["mimalloc"]
