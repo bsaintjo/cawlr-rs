@@ -152,8 +152,10 @@ fn run_read(
         // contain motif of interest
         let score = scores[col_idx - 1].filter(|s| motifs.iter().any(|m| s.kmer().contains(m)));
         let prev_max = matrix.column(col_idx - 1).max();
-        let mut col = matrix.column_mut(col_idx);
+        let linker_val = matrix.column(col_idx - 1)[0];
+        let nuc_val = matrix.column(col_idx - 1)[146];
         {
+            let mut col = matrix.column_mut(col_idx);
             let first: &mut f64 = col.get_mut(0).expect("No values in matrix.");
             let val: f64 = match score {
                 Some(score) => prev_max + pos_kde.estimate(score.score()).ln(),
@@ -162,9 +164,11 @@ fn run_read(
             *first = val;
         }
         for rest in 1..147 {
+            let nuc_prev = matrix.column(col_idx - 1)[rest - 1];
+            let mut col = matrix.column_mut(col_idx);
             let next = col.get_mut(rest).expect("Failed to get column value");
             let val = match score {
-                Some(score) => prev_max + neg_kde.estimate(score.score()).ln(),
+                Some(score) => nuc_prev + neg_kde.estimate(score.score()).ln(),
                 None => prev_max,
             };
             *next = val;
