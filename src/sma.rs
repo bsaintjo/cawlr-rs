@@ -15,30 +15,43 @@ use rand::{
     SeedableRng,
 };
 
-use crate::arrow::{load_apply, ScoredRead};
+use crate::{
+    arrow::{load_apply, ScoredRead},
+    bkde::BinnedKde,
+};
+
+fn score_file_to_bkde(
+    kde_samples: usize,
+    rng: &mut SmallRng,
+    filepath: String,
+) -> Result<BinnedKde> {
+    let scores_file = File::open(filepath)?;
+    let scores = extract_samples_from_file(scores_file)?;
+    let scores: Vec<f64> = scores
+        .choose_multiple(rng, kde_samples)
+        .cloned()
+        .collect();
+    let kde = sample_kde(&scores);
+    let bkde = BinnedKde::from_kde(1000, kde);
+    Ok(bkde)
+}
 
 pub(crate) struct SmaOptions {
-    pos_scores: Vec<f64>,
-    neg_scores: Vec<f64>,
+    pos_bkde: BinnedKde,
+    neg_bkde: BinnedKde,
     motifs: Vec<String>,
-    kde_samples: usize,
-    seed: u64,
 }
 
 impl SmaOptions {
     fn new(
-        pos_scores: Vec<f64>,
-        neg_scores: Vec<f64>,
+        pos_bkde: BinnedKde,
+        neg_bkde: BinnedKde,
         motifs: Vec<String>,
-        kde_samples: usize,
-        seed: u64,
     ) -> Self {
         Self {
-            pos_scores,
-            neg_scores,
+            pos_bkde,
+            neg_bkde,
             motifs,
-            kde_samples,
-            seed,
         }
     }
 
@@ -49,11 +62,9 @@ impl SmaOptions {
         kde_samples: usize,
         seed: u64,
     ) -> Result<Self> {
-        let pos_scores_file = File::open(pos_scores_filepath)?;
-        let pos_scores = extract_samples_from_file(pos_scores_file)?;
-
-        let neg_scores_file = File::open(neg_scores_filepath)?;
-        let neg_scores = extract_samples_from_file(neg_scores_file)?;
+        let mut rng = SmallRng::seed_from_u64(seed);
+        let pos_bkde = score_file_to_bkde(kde_samples, &mut rng, pos_scores_filepath)?;
+        let neg_bkde = score_file_to_bkde(kde_samples, &mut rng, neg_scores_filepath)?;
 
         let motifs = motifs.unwrap_or_else(|| {
             vec![
@@ -64,7 +75,7 @@ impl SmaOptions {
             ]
         });
 
-        Ok(Self::new(pos_scores, neg_scores, motifs, kde_samples, seed))
+        Ok(Self::new(pos_bkde, neg_bkde, motifs))
     }
 
     pub(crate) fn run<P>(self, scores_filepath: P) -> Result<()>
@@ -73,23 +84,10 @@ impl SmaOptions {
     {
         let stdout = stdout();
         let mut handle = stdout.lock();
-        let mut rng = SmallRng::seed_from_u64(self.seed);
-        let pos_scores: Vec<f64> = self
-            .pos_scores
-            .choose_multiple(&mut rng, self.kde_samples)
-            .cloned()
-            .collect();
-        let neg_scores: Vec<f64> = self
-            .neg_scores
-            .choose_multiple(&mut rng, self.kde_samples)
-            .cloned()
-            .collect();
-        let pos_kde = sample_kde(&pos_scores);
-        let neg_kde = sample_kde(&neg_scores);
         let scores_file = File::open(scores_filepath)?;
         load_apply(scores_file, |reads| {
             for read in reads {
-                let matrix = run_read(&read, &pos_kde, &neg_kde, self.motifs.as_slice());
+                let matrix = run_read(&read, &self.pos_bkde, &self.neg_bkde, self.motifs.as_slice());
                 let result = backtrace(matrix);
                 let result = states_to_readable(&result);
                 for (state, size) in result.into_iter() {
@@ -140,8 +138,8 @@ fn sample_kde(samples: &[f64]) -> Kde<f64, Gaussian> {
 
 fn run_read(
     read: &ScoredRead,
-    pos_kde: &Kde<f64, Gaussian>,
-    neg_kde: &Kde<f64, Gaussian>,
+    pos_kde: &BinnedKde,
+    neg_kde: &BinnedKde,
     motifs: &[String],
 ) -> DMatrix<f64> {
     let mut matrix = init_dmatrix(read);
@@ -156,7 +154,7 @@ fn run_read(
         {
             let first: &mut f64 = col.get_mut(0).expect("No values in matrix.");
             let val: f64 = match score {
-                Some(score) => prev_max + pos_kde.estimate(score.score()).ln(),
+                Some(score) => prev_max + pos_kde.pmf_from_score(score.score()).ln(),
                 None => prev_max,
             };
             *first = val;
@@ -164,7 +162,7 @@ fn run_read(
         for rest in 1..147 {
             let next = col.get_mut(rest).expect("Failed to get column value");
             let val = match score {
-                Some(score) => prev_max + neg_kde.estimate(score.score()).ln(),
+                Some(score) => prev_max + neg_kde.pmf_from_score(score.score()).ln(),
                 None => prev_max,
             };
             *next = val;
