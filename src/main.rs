@@ -2,18 +2,19 @@ use std::path::Path;
 
 use anyhow::Result;
 use clap::{IntoApp, Parser, Subcommand};
+use clap_verbosity_flag::Verbosity;
 use collapse::CollapseOptions;
 #[cfg(feature = "mimalloc")]
 use mimalloc::MiMalloc;
 
 mod arrow;
+mod bkde;
 mod collapse;
 mod rank;
 mod score;
 mod sma;
 mod train;
 mod utils;
-mod bkde;
 
 use sma::SmaOptions;
 use train::Model;
@@ -29,6 +30,9 @@ static GLOBAL: MiMalloc = MiMalloc;
 struct Args {
     #[clap(short, long)]
     debug: bool,
+
+    #[clap(flatten)]
+    verbose: Verbosity,
 
     #[clap(subcommand)]
     command: Commands,
@@ -164,14 +168,16 @@ enum Commands {
         #[clap(long, default_value_t = 10_000_usize)]
         kde_samples: usize,
 
-        #[clap(long, default_value_t=2456_u64)]
+        #[clap(long, default_value_t = 2456_u64)]
         seed: u64,
     },
 }
 
 fn main() -> Result<()> {
-    env_logger::init();
     let args = Args::parse();
+    env_logger::Builder::new()
+        .filter_level(args.verbose.log_level_filter())
+        .init();
     match args.command {
         Commands::Collapse {
             input,
@@ -259,8 +265,13 @@ fn main() -> Result<()> {
             kde_samples,
             seed,
         } => {
-            let sma =
-                SmaOptions::try_new(pos_control_scores, neg_control_scores, motifs, kde_samples, seed)?;
+            let sma = SmaOptions::try_new(
+                pos_control_scores,
+                neg_control_scores,
+                motifs,
+                kde_samples,
+                seed,
+            )?;
             sma.run(input)?;
         }
     }
