@@ -13,6 +13,7 @@ mod score;
 mod sma;
 mod train;
 mod utils;
+mod bkde;
 
 use sma::SmaOptions;
 use train::Model;
