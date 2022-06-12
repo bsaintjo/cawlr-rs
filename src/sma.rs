@@ -27,10 +27,7 @@ fn score_file_to_bkde(
 ) -> Result<BinnedKde> {
     let scores_file = File::open(filepath)?;
     let scores = extract_samples_from_file(scores_file)?;
-    let scores: Vec<f64> = scores
-        .choose_multiple(rng, kde_samples)
-        .cloned()
-        .collect();
+    let scores: Vec<f64> = scores.choose_multiple(rng, kde_samples).cloned().collect();
     let kde = sample_kde(&scores);
     let bkde = BinnedKde::from_kde(1000, kde);
     Ok(bkde)
@@ -43,11 +40,7 @@ pub(crate) struct SmaOptions {
 }
 
 impl SmaOptions {
-    fn new(
-        pos_bkde: BinnedKde,
-        neg_bkde: BinnedKde,
-        motifs: Vec<String>,
-    ) -> Self {
+    fn new(pos_bkde: BinnedKde, neg_bkde: BinnedKde, motifs: Vec<String>) -> Self {
         Self {
             pos_bkde,
             neg_bkde,
@@ -87,7 +80,12 @@ impl SmaOptions {
         let scores_file = File::open(scores_filepath)?;
         load_apply(scores_file, |reads| {
             for read in reads {
-                let matrix = run_read(&read, &self.pos_bkde, &self.neg_bkde, self.motifs.as_slice());
+                let matrix = run_read(
+                    &read,
+                    &self.pos_bkde,
+                    &self.neg_bkde,
+                    self.motifs.as_slice(),
+                );
                 let result = backtrace(matrix);
                 let result = states_to_readable(&result);
                 for (state, size) in result.into_iter() {
@@ -149,24 +147,26 @@ fn run_read(
         // Score will be None if a) No data at that position, or b) Position kmer didn't
         // contain motif of interest
         let score = scores[col_idx - 1].filter(|s| motifs.iter().any(|m| s.kmer().contains(m)));
-        let prev_max = matrix.column(col_idx - 1).max();
+
+        // Start nucleosome vs linker
         let linker_val = matrix.column(col_idx - 1)[0];
         let nuc_val = matrix.column(col_idx - 1)[146];
-        {
-            let mut col = matrix.column_mut(col_idx);
-            let first: &mut f64 = col.get_mut(0).expect("No values in matrix.");
-            let val: f64 = match score {
-                Some(score) => prev_max + pos_kde.pmf_from_score(score.score()).ln(),
-                None => prev_max,
-            };
-            *first = val;
-        }
+        let prev_max = linker_val.max(nuc_val);
+        let mut col = matrix.column_mut(col_idx);
+        let first: &mut f64 = col.get_mut(0).expect("No values in matrix.");
+        let val: f64 = match score {
+            Some(score) => prev_max + pos_kde.pmf_from_score(score.score()).ln(),
+            None => prev_max,
+        };
+        *first = val;
+
+        // Within nucleosome
         for rest in 1..147 {
             let nuc_prev = matrix.column(col_idx - 1)[rest - 1];
             let mut col = matrix.column_mut(col_idx);
             let next = col.get_mut(rest).expect("Failed to get column value");
             let val = match score {
-                Some(score) => prev_max + neg_kde.pmf_from_score(score.score()).ln(),
+                Some(score) => nuc_prev + neg_kde.pmf_from_score(score.score()).ln(),
                 None => prev_max,
             };
             *next = val;
