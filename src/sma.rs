@@ -217,15 +217,17 @@ fn states_to_readable(states: &[States]) -> Vec<(String, u64)> {
 fn backtrace(matrix: DMatrix<f64>) -> Vec<States> {
     let mut pos = matrix.ncols() - 1;
     let mut acc = Vec::new();
+    let nuc_idx = matrix.ncols() - 1;
     while pos > 0 {
-        let col = matrix.column(pos).argmax().0;
-        if col == 0 {
+        let linker_val = matrix.column(pos)[0];
+        let nuc_val = matrix.column(pos)[nuc_idx];
+        if linker_val > nuc_val {
             acc.push(States::Linker);
             pos -= 1;
         } else {
-            let n = if pos > col { col } else { 0 };
+            let n = if pos > 147 { 147 } else { pos };
             acc.append(&mut vec![States::Nucleosome; n]);
-            pos -= col;
+            pos -= n;
         }
     }
     acc.reverse();
