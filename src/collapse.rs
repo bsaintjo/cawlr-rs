@@ -97,14 +97,14 @@ fn spin_iter<I: Read>(iter: I) -> ProgressBarIter<I> {
         .wrap_read(iter)
 }
 
-pub(crate) struct CollapseOptions<W: Write> {
+pub struct CollapseOptions<W: Write> {
     input: String,
     writer: FileWriter<BufWriter<W>>,
     capacity: usize,
 }
 
 impl CollapseOptions<File> {
-    pub(crate) fn try_new<P>(input: &str, output: P, capacity: usize) -> Result<Self>
+    pub fn try_new<P>(input: &str, output: P, capacity: usize) -> Result<Self>
     where
         P: AsRef<Path>,
     {
@@ -134,7 +134,7 @@ impl<W: Write> CollapseOptions<W> {
         Ok(())
     }
 
-    pub(crate) fn run(mut self) -> Result<()> {
+    pub fn run(mut self) -> Result<()> {
         let file = File::open(&self.input)?;
         let file = spin_iter(file);
         let mut builder = csv::ReaderBuilder::new().delimiter(b'\t').from_reader(file);
