@@ -151,7 +151,13 @@ fn run_read(
         // Start nucleosome vs linker
         let linker_val = matrix.column(col_idx - 1)[0];
         let nuc_val = matrix.column(col_idx - 1)[146];
-        let prev_max = linker_val.max(nuc_val);
+        let (prev_max, prev_max_idx) = {
+            if linker_val > nuc_val {
+                (linker_val, 0usize)
+            } else {
+                (nuc_val, 146usize)
+            }
+        };
         let mut col = matrix.column_mut(col_idx);
         let first: &mut f64 = col.get_mut(0).expect("No values in matrix.");
         let val: f64 = match score {
@@ -162,6 +168,7 @@ fn run_read(
 
         // Within nucleosome
         for rest in 1..147 {
+            let prev_idx = rest - 1;
             let nuc_prev = matrix.column(col_idx - 1)[rest - 1];
             let mut col = matrix.column_mut(col_idx);
             let next = col.get_mut(rest).expect("Failed to get column value");
@@ -173,6 +180,18 @@ fn run_read(
         }
     }
     matrix
+}
+
+#[derive(Default)]
+struct Cell {
+    val: f64,
+    ptr: Option<usize>,
+}
+
+impl Cell {
+    fn new(val: f64, ptr: Option<usize>) -> Self {
+        Self { val, ptr }
+    }
 }
 
 // TODO Make initial value 10/157 for linker, 1/157 for nucleosome positions
