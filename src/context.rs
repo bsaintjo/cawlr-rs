@@ -73,7 +73,8 @@ impl Context {
         genome.read(&mut seq)?;
 
         if read.strand().is_minus_strand() {
-            seq = dna::revcomp(seq)
+            log::debug!("Read is on negative strand");
+            seq = dna::complement(seq)
         }
 
         Ok(Context::new(seq, read.start_zb(), start_slop, end_slop))
