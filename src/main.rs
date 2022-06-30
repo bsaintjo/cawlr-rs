@@ -4,12 +4,14 @@ use anyhow::Result;
 use clap::{IntoApp, Parser, Subcommand};
 use clap_verbosity_flag::Verbosity;
 use collapse::CollapseOptions;
+
 #[cfg(feature = "mimalloc")]
 use mimalloc::MiMalloc;
 
 mod arrow;
 mod bkde;
 mod collapse;
+mod context;
 mod rank;
 mod score;
 mod sma;

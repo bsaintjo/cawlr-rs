@@ -2,10 +2,12 @@ use std::{
     collections::HashMap,
     fs::File,
     hash::{BuildHasher, Hash},
-    path::Path,
+    path::Path, io::{Seek, Read},
 };
 
 use anyhow::Result;
+use bio::io::fasta::IndexedReader;
+use fnv::FnvHashMap;
 use serde::{de::DeserializeOwned, Serialize};
 use serde_pickle::from_reader;
 
@@ -64,4 +66,18 @@ impl CawlrIO for Model {
         let model_db = from_reader(file, Default::default())?;
         Ok(model_db)
     }
+}
+
+/// Get the size of each chromosome in the genome fasta file. Later used if
+/// fetching sequences and want to avoid trying to pull sequence past the end of
+/// the chromosome.
+pub(crate) fn chrom_lens<R>(genome: &IndexedReader<R>) -> FnvHashMap<String, u64>
+where
+    R: Read + Seek,
+{
+    let mut chrom_lens = FnvHashMap::default();
+    genome.index.sequences().into_iter().for_each(|sequence| {
+        chrom_lens.insert(sequence.name, sequence.len);
+    });
+    chrom_lens
 }

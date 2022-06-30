@@ -1,26 +1,20 @@
-use std::{
-    collections::HashMap,
-    fs::File,
-    hash::BuildHasher,
-    io::{Read, Seek},
-    ops::RangeInclusive,
-    path::Path,
-};
+use std::{collections::HashMap, fs::File, hash::BuildHasher, ops::RangeInclusive, path::Path};
 
 use anyhow::Result;
 use arrow2::io::ipc::write::FileWriter;
-use bio::{alphabets::dna, io::fasta::IndexedReader};
+use bio::io::fasta::IndexedReader;
 use fnv::FnvHashMap;
 use rstats::Stats;
 use rv::{
     prelude::{Gaussian, Mixture},
-    traits::{KlDivergence, Rv},
+    traits::{Cdf, KlDivergence, Rv},
 };
 
 use crate::{
     arrow::{load_apply, save, wrap_writer, Eventalign, Score, ScoredRead, Signal},
-    train::Model,
-    utils::CawlrIO,
+    context::Context,
+    train::{Model, ModelDB},
+    utils::{chrom_lens, CawlrIO},
 };
 
 pub(crate) struct ScoreOptions {
@@ -74,6 +68,8 @@ impl ScoreOptions {
         Ok(())
     }
 
+    /// For every read in the input file, try to calculate scores for each base
+    /// position and write to file.
     pub(crate) fn run<P>(mut self, input: P) -> Result<()>
     where
         P: AsRef<Path>,
@@ -89,10 +85,14 @@ impl ScoreOptions {
         self.close()
     }
 
+    /// Write batch of scored reads to the writer.
     pub(crate) fn save(&mut self, scored: Vec<ScoredRead>) -> Result<()> {
         save(&mut self.writer, &scored)
     }
 
+    /// Scores a single Eventalign read. For each read, loop over each base pair
+    /// position, and if the kmer at the position matches the motif attempt to
+    /// score it.
     fn score_eventalign(&mut self, read: Eventalign) -> Result<ScoredRead> {
         let mut acc = Vec::new();
         let context = Context::from_read(&mut self.genome, &self.chrom_lens, &read)?;
@@ -162,9 +162,20 @@ impl ScoreOptions {
         skipping_scores.median().expect("No skipping scores").median
     }
 
+    /// For a given position, get the values for the position and surrounding
+    /// kmers. Filter for the best kmer model, if there is confidence in the
+    /// model, otherwise return None.
+    ///
+    /// Will return None if,
+    /// 1)
     fn calc_signal_score(&self, pos: u64, data_pos: &FnvHashMap<u64, &Signal>) -> Option<f64> {
         let sur_signals = surrounding_signal(pos, data_pos);
-        let best_signal = best_surrounding_signal(sur_signals, &self.rank);
+        let best_signal = best_surrounding_signal(
+            sur_signals,
+            &self.rank,
+            self.pos_ctrl.gmms(),
+            self.neg_ctrl.gmms(),
+        );
 
         best_signal.and_then(|sig| {
             let mean = sig.mean();
@@ -192,6 +203,8 @@ where
     positions.map(|p| signal_map.get(&p).is_some()).collect()
 }
 
+/// Returns None if none of the positions around a genomic position have signal
+/// measurements.
 fn surrounding_signal<'a, S>(
     pos: u64,
     signal_map: &HashMap<u64, &'a Signal, S>,
@@ -211,29 +224,62 @@ where
     }
 }
 
+/// Return mu and sigma from a Gaussian distribution.
+fn extract_components(gauss: &Gaussian) -> (f64, f64) {
+    let mu = gauss.mu();
+    let sigma = gauss.sigma();
+    (mu, sigma)
+}
+
+/// Use z-test to calculate the p-value between two Gaussians
+fn gauss_to_pvalue(pos_model: &Gaussian, neg_model: &Gaussian) -> f64 {
+    let (pos_mu, pos_sigma) = extract_components(pos_model);
+    let (neg_mu, neg_sigma) = extract_components(neg_model);
+
+    let zscore = ((pos_mu - neg_mu) / ((neg_sigma.powi(2)) + pos_sigma.powi(2)).sqrt()).abs();
+    let pvalue = 2. * Gaussian::standard().sf(&zscore);
+    zscore
+}
+
+/// Filters out surrounding signal for best signal to use for scoring.
+/// Will return None if one of the signal's kmers have a z-test p-value less
+/// than 0.05.
 fn best_surrounding_signal<'a, S>(
     surrounding: Option<Vec<&'a Signal>>,
     ranks: &HashMap<String, f64, S>,
+    pos_gmms: &ModelDB,
+    neg_gmms: &ModelDB,
 ) -> Option<&'a Signal>
 where
     S: BuildHasher,
 {
     surrounding.and_then(|signals| {
-        signals.into_iter().reduce(|x, y| {
-            let x_rank = ranks.get(x.kmer());
-            let y_rank = ranks.get(y.kmer());
-            match (x_rank, y_rank) {
-                (None, _) => y,
-                (_, None) => x,
-                (Some(a), Some(b)) => {
-                    if a > b {
-                        x
-                    } else {
-                        y
+        signals
+            .into_iter()
+            // Only use kmers with z-test p-values less than 0.05
+            .filter(|&s| {
+                let kmer = s.kmer();
+                let neg_model = choose_model(&neg_gmms[kmer]);
+                let pos_model = choose_pos_model(neg_model, &pos_gmms[kmer]);
+                let pvalue = gauss_to_pvalue(pos_model, neg_model);
+                pvalue < 0.05
+            })
+            // Of the ones the best, choose the one with the best ranking
+            .reduce(|x, y| {
+                let x_rank = ranks.get(x.kmer());
+                let y_rank = ranks.get(y.kmer());
+                match (x_rank, y_rank) {
+                    (None, _) => y,
+                    (_, None) => x,
+                    (Some(a), Some(b)) => {
+                        if a > b {
+                            x
+                        } else {
+                            y
+                        }
                     }
                 }
-            }
-        })
+            })
     })
 }
 
@@ -246,20 +292,6 @@ fn pos_with_data(read: &Eventalign) -> FnvHashMap<u64, &Signal> {
         avail_pos.insert(signal.pos(), signal);
     }
     avail_pos
-}
-
-/// Get the size of each chromosome in the genome fasta file. Later used if
-/// fetching sequences and want to avoid trying to pull sequence past the end of
-/// the chromosome.
-fn chrom_lens<R>(genome: &IndexedReader<R>) -> FnvHashMap<String, u64>
-where
-    R: Read + Seek,
-{
-    let mut chrom_lens = FnvHashMap::default();
-    genome.index.sequences().into_iter().for_each(|sequence| {
-        chrom_lens.insert(sequence.name, sequence.len);
-    });
-    chrom_lens
 }
 
 /// Return the Gaussian with the highest component weight. This is a heuristic
@@ -321,194 +353,12 @@ fn score_signal(
     }
 }
 
-struct Context {
-    context: Vec<u8>,
-    read_start: u64,
-    start_slop: u64,
-    end_slop: u64,
-}
-
-impl Context {
-    fn new(context: Vec<u8>, read_start: u64, start_slop: u64, end_slop: u64) -> Self {
-        Self {
-            context,
-            read_start,
-            start_slop,
-            end_slop,
-        }
-    }
-
-    fn from_read<R>(
-        genome: &mut IndexedReader<R>,
-        chrom_lens: &FnvHashMap<String, u64>,
-        read: &Eventalign,
-    ) -> Result<Self>
-    where
-        R: Read + Seek,
-    {
-        let chrom = read.chrom();
-        let chrom_len = *chrom_lens
-            .get(chrom)
-            .expect("chromosome missing in chrom_lens, different genome used?");
-        let start_slop = read.start_zb().min(5);
-
-        let start = if read.start_zb() < 5 {
-            0
-        } else {
-            read.start_zb() - 5
-        };
-
-        let stop = read.seq_stop_zb();
-        let end_slop = if (stop + 1) > chrom_len {
-            0
-        } else {
-            5.min(chrom_len - (stop + 1))
-        };
-        let stop = if (stop + 1) > chrom_len {
-            chrom_len
-        } else {
-            stop + 1
-        };
-        genome.fetch(chrom, start, stop)?;
-        let mut seq = Vec::new();
-        genome.read(&mut seq)?;
-
-        if read.strand().is_minus_strand() {
-            seq = dna::revcomp(seq)
-        }
-
-        Ok(Context::new(seq, read.start_zb(), start_slop, end_slop))
-    }
-
-    fn surrounding(&self, pos: u64) -> Vec<&[u8]> {
-        let mut acc = Vec::new();
-        let true_pos = (pos - self.read_start) + self.start_slop;
-
-        let true_start = if true_pos < 5 { 0 } else { true_pos - 5 };
-
-        let ctxt_len = self.context.len() as u64;
-        for base_pos in true_start..=true_pos {
-            if (base_pos + 5) < ctxt_len {
-                let base_pos = base_pos as usize;
-                acc.push(&self.context[base_pos..=base_pos + 5]);
-            }
-        }
-        acc
-    }
-
-    /// Returns None if the position is near the end of the chromosome and it
-    /// would return a position with a kmer size less than six
-    fn sixmer_at(&self, pos: u64) -> Option<&[u8]> {
-        let true_pos = (pos - self.read_start) + self.start_slop;
-        let true_pos = true_pos as usize;
-        self.context.get(true_pos..=true_pos + 5)
-    }
-}
-
 #[cfg(test)]
 mod test {
-    use std::io::Cursor;
-
     use assert_fs::TempDir;
 
     use super::*;
-    use crate::{
-        arrow::{load_iter, Strand},
-        collapse::CollapseOptions,
-    };
-
-    #[test]
-    fn test_context() -> Result<()> {
-        const FASTA_FILE: &[u8] =
-            b">one\nATGCATGCATGCATGCATGCATGCATGCAT\nGCATGCATGCATGCATGCATGCATGCATGC\nATGCAT";
-        const FAI_FILE: &[u8] = b"one\t66\t5\t30\t31";
-
-        let mut genome = IndexedReader::new(Cursor::new(FASTA_FILE), FAI_FILE)?;
-        let chrom_lens = chrom_lens(&genome);
-        assert_eq!(chrom_lens["one"], 66);
-
-        // Truncated start
-        let read = Eventalign::empty(String::new(), "one".to_string(), 0, 10, String::new());
-        assert_eq!(read.length(), 10);
-        assert_eq!(read.start_zb(), 0);
-        assert_eq!(read.stop_zb(), 9);
-        assert_eq!(read.start_ob(), 1);
-        assert_eq!(read.stop_ob(), 10);
-        let ctxt = Context::from_read(&mut genome, &chrom_lens, &read)?;
-        assert_eq!(ctxt.context.len(), 15);
-        // assert_eq!(
-        //     std::str::from_utf8(&ctxt.context).unwrap(),
-        //     "ATGCATGCATGCATGCATGC"
-        // );
-        assert_eq!(ctxt.start_slop, 0);
-        assert_eq!(ctxt.end_slop, 5);
-        assert_eq!(
-            ctxt.surrounding(1)
-                .into_iter()
-                .flat_map(std::str::from_utf8)
-                .collect::<Vec<_>>(),
-            vec!["ATGCAT", "TGCATG"]
-        );
-
-        // Same but minus strand
-        let mut read = Eventalign::empty(String::new(), "one".to_string(), 0, 10, String::new());
-        *read.strand_mut() = Strand::minus();
-        let ctxt = Context::from_read(&mut genome, &chrom_lens, &read)?;
-        assert_eq!(ctxt.context.len(), 15);
-        assert_eq!(
-            std::str::from_utf8(&ctxt.context).unwrap(),
-            "CATGCATGCATGCAT"
-        );
-        assert_eq!(ctxt.start_slop, 0);
-        assert_eq!(ctxt.end_slop, 5);
-        // assert_eq!(
-        //     ctxt.surrounding(1)
-        //         .into_iter()
-        //         .flat_map(std::str::from_utf8)
-        //         .collect::<Vec<_>>(),
-        //     vec!["ATGCAT", "TGCATG", "GCATGC", "CATGCA", "ATGCAT", "TGCATG"]
-        // );
-
-        // Partial start
-        let mut read = Eventalign::empty(String::new(), "one".to_string(), 2, 10, String::new());
-        *read.strand_mut() = Strand::minus();
-        let ctxt = Context::from_read(&mut genome, &chrom_lens, &read)?;
-        assert_eq!(ctxt.context.len(), 17);
-        assert_eq!(ctxt.start_slop, 2);
-        assert_eq!(ctxt.end_slop, 5);
-
-        // Truncated end
-        // Read not possible due to left-adjusted positioning
-        let read = Eventalign::empty(String::new(), "one".to_string(), 60, 6, String::new());
-        let ctxt = Context::from_read(&mut genome, &chrom_lens, &read)?;
-        assert_eq!(ctxt.context.len(), 11);
-        assert_eq!(std::str::from_utf8(&ctxt.context).unwrap(), "CATGCATGCAT");
-
-        assert_eq!(ctxt.start_slop, 5);
-        assert_eq!(ctxt.end_slop, 0);
-        assert_eq!(
-            ctxt.surrounding(61)
-                .into_iter()
-                .flat_map(std::str::from_utf8)
-                .collect::<Vec<_>>(),
-            vec!["ATGCAT", "TGCATG", "GCATGC", "CATGCA", "ATGCAT"]
-        );
-
-        // Partial end
-        let read = Eventalign::empty(String::new(), "one".to_string(), 53, 6, String::new());
-        let ctxt = Context::from_read(&mut genome, &chrom_lens, &read)?;
-        assert_eq!(ctxt.context.len(), 16);
-        assert_eq!(ctxt.start_slop, 5);
-        assert_eq!(ctxt.end_slop, 2);
-
-        // Middle
-        let read = Eventalign::empty(String::new(), "one".to_string(), 30, 10, String::new());
-        let ctxt = Context::from_read(&mut genome, &chrom_lens, &read)?;
-        assert_eq!(ctxt.context.len(), 20);
-        assert_eq!(ctxt.start_slop, 5);
-        assert_eq!(ctxt.end_slop, 5);
-        Ok(())
-    }
+    use crate::{arrow::load_iter, collapse::CollapseOptions};
 
     #[test]
     fn test_single_read() -> Result<()> {
@@ -528,8 +378,8 @@ mod test {
         let chrom_lens = chrom_lens(&genome);
 
         let context = Context::from_read(&mut genome, &chrom_lens, read)?;
-        assert_eq!(context.start_slop, 5);
-        assert_eq!(context.end_slop, 5);
+        assert_eq!(context.start_slop(), 5);
+        assert_eq!(context.end_slop(), 5);
 
         assert_eq!(
             context
@@ -542,5 +392,4 @@ mod test {
 
         Ok(())
     }
-
 }
