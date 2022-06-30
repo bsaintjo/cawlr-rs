@@ -259,10 +259,14 @@ where
             // Only use kmers with z-test p-values less than 0.05
             .filter(|&s| {
                 let kmer = s.kmer();
-                let neg_model = choose_model(&neg_gmms[kmer]);
-                let pos_model = choose_pos_model(neg_model, &pos_gmms[kmer]);
-                let pvalue = gauss_to_pvalue(pos_model, neg_model);
-                pvalue < 0.05
+                if !neg_gmms.contains_key(kmer) || !pos_gmms.contains_key(kmer) {
+                    false
+                } else {
+                    let neg_model = choose_model(&neg_gmms[kmer]);
+                    let pos_model = choose_pos_model(neg_model, &pos_gmms[kmer]);
+                    let pvalue = gauss_to_pvalue(pos_model, neg_model);
+                    pvalue < 0.05
+                }
             })
             // Of the ones the best, choose the one with the best ranking
             .reduce(|x, y| {
