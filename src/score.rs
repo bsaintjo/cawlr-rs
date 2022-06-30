@@ -30,7 +30,6 @@ pub(crate) struct ScoreOptions {
 
 impl ScoreOptions {
     pub(crate) fn try_new<P>(
-        // input: &str,
         pos_ctrl_filepath: &str,
         neg_ctrl_filepath: &str,
         genome_filepath: &str,
@@ -51,7 +50,6 @@ impl ScoreOptions {
         let pos_ctrl_db = Model::load(&pos_ctrl_filepath)?;
         let neg_ctrl_db = Model::load(&neg_ctrl_filepath)?;
         Ok(ScoreOptions {
-            // input: input.to_owned(),
             pos_ctrl: pos_ctrl_db,
             neg_ctrl: neg_ctrl_db,
             genome,
@@ -195,6 +193,8 @@ fn surrounding_pos(pos: u64) -> RangeInclusive<u64> {
     start..=pos
 }
 
+/// Return list of kmer positions around a given position pos contain signal
+/// current data
 fn surround_has_data<S>(pos: u64, signal_map: &HashMap<u64, &Signal, S>) -> Vec<bool>
 where
     S: BuildHasher,
@@ -237,8 +237,8 @@ fn gauss_to_pvalue(pos_model: &Gaussian, neg_model: &Gaussian) -> f64 {
     let (neg_mu, neg_sigma) = extract_components(neg_model);
 
     let zscore = ((pos_mu - neg_mu) / ((neg_sigma.powi(2)) + pos_sigma.powi(2)).sqrt()).abs();
-    let pvalue = 2. * Gaussian::standard().sf(&zscore);
-    zscore
+
+    2. * Gaussian::standard().sf(&zscore)
 }
 
 /// Filters out surrounding signal for best signal to use for scoring.
