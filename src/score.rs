@@ -92,6 +92,7 @@ impl ScoreOptions {
     /// position, and if the kmer at the position matches the motif attempt to
     /// score it.
     fn score_eventalign(&mut self, read: Eventalign) -> Result<ScoredRead> {
+        log::info!("{:?}", read);
         let mut acc = Vec::new();
         let context = Context::from_read(&mut self.genome, &self.chrom_lens, &read)?;
         let data_pos = pos_with_data(&read);
@@ -109,6 +110,8 @@ impl ScoreOptions {
             });
             if let Some(kmer) = pos_kmer {
                 let kmer = std::str::from_utf8(kmer).unwrap().to_string();
+                log::debug!("Position {pos} kmer: {kmer}");
+
                 let signal_score = self.calc_signal_score(pos, &data_pos);
                 let skipping_score = self.calc_skipping_score(pos, &data_pos, &context);
                 let final_score = signal_score.map_or(skipping_score, |x| x.max(skipping_score));
@@ -120,6 +123,7 @@ impl ScoreOptions {
                     skipping_score,
                     final_score,
                 );
+                log::debug!("final score: {score:?}");
                 acc.push(score)
             }
         }
@@ -163,17 +167,18 @@ impl ScoreOptions {
     /// For a given position, get the values for the position and surrounding
     /// kmers. Filter for the best kmer model, if there is confidence in the
     /// model, otherwise return None.
-    ///
-    /// Will return None if,
-    /// 1)
     fn calc_signal_score(&self, pos: u64, data_pos: &FnvHashMap<u64, &Signal>) -> Option<f64> {
+        log::debug!("Calculating signal score");
         let sur_signals = surrounding_signal(pos, data_pos);
+        log::debug!("surrounding signals: {sur_signals:?}");
         let best_signal = best_surrounding_signal(
             sur_signals,
             &self.rank,
             self.pos_ctrl.gmms(),
             self.neg_ctrl.gmms(),
         );
+
+        log::debug!("Best signal: {best_signal:?}");
 
         best_signal.and_then(|sig| {
             let mean = sig.mean();
@@ -182,7 +187,10 @@ impl ScoreOptions {
             let neg_mix = self.neg_ctrl.gmms().get(kmer);
             match (pos_mix, neg_mix) {
                 (Some(pos_gmm), Some(neg_gmm)) => score_signal(mean, pos_gmm, neg_gmm, self.cutoff),
-                _ => None,
+                _ => {
+                    log::debug!("Missing kmer, unable to score signal.");
+                    None
+                }
             }
         })
     }
@@ -253,11 +261,13 @@ fn best_surrounding_signal<'a, S>(
 where
     S: BuildHasher,
 {
+    log::debug!("Determine best surrounding signal");
     surrounding.and_then(|signals| {
         signals
             .into_iter()
             // Only use kmers with z-test p-values less than 0.05
             .filter(|&s| {
+                log::debug!("Signal: {s:?}");
                 let kmer = s.kmer();
                 if !neg_gmms.contains_key(kmer) || !pos_gmms.contains_key(kmer) {
                     false
@@ -265,6 +275,7 @@ where
                     let neg_model = choose_model(&neg_gmms[kmer]);
                     let pos_model = choose_pos_model(neg_model, &pos_gmms[kmer]);
                     let pvalue = gauss_to_pvalue(pos_model, neg_model);
+                    log::debug!("p-value: {pvalue:?}");
                     pvalue < 0.05
                 }
             })
@@ -344,13 +355,16 @@ fn score_signal(
     neg_mix: &Mixture<Gaussian>,
     cutoff: f64,
 ) -> Option<f64> {
+    log::debug!("Scoring signal");
     let neg_mix = choose_model(neg_mix);
     let pos_mix = choose_pos_model(neg_mix, pos_mix);
     let pos_log_proba = pos_mix.f(&signal);
     let neg_log_proba = neg_mix.f(&signal);
     let score = pos_log_proba / (pos_log_proba + neg_log_proba);
+    log::debug!("Score: {score:.3}");
 
     if (pos_mix.ln_f(&signal) > -cutoff) && (neg_mix.ln_f(&signal) > -cutoff) {
+        log::debug!("Below cutoff, not scoring.");
         None
     } else {
         Some(score)
