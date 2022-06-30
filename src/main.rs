@@ -251,7 +251,7 @@ fn main() -> Result<()> {
                 .exit();
             }
             
-            for m in motif.unwrap().iter() {
+            for m in motif.as_ref().unwrap().iter() {
                 if m.len() > 6 {
                     let mut cmd = Args::command();
                     cmd.error(
