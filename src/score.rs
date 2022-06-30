@@ -92,7 +92,7 @@ impl ScoreOptions {
     /// position, and if the kmer at the position matches the motif attempt to
     /// score it.
     fn score_eventalign(&mut self, read: Eventalign) -> Result<ScoredRead> {
-        log::info!("{:?}", read);
+        log::info!("{:?}", read.metadata());
         let mut acc = Vec::new();
         let context = Context::from_read(&mut self.genome, &self.chrom_lens, &read)?;
         let data_pos = pos_with_data(&read);
@@ -123,7 +123,7 @@ impl ScoreOptions {
                     skipping_score,
                     final_score,
                 );
-                log::debug!("final score: {score:?}");
+                log::debug!("final score: {score:.3?}");
                 acc.push(score)
             }
         }
@@ -170,7 +170,7 @@ impl ScoreOptions {
     fn calc_signal_score(&self, pos: u64, data_pos: &FnvHashMap<u64, &Signal>) -> Option<f64> {
         log::debug!("Calculating signal score");
         let sur_signals = surrounding_signal(pos, data_pos);
-        log::debug!("surrounding signals: {sur_signals:?}");
+        log::debug!("surrounding signals: {sur_signals:.3?}");
         let best_signal = best_surrounding_signal(
             sur_signals,
             &self.rank,
@@ -178,7 +178,7 @@ impl ScoreOptions {
             self.neg_ctrl.gmms(),
         );
 
-        log::debug!("Best signal: {best_signal:?}");
+        log::debug!("Best signal: {best_signal:.3?}");
 
         best_signal.and_then(|sig| {
             let mean = sig.mean();
@@ -267,7 +267,7 @@ where
             .into_iter()
             // Only use kmers with z-test p-values less than 0.05
             .filter(|&s| {
-                log::debug!("Signal: {s:?}");
+                log::debug!("Signal: {s:.3?}");
                 let kmer = s.kmer();
                 if !neg_gmms.contains_key(kmer) || !pos_gmms.contains_key(kmer) {
                     false
@@ -275,7 +275,7 @@ where
                     let neg_model = choose_model(&neg_gmms[kmer]);
                     let pos_model = choose_pos_model(neg_model, &pos_gmms[kmer]);
                     let pvalue = gauss_to_pvalue(pos_model, neg_model);
-                    log::debug!("p-value: {pvalue:?}");
+                    log::debug!("p-value: {pvalue:.3?}");
                     pvalue < 0.05
                 }
             })

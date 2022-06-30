@@ -262,6 +262,7 @@ fn main() -> Result<()> {
                 }
             }
 
+            log::debug!("Motifs parsed: {motif:?}");
             let scoring = score::ScoreOptions::try_new(
                 &pos_ctrl, &neg_ctrl, &genome, &ranks, &output, cutoff, motif,
             )?;

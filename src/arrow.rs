@@ -249,6 +249,10 @@ impl Eventalign {
     pub(crate) fn signal_iter(&self) -> impl Iterator<Item = &Signal> {
         self.signal_data.iter()
     }
+
+    pub(crate) fn metadata(&self) -> &Metadata {
+        &self.metadata
+    }
 }
 
 #[derive(Default, Debug, Clone, ArrowField)]
