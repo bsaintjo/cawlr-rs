@@ -1,6 +1,7 @@
+use core::fmt;
 use std::io::{Read, Seek};
-use anyhow::Result;
 
+use anyhow::Result;
 use bio::{alphabets::dna, io::fasta::IndexedReader};
 use fnv::FnvHashMap;
 
@@ -14,6 +15,16 @@ pub(crate) struct Context {
     read_start: u64,
     start_slop: u64,
     end_slop: u64,
+}
+
+impl fmt::Debug for Context {
+    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+        fmt.debug_struct("Context")
+            .field("context", &std::str::from_utf8(&self.context).unwrap())
+            .field("read_start", &self.read_start)
+            .field("start_slop", &self.start_slop)
+            .finish()
+    }
 }
 
 impl Context {
@@ -106,8 +117,7 @@ mod test {
     use std::io::Cursor;
 
     use super::*;
-    use crate::arrow::Strand;
-    use crate::utils::chrom_lens;
+    use crate::{arrow::Strand, utils::chrom_lens};
 
     #[test]
     fn test_context() -> Result<(), anyhow::Error> {

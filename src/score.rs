@@ -95,6 +95,7 @@ impl ScoreOptions {
         log::info!("{:?}", read.metadata());
         let mut acc = Vec::new();
         let context = Context::from_read(&mut self.genome, &self.chrom_lens, &read)?;
+        log::debug!("{context:.3?}");
         let data_pos = pos_with_data(&read);
         for pos in read.start_ob()..=read.stop_ob() {
             // Get kmer and check if kmer matches the motifs, if there are any supplied
