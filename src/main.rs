@@ -242,7 +242,16 @@ fn main() -> Result<()> {
                 )
                 .exit();
             }
-            for m in motif.iter() {
+            if motif.is_none() {
+                let mut cmd = Args::command();
+                cmd.error(
+                    clap::ErrorKind::InvalidValue,
+                    "Must have motif",
+                )
+                .exit();
+            }
+            
+            for m in motif.unwrap().iter() {
                 if m.len() > 6 {
                     let mut cmd = Args::command();
                     cmd.error(
@@ -252,6 +261,7 @@ fn main() -> Result<()> {
                     .exit();
                 }
             }
+
             let scoring = score::ScoreOptions::try_new(
                 &pos_ctrl, &neg_ctrl, &genome, &ranks, &output, cutoff, motif,
             )?;
