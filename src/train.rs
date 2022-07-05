@@ -1,4 +1,9 @@
-use std::{collections::HashMap, fs::File};
+use std::{
+    collections::HashMap,
+    fmt::Debug,
+    fs::File,
+    path::{Path, PathBuf},
+};
 
 use anyhow::Result;
 use bio::io::fasta::IndexedReader;
@@ -87,19 +92,18 @@ pub struct Train {
     acc: KmerMeans,
     skips: KmerSkips,
     genome: IndexedReader<File>,
-    // TODO Maybe change to a Path
-    feather: String,
+    feather: PathBuf,
     samples: usize,
 }
 
 impl Train {
-    pub fn try_new(
-        filename: &str,
-        genome: &str,
-        samples: usize,
-    ) -> Result<Self, anyhow::Error> {
+    pub fn try_new<P, Q>(filename: P, genome: Q, samples: usize) -> Result<Self, anyhow::Error>
+    where
+        P: AsRef<Path>,
+        Q: AsRef<Path> + Debug,
+    {
         let genome = IndexedReader::from_file(&genome)?;
-        let feather = filename.to_owned();
+        let feather = filename.as_ref().to_owned();
         Ok(Self {
             acc: FnvHashMap::default(),
             skips: KmerSkips::new(),
