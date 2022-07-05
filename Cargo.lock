@@ -333,6 +333,7 @@ dependencies = [
  "serde",
  "serde-pickle",
  "serde_with",
+ "tempfile",
  "test-log",
 ]
 

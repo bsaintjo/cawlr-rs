@@ -49,7 +49,12 @@ assert_cmd = "2.0.4"
 assert_fs = "1.0.7"
 test-log = "0.2.10"
 escargot = "0.5.7"
+tempfile = "3.3.0"
 
 [features]
 default = []
 fast = ["mimalloc"]
+
+[[bin]]
+name = "generate_test_data"
+path = "src/bin/generate_test_data.rs"
