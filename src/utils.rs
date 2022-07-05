@@ -14,7 +14,7 @@ use serde_pickle::from_reader;
 use crate::train::Model;
 
 pub trait CawlrIO {
-    fn save<P>(self, filename: P) -> Result<()>
+    fn save<P>(&self, filename: P) -> Result<()>
     where
         P: AsRef<Path>,
         Self: Sized;
@@ -29,7 +29,7 @@ where
     V: Serialize + DeserializeOwned,
     S: BuildHasher + Default,
 {
-    fn save<P>(self, filename: P) -> Result<()>
+    fn save<P>(&self, filename: P) -> Result<()>
     where
         P: AsRef<Path>,
     {
@@ -49,7 +49,7 @@ where
 }
 
 impl CawlrIO for Model {
-    fn save<P>(self, filename: P) -> Result<()>
+    fn save<P>(&self, filename: P) -> Result<()>
     where
         P: AsRef<Path>,
     {

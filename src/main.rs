@@ -4,7 +4,6 @@ use anyhow::Result;
 use clap::{IntoApp, Parser, Subcommand};
 use clap_verbosity_flag::Verbosity;
 use collapse::CollapseOptions;
-
 #[cfg(feature = "mimalloc")]
 use mimalloc::MiMalloc;
 
@@ -218,7 +217,7 @@ fn main() -> Result<()> {
         } => {
             let pos_ctrl_db = Model::load(pos_ctrl)?;
             let neg_ctrl_db = Model::load(neg_ctrl)?;
-            let kmer_ranks = rank::RankOptions::new(seed, samples).rank(pos_ctrl_db, neg_ctrl_db);
+            let kmer_ranks = rank::RankOptions::new(seed, samples).rank(&pos_ctrl_db, &neg_ctrl_db);
             kmer_ranks.save(output)?;
         }
 
@@ -244,13 +243,10 @@ fn main() -> Result<()> {
             }
             if motif.is_none() {
                 let mut cmd = Args::command();
-                cmd.error(
-                    clap::ErrorKind::InvalidValue,
-                    "Must have motif",
-                )
-                .exit();
+                cmd.error(clap::ErrorKind::InvalidValue, "Must have motif")
+                    .exit();
             }
-            
+
             for m in motif.as_ref().unwrap().iter() {
                 if m.len() > 6 {
                     let mut cmd = Args::command();

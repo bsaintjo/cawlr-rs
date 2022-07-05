@@ -11,6 +11,8 @@ use crate::{
     train::Model,
 };
 
+pub type Ranks = FnvHashMap<String, f64>;
+
 pub struct RankOptions {
     rng: SmallRng,
     n_samples: usize,
@@ -91,7 +93,7 @@ impl RankOptions {
         self.n_samples as f64
     }
 
-    pub fn rank(&mut self, pos_ctrl: Model, neg_ctrl: Model) -> FnvHashMap<String, f64> {
+    pub fn rank(&mut self, pos_ctrl: &Model, neg_ctrl: &Model) -> Ranks {
         let mut kmer_ranks = FnvHashMap::default();
         let pos_ctrl_kmers = pos_ctrl.gmms().keys().collect::<FnvHashSet<&String>>();
         let neg_ctrl_kmers = neg_ctrl.gmms().keys().collect::<FnvHashSet<&String>>();
