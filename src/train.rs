@@ -17,7 +17,7 @@ use crate::arrow::{load_apply, Eventalign};
 pub(crate) type ModelDB = FnvHashMap<String, Mixture<Gaussian>>;
 type KmerMeans = FnvHashMap<String, Vec<f64>>;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Default, Serialize, Deserialize)]
 pub(crate) struct Model {
     gmms: ModelDB,
     skips: FnvHashMap<String, f64>,
