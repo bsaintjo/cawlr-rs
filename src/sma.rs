@@ -1,7 +1,7 @@
 use std::{
     fs::File,
     io::{stdout, Write},
-    path::Path,
+    path::Path, collections::VecDeque,
 };
 
 use anyhow::Result;
@@ -20,7 +20,7 @@ use crate::{
     bkde::BinnedKde,
 };
 
-fn score_file_to_bkde(
+pub fn score_file_to_bkde(
     kde_samples: usize,
     rng: &mut SmallRng,
     filepath: String,
@@ -33,7 +33,7 @@ fn score_file_to_bkde(
     Ok(bkde)
 }
 
-pub(crate) struct SmaOptions {
+pub struct SmaOptions {
     pos_bkde: BinnedKde,
     neg_bkde: BinnedKde,
     motifs: Vec<String>,
@@ -48,7 +48,7 @@ impl SmaOptions {
         }
     }
 
-    pub(crate) fn try_new(
+    pub fn try_new(
         pos_scores_filepath: String,
         neg_scores_filepath: String,
         motifs: Option<Vec<String>>,
@@ -71,7 +71,7 @@ impl SmaOptions {
         Ok(Self::new(pos_bkde, neg_bkde, motifs))
     }
 
-    pub(crate) fn run<P>(self, scores_filepath: P) -> Result<()>
+    pub fn run<P>(self, scores_filepath: P) -> Result<()>
     where
         P: AsRef<Path>,
     {
@@ -105,9 +105,55 @@ impl SmaOptions {
             Ok(())
         })
     }
+
+    pub fn run_read(&self, read: &ScoredRead) -> SmaMatrix {
+        let mut matrix = SmaMatrix::from_read(read);
+        let scores = read.to_expanded_scores();
+        for col_idx in 1..=read.length() {
+            let col_idx = col_idx as usize;
+            // Score will be None if a) No data at that position, or b) Position kmer didn't
+            // contain motif of interest
+            let score =
+                scores[col_idx - 1].filter(|s| self.motifs.iter().any(|m| s.kmer().contains(m)));
+
+            // Start nucleosome vs linker
+            let linker_val = matrix.probs().column(col_idx - 1)[0];
+            let nuc_val = matrix.probs().column(col_idx - 1)[146];
+            let (prev_max, prev_max_idx) = {
+                if linker_val > nuc_val {
+                    (linker_val, 0usize)
+                } else {
+                    (nuc_val, 146usize)
+                }
+            };
+            matrix.ptrs_mut().column_mut(col_idx)[0] = Some(prev_max_idx);
+            let mut col = matrix.probs_mut().column_mut(col_idx);
+            let first: &mut f64 = col.get_mut(0).expect("No values in matrix.");
+            let val: f64 = match score {
+                Some(score) => prev_max + self.pos_bkde.pmf_from_score(score.score()).ln(),
+                None => prev_max,
+            };
+            *first = val;
+
+            // Within nucleosome
+            for rest in 1..147 {
+                let prev_idx = rest - 1;
+                matrix.ptrs_mut().column_mut(col_idx)[rest] = Some(prev_idx);
+                let nuc_prev = matrix.probs().column(col_idx - 1)[prev_idx];
+                let mut col = matrix.probs_mut().column_mut(col_idx);
+                let next = col.get_mut(rest).expect("Failed to get column value");
+                let val = match score {
+                    Some(score) => nuc_prev + self.neg_bkde.pmf_from_score(score.score()).ln(),
+                    None => prev_max,
+                };
+                *next = val;
+            }
+        }
+        matrix
+    }
 }
 
-fn extract_samples(reads: &[ScoredRead]) -> Vec<f64> {
+pub fn extract_samples(reads: &[ScoredRead]) -> Vec<f64> {
     reads
         .iter()
         .flat_map(|lr| {
@@ -119,7 +165,7 @@ fn extract_samples(reads: &[ScoredRead]) -> Vec<f64> {
         .collect()
 }
 
-fn extract_samples_from_file(file: File) -> Result<Vec<f64>> {
+pub fn extract_samples_from_file(file: File) -> Result<Vec<f64>> {
     let mut scores = Vec::new();
     load_apply(file, |reads: Vec<ScoredRead>| {
         let mut samples = extract_samples(&reads);
@@ -134,7 +180,7 @@ fn sample_kde(samples: &[f64]) -> Kde<f64, Gaussian> {
     Kde::new(samples, Gaussian, Bandwidth::Silverman)
 }
 
-fn run_read(
+pub fn run_read(
     read: &ScoredRead,
     pos_kde: &BinnedKde,
     neg_kde: &BinnedKde,
@@ -182,34 +228,63 @@ fn run_read(
     matrix
 }
 
-#[derive(Default)]
-struct Cell {
-    val: f64,
-    ptr: Option<usize>,
+pub struct SmaMatrix {
+    val_matrix: DMatrix<f64>,
+    ptr_matrix: DMatrix<Option<usize>>,
 }
 
-impl Cell {
-    fn new(val: f64, ptr: Option<usize>) -> Self {
-        Self { val, ptr }
+impl SmaMatrix {
+    pub fn new(val_matrix: DMatrix<f64>, ptr_matrix: DMatrix<Option<usize>>) -> Self {
+        Self {
+            val_matrix,
+            ptr_matrix,
+        }
+    }
+
+    pub fn probs(&self) -> &DMatrix<f64> {
+        &self.val_matrix
+    }
+
+    pub fn from_read(read: &ScoredRead) -> Self {
+        let val_dm = init_dmatrix(read);
+
+        let ptr_dm = DMatrix::from_element(147, read.length() as usize + 1, None);
+        Self::new(val_dm, ptr_dm)
+    }
+
+    pub fn ptrs(&self) -> &DMatrix<Option<usize>> {
+        &self.ptr_matrix
+    }
+
+    pub fn probs_mut(&mut self) -> &mut DMatrix<f64> {
+        &mut self.val_matrix
+    }
+
+    pub fn ptrs_mut(&mut self) -> &mut DMatrix<Option<usize>> {
+        &mut self.ptr_matrix
+    }
+
+    pub fn backtrace(&self) -> VecDeque<States> {
+        unimplemented!()
     }
 }
 
 // TODO Make initial value 10/157 for linker, 1/157 for nucleosome positions
-fn init_dmatrix(read: &ScoredRead) -> DMatrix<f64> {
+pub fn init_dmatrix(read: &ScoredRead) -> DMatrix<f64> {
     let mut dm = DMatrix::from_element(147usize, read.length() as usize + 1, f64::MIN);
     dm.column_mut(0).fill((1. / 147.0f64).ln());
     dm
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
-enum States {
+pub enum States {
     Linker,
     Nucleosome,
 }
 
 /// Converts a slice of States into a more readable format, to make it easier
 /// for downstream parsing in python
-fn states_to_readable(states: &[States]) -> Vec<(String, u64)> {
+pub fn states_to_readable(states: &[States]) -> Vec<(String, u64)> {
     let init_state = *states
         .get(0)
         .expect("Failed to convert, empty States slice");
@@ -233,7 +308,7 @@ fn states_to_readable(states: &[States]) -> Vec<(String, u64)> {
         .collect()
 }
 
-fn backtrace(matrix: DMatrix<f64>) -> Vec<States> {
+pub fn backtrace(matrix: DMatrix<f64>) -> Vec<States> {
     let mut pos = matrix.ncols() - 1;
     let mut acc = Vec::new();
     let nuc_idx = matrix.ncols() - 1;
