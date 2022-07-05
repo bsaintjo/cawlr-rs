@@ -16,6 +16,16 @@ pub struct RankOptions {
     n_samples: usize,
 }
 
+impl Default for RankOptions {
+    fn default() -> Self {
+        let rng = SmallRng::seed_from_u64(2456);
+        RankOptions {
+            rng,
+            n_samples: 10_000,
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize)]
 pub(crate) struct Rankings {
     ranks: FnvHashMap<String, f64>,
@@ -81,7 +91,7 @@ impl RankOptions {
         self.n_samples as f64
     }
 
-    pub(crate) fn rank(&mut self, pos_ctrl: Model, neg_ctrl: Model) -> FnvHashMap<String, f64> {
+    pub fn rank(&mut self, pos_ctrl: Model, neg_ctrl: Model) -> FnvHashMap<String, f64> {
         let mut kmer_ranks = FnvHashMap::default();
         let pos_ctrl_kmers = pos_ctrl.gmms().keys().collect::<FnvHashSet<&String>>();
         let neg_ctrl_kmers = neg_ctrl.gmms().keys().collect::<FnvHashSet<&String>>();

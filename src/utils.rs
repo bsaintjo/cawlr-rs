@@ -13,7 +13,7 @@ use serde_pickle::from_reader;
 
 use crate::train::Model;
 
-pub(crate) trait CawlrIO {
+pub trait CawlrIO {
     fn save<P>(self, filename: P) -> Result<()>
     where
         P: AsRef<Path>,

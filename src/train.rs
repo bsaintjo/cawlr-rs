@@ -18,7 +18,7 @@ pub(crate) type ModelDB = FnvHashMap<String, Mixture<Gaussian>>;
 type KmerMeans = FnvHashMap<String, Vec<f64>>;
 
 #[derive(Default, Serialize, Deserialize)]
-pub(crate) struct Model {
+pub struct Model {
     gmms: ModelDB,
     skips: FnvHashMap<String, f64>,
 }
@@ -83,7 +83,7 @@ impl KmerSkips {
     }
 }
 
-pub(crate) struct Train {
+pub struct Train {
     acc: KmerMeans,
     skips: KmerSkips,
     genome: IndexedReader<File>,
@@ -93,7 +93,7 @@ pub(crate) struct Train {
 }
 
 impl Train {
-    pub(crate) fn try_new(
+    pub fn try_new(
         filename: &str,
         genome: &str,
         samples: usize,
@@ -117,7 +117,7 @@ impl Train {
         self.skips.0.is_empty() || self.skips.0.values().any(|x| x.total < self.samples)
     }
 
-    pub(crate) fn run(mut self) -> Result<Model> {
+    pub fn run(mut self) -> Result<Model> {
         let file = File::open(&self.feather)?;
         load_apply(file, |eventaligns| {
             for eventalign in eventaligns.into_iter() {
