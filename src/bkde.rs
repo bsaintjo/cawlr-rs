@@ -1,7 +1,7 @@
 use criterion_stats::univariate::kde::{kernel::Gaussian, Kde};
 use rv::misc::linspace;
 
-pub(crate) struct BinnedKde {
+pub struct BinnedKde {
     bins: Vec<f64>,
 }
 

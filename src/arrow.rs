@@ -298,7 +298,7 @@ impl Score {
 }
 
 #[derive(Debug, Clone, ArrowField)]
-pub(crate) struct ScoredRead {
+pub struct ScoredRead {
     metadata: Metadata,
     scores: Vec<Score>,
 }

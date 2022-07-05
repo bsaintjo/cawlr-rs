@@ -1,11 +1,11 @@
-mod arrow;
-mod bkde;
-mod collapse;
-mod context;
-mod rank;
-mod score;
-mod sma;
-mod train;
-mod utils;
+pub mod arrow;
+pub mod bkde;
+pub mod collapse;
+pub mod context;
+pub mod rank;
+pub mod score;
+pub mod sma;
+pub mod train;
+pub mod utils;
 
 pub use collapse::CollapseOptions;
