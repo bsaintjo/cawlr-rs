@@ -4,6 +4,7 @@ use rv::{
     prelude::{Gaussian, Mixture},
     traits::Rv,
 };
+use serde::{Deserialize, Serialize};
 
 use crate::{
     score::{choose_model, choose_pos_model},
@@ -13,6 +14,39 @@ use crate::{
 pub struct RankOptions {
     rng: SmallRng,
     n_samples: usize,
+}
+
+#[derive(Serialize, Deserialize)]
+pub(crate) struct Rankings {
+    ranks: FnvHashMap<String, f64>,
+    hi_rank_pos_idx: FnvHashMap<String, usize>,
+    p_values: FnvHashMap<String, f64>,
+}
+
+impl Rankings {
+    fn new(
+        ranks: FnvHashMap<String, f64>,
+        hi_rank_pos_idx: FnvHashMap<String, usize>,
+        p_values: FnvHashMap<String, f64>,
+    ) -> Self {
+        Self {
+            ranks,
+            hi_rank_pos_idx,
+            p_values,
+        }
+    }
+
+    pub(crate) fn ranks(&self) -> &FnvHashMap<String, f64> {
+        &self.ranks
+    }
+
+    pub(crate) fn hi_rank_pos_idx(&self) -> &FnvHashMap<String, usize> {
+        &self.hi_rank_pos_idx
+    }
+
+    pub(crate) fn p_values(&self) -> &FnvHashMap<String, f64> {
+        &self.p_values
+    }
 }
 
 impl RankOptions {
