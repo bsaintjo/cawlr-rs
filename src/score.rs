@@ -245,9 +245,14 @@ fn gauss_to_pvalue(pos_model: &Gaussian, neg_model: &Gaussian) -> f64 {
     let (pos_mu, pos_sigma) = extract_components(pos_model);
     let (neg_mu, neg_sigma) = extract_components(neg_model);
 
-    let zscore = ((pos_mu - neg_mu) / ((neg_sigma.powi(2)) + pos_sigma.powi(2)).sqrt()).abs();
+    let zscore = (pos_mu - neg_mu) / ((neg_sigma.powi(2)) + pos_sigma.powi(2)).sqrt();
+    zscore_to_tt_pvalue(zscore)
 
-    2. * Gaussian::standard().sf(&zscore)
+    // 2. * Gaussian::standard().sf(&zscore)
+}
+
+fn zscore_to_tt_pvalue(zscore: f64) -> f64 {
+    2. * Gaussian::standard().sf(&zscore.abs())
 }
 
 /// Filters out surrounding signal for best signal to use for scoring.
@@ -375,9 +380,24 @@ fn score_signal(
 #[cfg(test)]
 mod test {
     use assert_fs::TempDir;
+    use float_eq::assert_float_eq;
 
     use super::*;
     use crate::{arrow::load_iter, collapse::CollapseOptions};
+
+    #[test]
+    fn test_zscore_to_tt_pvalue() {
+        assert_float_eq!(zscore_to_tt_pvalue(2.9), 0.003_732, abs <= 0.000_001);
+        assert_float_eq!(zscore_to_tt_pvalue(0.1), 0.920_344, abs <= 0.000_001);
+        assert_float_eq!(zscore_to_tt_pvalue(-0.3), 0.764_177, abs <= 0.000_001);
+        assert_float_eq!(zscore_to_tt_pvalue(-3.2), 0.001_374, abs <= 0.000_001);
+        assert_float_eq!(zscore_to_tt_pvalue(0.0), 1.0, abs <= 0.000_001);
+
+        // These won't panic
+        zscore_to_tt_pvalue(f64::NEG_INFINITY);
+        zscore_to_tt_pvalue(f64::NAN);
+        zscore_to_tt_pvalue(f64::INFINITY);
+    }
 
     #[test]
     fn test_single_read() -> Result<()> {

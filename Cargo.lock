@@ -317,6 +317,7 @@ dependencies = [
  "csv",
  "env_logger",
  "escargot",
+ "float_eq",
  "fnv",
  "indicatif",
  "itertools",
@@ -676,6 +677,12 @@ name = "fixedbitset"
 version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "279fb028e20b3c4c320317955b77c5e0c9701f05a1d309905d6fc702cdc5053e"
+
+[[package]]
+name = "float_eq"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b59b6469c35ab601d6487d28879bccfbe8c896c33a3fe699c4d29817e552cc58"
 
 [[package]]
 name = "fnv"
