@@ -243,11 +243,6 @@ fn main() -> Result<()> {
                 )
                 .exit();
             }
-            if motif.is_none() {
-                let mut cmd = Args::command();
-                cmd.error(clap::ErrorKind::InvalidValue, "Must have motif")
-                    .exit();
-            }
 
             for m in motif.as_ref().unwrap().iter() {
                 if m.len() > 6 {
@@ -277,7 +272,7 @@ fn main() -> Result<()> {
             seed,
         } => {
             let mut builder = sma::Builder::new(pos_control_scores, neg_control_scores);
-            let sma = builder
+            builder
                 .kde_samples(kde_samples)
                 .seed(seed)
                 .try_motifs(motifs)
