@@ -7,5 +7,6 @@ pub mod score;
 pub mod sma;
 pub mod train;
 pub mod utils;
+mod motif;
 
 pub use collapse::CollapseOptions;
