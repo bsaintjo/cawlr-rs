@@ -244,16 +244,18 @@ fn main() -> Result<()> {
                 .exit();
             }
 
-            for m in motif.as_ref().unwrap().iter() {
-                if m.len() > 6 {
-                    let mut cmd = Args::command();
-                    cmd.error(
-                        clap::ErrorKind::InvalidValue,
-                        "Length of motif must be less than 6 (size of kmer)",
-                    )
-                    .exit();
-                }
-            }
+            motif.iter().for_each(|ms| {
+                ms.iter().for_each(|m| {
+                    if m.len() > 6 {
+                        let mut cmd = Args::command();
+                        cmd.error(
+                            clap::ErrorKind::InvalidValue,
+                            "Length of motif must be less than 6 (size of kmer)",
+                        )
+                        .exit();
+                    }
+                })
+            });
 
             log::debug!("Motifs parsed: {motif:?}");
             let scoring = score::ScoreOptions::try_new(
