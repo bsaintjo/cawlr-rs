@@ -2,7 +2,8 @@ use std::{
     collections::HashMap,
     fs::File,
     hash::{BuildHasher, Hash},
-    path::Path, io::{Seek, Read},
+    io::{stdout, Read, Seek, Write},
+    path::Path,
 };
 
 use anyhow::Result;
@@ -12,6 +13,20 @@ use serde::{de::DeserializeOwned, Serialize};
 use serde_pickle::from_reader;
 
 use crate::train::Model;
+
+/// Allows for writing to File or Stdout depending on if a filename is given.
+fn stdout_or_file<P>(filename: Option<P>) -> Result<Box<dyn Write>>
+where
+    P: AsRef<Path>,
+{
+    if let Some(fp) = filename {
+        let handle = File::open(fp)?;
+        Ok(Box::new(handle))
+    } else {
+        let handle = stdout().lock();
+        Ok(Box::new(handle))
+    }
+}
 
 pub trait CawlrIO {
     fn save<P>(&self, filename: P) -> Result<()>

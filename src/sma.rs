@@ -1,7 +1,8 @@
 use std::{
+    collections::VecDeque,
     fs::File,
     io::{stdout, Write},
-    path::Path, collections::VecDeque,
+    path::Path,
 };
 
 use anyhow::Result;
@@ -20,11 +21,68 @@ use crate::{
     bkde::BinnedKde,
 };
 
-pub fn score_file_to_bkde(
+pub struct Builder<P> {
+    pos_score_file: P,
+    neg_score_file: P,
+    output_file: Option<P>,
+    motifs: Vec<String>,
+    seed: u64,
+    kde_samples: usize,
+}
+
+impl<P> Builder<P>
+where
+    P: AsRef<Path>,
+{
+    pub fn new(pos_ctrl_file: P, neg_ctrl_file: P) -> Self {
+        let motifs = vec![
+            "A".to_string(),
+            "T".to_string(),
+            "C".to_string(),
+            "G".to_string(),
+        ];
+        Builder {
+            pos_score_file: pos_ctrl_file,
+            neg_score_file: neg_ctrl_file,
+            output_file: None,
+            motifs,
+            seed: 2456,
+            kde_samples: 50_000_usize,
+        }
+    }
+
+    pub fn seed(&mut self, seed: u64) -> &mut Self {
+        self.seed = seed;
+        self
+    }
+
+    pub fn kde_samples(&mut self, kde_samples: usize) -> &mut Self {
+        self.kde_samples = kde_samples;
+        self
+    }
+
+    pub fn motifs(&mut self, motifs: Vec<String>) -> &mut Self {
+        self.motifs = motifs;
+        self
+    }
+
+    pub fn build(self) -> Result<SmaOptions> {
+        let mut rng = SmallRng::seed_from_u64(self.seed);
+        let pos_bkde = score_file_to_bkde(self.kde_samples, &mut rng, self.pos_score_file)?;
+        let neg_bkde = score_file_to_bkde(self.kde_samples, &mut rng, self.neg_score_file)?;
+
+        Ok(SmaOptions::new(pos_bkde, neg_bkde, self.motifs))
+    }
+}
+
+pub fn score_file_to_bkde<P>(
     kde_samples: usize,
     rng: &mut SmallRng,
-    filepath: String,
-) -> Result<BinnedKde> {
+    filepath: P,
+) -> Result<BinnedKde>
+where
+    P: AsRef<Path>,
+{
     let scores_file = File::open(filepath)?;
     let scores = extract_samples_from_file(scores_file)?;
     let scores: Vec<f64> = scores.choose_multiple(rng, kde_samples).cloned().collect();
