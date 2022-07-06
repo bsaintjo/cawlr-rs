@@ -4,6 +4,7 @@ use anyhow::Result;
 use clap::{IntoApp, Parser, Subcommand};
 use clap_verbosity_flag::Verbosity;
 use collapse::CollapseOptions;
+use human_panic::setup_panic;
 #[cfg(feature = "mimalloc")]
 use mimalloc::MiMalloc;
 
@@ -175,6 +176,7 @@ enum Commands {
 }
 
 fn main() -> Result<()> {
+    setup_panic!();
     let args = Args::parse();
     env_logger::Builder::new()
         .filter_level(args.verbose.log_level_filter())
