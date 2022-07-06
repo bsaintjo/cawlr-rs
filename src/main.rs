@@ -18,7 +18,6 @@ mod sma;
 mod train;
 mod utils;
 
-use sma::SmaOptions;
 use train::Model;
 use utils::CawlrIO;
 
@@ -154,9 +153,10 @@ enum Commands {
         /// Path to scored data from cawlr score
         input: String,
 
-        // #[clap(short, long)]
-        // /// Path to output file
-        // output: String,
+        #[clap(short, long)]
+        /// Path to output file
+        output: Option<String>,
+
         #[clap(long)]
         pos_ctrl_scores: String,
 
@@ -269,20 +269,20 @@ fn main() -> Result<()> {
 
         Commands::Sma {
             input,
-            // output,
+            output,
             pos_ctrl_scores: pos_control_scores,
             neg_ctrl_scores: neg_control_scores,
             motifs,
             kde_samples,
             seed,
         } => {
-            let sma = SmaOptions::try_new(
-                pos_control_scores,
-                neg_control_scores,
-                motifs,
-                kde_samples,
-                seed,
-            )?;
+            let mut builder = sma::Builder::new(pos_control_scores, neg_control_scores);
+            let sma = builder
+                .kde_samples(kde_samples)
+                .seed(seed)
+                .try_motifs(motifs)
+                .try_output_file(output);
+            let sma = builder.build()?;
             sma.run(input)?;
         }
     }

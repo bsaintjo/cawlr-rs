@@ -1,9 +1,4 @@
-use std::{
-    collections::VecDeque,
-    fs::File,
-    io::{stdout, Write},
-    path::Path,
-};
+use std::{collections::VecDeque, fs::File, io::Write, path::Path};
 
 use anyhow::Result;
 use criterion_stats::univariate::{
@@ -19,6 +14,7 @@ use rand::{
 use crate::{
     arrow::{load_apply, ScoredRead},
     bkde::BinnedKde,
+    utils,
 };
 
 pub struct Builder<P> {
@@ -66,12 +62,30 @@ where
         self
     }
 
+    pub fn try_motifs(&mut self, motifs: Option<Vec<String>>) -> &mut Self {
+        if let Some(motifs) = motifs {
+            self.motifs = motifs;
+        }
+        self
+    }
+
+    pub fn output_file(&mut self, output_file: P) -> &mut Self {
+        self.output_file = Some(output_file);
+        self
+    }
+
+    pub fn try_output_file(&mut self, output_file: Option<P>) -> &mut Self {
+        self.output_file = output_file;
+        self
+    }
+
     pub fn build(self) -> Result<SmaOptions> {
         let mut rng = SmallRng::seed_from_u64(self.seed);
         let pos_bkde = score_file_to_bkde(self.kde_samples, &mut rng, self.pos_score_file)?;
         let neg_bkde = score_file_to_bkde(self.kde_samples, &mut rng, self.neg_score_file)?;
+        let writer = utils::stdout_or_file(self.output_file)?;
 
-        Ok(SmaOptions::new(pos_bkde, neg_bkde, self.motifs))
+        Ok(SmaOptions::new(pos_bkde, neg_bkde, self.motifs, writer))
     }
 }
 
@@ -95,46 +109,28 @@ pub struct SmaOptions {
     pos_bkde: BinnedKde,
     neg_bkde: BinnedKde,
     motifs: Vec<String>,
+    writer: Box<dyn Write>,
 }
 
 impl SmaOptions {
-    fn new(pos_bkde: BinnedKde, neg_bkde: BinnedKde, motifs: Vec<String>) -> Self {
+    fn new(
+        pos_bkde: BinnedKde,
+        neg_bkde: BinnedKde,
+        motifs: Vec<String>,
+        writer: Box<dyn Write>,
+    ) -> Self {
         Self {
             pos_bkde,
             neg_bkde,
             motifs,
+            writer,
         }
     }
 
-    pub fn try_new(
-        pos_scores_filepath: String,
-        neg_scores_filepath: String,
-        motifs: Option<Vec<String>>,
-        kde_samples: usize,
-        seed: u64,
-    ) -> Result<Self> {
-        let mut rng = SmallRng::seed_from_u64(seed);
-        let pos_bkde = score_file_to_bkde(kde_samples, &mut rng, pos_scores_filepath)?;
-        let neg_bkde = score_file_to_bkde(kde_samples, &mut rng, neg_scores_filepath)?;
-
-        let motifs = motifs.unwrap_or_else(|| {
-            vec![
-                "A".to_string(),
-                "T".to_string(),
-                "C".to_string(),
-                "G".to_string(),
-            ]
-        });
-
-        Ok(Self::new(pos_bkde, neg_bkde, motifs))
-    }
-
-    pub fn run<P>(self, scores_filepath: P) -> Result<()>
+    pub fn run<P>(mut self, scores_filepath: P) -> Result<()>
     where
         P: AsRef<Path>,
     {
-        let stdout = stdout();
-        let mut handle = stdout.lock();
         let scores_file = File::open(scores_filepath)?;
         load_apply(scores_file, |reads| {
             for read in reads {
@@ -155,7 +151,7 @@ impl SmaOptions {
                     let name = read.metadata().name();
 
                     writeln!(
-                        &mut handle,
+                        &mut self.writer,
                         "{chrom}\t{start}\t{stop}\t{name}\t0\t{strand}\t{state}\t{size}"
                     )?;
                 }

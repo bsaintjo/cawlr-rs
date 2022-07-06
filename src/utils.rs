@@ -2,7 +2,7 @@ use std::{
     collections::HashMap,
     fs::File,
     hash::{BuildHasher, Hash},
-    io::{stdout, Read, Seek, Write},
+    io::{stdout, BufWriter, Read, Seek, Write},
     path::Path,
 };
 
@@ -15,15 +15,20 @@ use serde_pickle::from_reader;
 use crate::train::Model;
 
 /// Allows for writing to File or Stdout depending on if a filename is given.
-fn stdout_or_file<P>(filename: Option<P>) -> Result<Box<dyn Write>>
+///
+/// TODO: Maybe return with the BufWriter wrapping the trait object, like
+/// BufWriter<Box<dyn Write>> instead of the how we have now.
+pub(crate) fn stdout_or_file<P>(filename: Option<P>) -> Result<Box<dyn Write>>
 where
     P: AsRef<Path>,
 {
     if let Some(fp) = filename {
         let handle = File::open(fp)?;
+        let handle = BufWriter::new(handle);
         Ok(Box::new(handle))
     } else {
         let handle = stdout().lock();
+        let handle = BufWriter::new(handle);
         Ok(Box::new(handle))
     }
 }
