@@ -96,18 +96,23 @@ In order to prepare data for `cawlr` you need to install:
 Example command of running nanopolish to set up inputs
 
 ```bash
-nanopolish index -d path/to/fast5s reads.fasta
-minimap2 -ax map-ont --sam-hit-only --secondary=no genome.fasta reads.fasta | \
+$ nanopolish index -d path/to/fast5s reads.fasta
+$ minimap2 -ax map-ont --sam-hit-only --secondary=no genome.fasta reads.fasta | \
     samtools sort -o aln.sorted.bam -T reads.tmp
-samtools index aln.sorted.bam
-nanopolish eventalign --reads reads.fasta \
+$ samtools index aln.sorted.bam
+$ nanopolish eventalign --reads reads.fasta \
     --bam aln.sorted.bam \
     --genome genome.fasta \
     --scale-events --samples \
     --print-read-names >eventalign.txt
 ```
 
-TODO unique mapping reads consideration
+To use only uniquely mapping reads, a good filtering method to approximate this is shown below. The command filters with the `-f 20` to filter out reads with a MAPQ below 20, and `-F 0x900` removes supplementary and secondary reads as well.
+
+```bash
+# After minimap2 command
+$ samtools view -b -q 20 -F 0x900 aln.sorted.bam >filtered.aln.sorted.bam
+```
 
 ## Usage
 
