@@ -17,7 +17,7 @@ use arrow2::{
     },
 };
 use arrow2_convert::{
-    deserialize::{TryIntoCollection, ArrowDeserialize},
+    deserialize::{ArrowDeserialize, TryIntoCollection},
     field::ArrowField,
     serialize::{ArrowSerialize, TryIntoArrow},
     ArrowField,
@@ -396,7 +396,7 @@ pub(crate) fn load_apply<R, F, T>(reader: R, mut func: F) -> Result<()>
 where
     R: Read + Seek,
     F: FnMut(Vec<T>) -> anyhow::Result<()>,
-    T: ArrowField<Type=T> + ArrowDeserialize + 'static,
+    T: ArrowField<Type = T> + ArrowDeserialize + 'static,
     for<'a> &'a <T as ArrowDeserialize>::ArrayType: IntoIterator,
 {
     let feather = load(reader)?;

@@ -27,7 +27,7 @@ impl BinnedKde {
 
 #[cfg(test)]
 mod test {
-    use criterion_stats::univariate::{Sample, kde::Bandwidth};
+    use criterion_stats::univariate::{kde::Bandwidth, Sample};
     use rand::{prelude::SmallRng, SeedableRng};
     use rv::{prelude::Beta, traits::Rv};
 

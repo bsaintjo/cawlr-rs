@@ -33,9 +33,7 @@ fn rank(pos_ctrl: &Model, neg_ctrl: &Model, output: &Path) -> Result<Ranks> {
     Ok(rankings)
 }
 
-fn score() {
-    
-}
+fn score() {}
 
 fn main() -> Result<()> {
     let args = std::env::args();
