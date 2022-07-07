@@ -7,7 +7,6 @@ use cawlr::{
     utils::CawlrIO,
     CollapseOptions,
 };
-use fnv::FnvHashMap;
 
 const POS_CTRL: &'static str = "extra/pos_control.eventalign.txt";
 const NEG_CTRL: &'static str = "extra/neg_control.eventalign.txt";
@@ -39,8 +38,6 @@ fn main() -> Result<()> {
     let args = std::env::args();
     let output_dir = args.into_iter().next().unwrap_or("test_data".to_string());
     let output_dir = PathBuf::from(output_dir);
-
-    let genome = PathBuf::from(GENOME);
 
     let pos_output = output_dir.join("pos_collapse");
     let neg_output = output_dir.join("neg_collapse");
