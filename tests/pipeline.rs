@@ -1,3 +1,5 @@
+use std::path::Path;
+
 use anyhow::Result;
 use assert_fs::TempDir;
 use cawlr::CollapseOptions;
@@ -7,7 +9,7 @@ const NEG_CTRL: &'static str = "extra/neg_control.eventalign.txt";
 const READ: &'static str = "extra/single_read.eventalign.txt";
 const DEVNULL: &'static str = "dev/null";
 
-fn test_collapse(input: &str, output: &str) -> Result<()> {
+fn test_collapse<P: AsRef<Path>>(input: &str, output: P) -> Result<()> {
     let collapse_opts = CollapseOptions::try_new(input, output, 4096)?;
     collapse_opts.run()
 }
@@ -15,13 +17,13 @@ fn test_collapse(input: &str, output: &str) -> Result<()> {
 #[test]
 #[ignore]
 fn test_pos_ctrl() -> Result<()> {
-    test_ctrl(POS_CTRL, DEVNULL)
+    test_collapse(POS_CTRL, DEVNULL)
 }
 
 #[test]
 #[ignore]
 fn test_neg_ctrl() -> Result<()> {
-    test_ctrl(NEG_CTRL, DEVNULL)
+    test_collapse(NEG_CTRL, DEVNULL)
 }
 
 #[test]
@@ -33,7 +35,7 @@ fn pipeline() -> Result<()> {
 
     let neg_output = "neg_ctrl_output";
     let neg_output = tmp_dir.path().join(neg_output);
-    
+
     let read_output = "read_output";
     let read_output = tmp_dir.path().join(read_output);
 
