@@ -9,6 +9,7 @@ jobs:
   publish:
     name: Publish for ${{ matrix.os }}
     runs-on: ubuntu-latest
+    container: 'centos:7'
 
     steps:
       - name: Checkout main
@@ -23,14 +24,18 @@ jobs:
 
       - name: Compile
         run: cargo build --target x86_64-unknown-linux-gnu --bin cawlr --release --locked
-        env:
-          RUSTFLAGS: -C target-feature=+crt-static
       
       - name: Check permissions
         run: ls -lh
 
+      - name: Check permissions
+        run: ls -lh target/
+
+      - name: Check permissions
+        run: ls -lh target/release
+
       - name: Upload binaries to release
         uses: svenstaro/upload-release-action@v2
         with:
-          asset_name: cawlr
+          asset_name: cawlr-centos7
           file: target/release/cawlr
