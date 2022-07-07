@@ -13,7 +13,7 @@ jobs:
 
     steps:
       - name: Install build dependencies
-        run: yum -y install gcc
+        run: yum -y install gcc openblas-devel
 
       - name: Checkout main
         uses: actions/checkout@v2
