@@ -1,4 +1,4 @@
-name: CI
+name: Testing
 
 on:
   push:
@@ -31,7 +31,7 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: build
-          args: --release
+          args: --release --bin cawlr
 
       - name: Run cargo test
         env:
@@ -39,4 +39,4 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: test
-          args: -- --nocapture
+          args: --bin cawlr --all-features -- --nocapture
