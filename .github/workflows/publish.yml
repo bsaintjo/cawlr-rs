@@ -27,7 +27,7 @@ jobs:
           RUSTFLAGS: -C target-feature=+crt-static
       
       - name: Check permissions
-        run: ls -lh target/release/cawlr
+        run: ls -lh
 
       - name: Upload binaries to release
         uses: svenstaro/upload-release-action@v2
