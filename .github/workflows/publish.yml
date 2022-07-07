@@ -12,7 +12,7 @@ jobs:
 
     steps:
       - name: Install MUSL tools
-        run: sudo apt-get install -y pkg-config musl-tools
+        run: sudo apt-get install -y pkg-config musl-tools linux-musl-dev
 
       - name: Checkout main
         uses: actions/checkout@v2
@@ -24,13 +24,13 @@ jobs:
           override: true
           profile: minimal
 
-      - name: Add MUSL target
-        run: rustup target add x86_64-unknown-linux-musl
-
       - name: Compile
-        run: cargo build --target x86_64-unknown-linux-musl --bin cawlr --release --locked
+        run: cargo build --target x86_64-unknown-linux-gnu --bin cawlr --release --locked
         env:
           RUSTFLAGS: -C target-feature=+crt-static
+      
+      - name: Check permissions
+        run: ls -lh target/release/cawlr
 
       - name: Upload binaries to release
         uses: svenstaro/upload-release-action@v2
