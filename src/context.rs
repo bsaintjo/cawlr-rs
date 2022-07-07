@@ -160,7 +160,7 @@ mod test {
         assert_eq!(ctxt.context.len(), 15);
         assert_eq!(
             std::str::from_utf8(&ctxt.context).unwrap(),
-            "CATGCATGCATGCAT"
+            "TACGTACGTACGTAC"
         );
         assert_eq!(ctxt.start_slop, 0);
         assert_eq!(ctxt.end_slop, 5);
