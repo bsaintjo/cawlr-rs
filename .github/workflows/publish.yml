@@ -13,7 +13,13 @@ jobs:
 
     steps:
       - name: Install build dependencies
-        run: yum -y install epel-release gcc openblas-devel
+        run: yum -y install epel-release
+
+      - name: Install gcc
+        run: yum -y install gcc
+
+      - name: Install openblas-devel
+        run: yum -y install openblas-devel
 
       - name: Checkout main
         uses: actions/checkout@v2
