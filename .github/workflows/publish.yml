@@ -12,6 +12,9 @@ jobs:
     container: 'centos:7'
 
     steps:
+      - name: Install build dependencies
+        run: sudo yum -y install gcc
+
       - name: Checkout main
         uses: actions/checkout@v2
 
