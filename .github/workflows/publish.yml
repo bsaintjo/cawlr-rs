@@ -19,7 +19,7 @@ jobs:
         run: yum -y install make
 
       - name: Install gcc
-        run: yum -y install gcc
+        run: yum -y install gcc gcc-fortran
 
       - name: Install perl
         run: yum -y install perl
