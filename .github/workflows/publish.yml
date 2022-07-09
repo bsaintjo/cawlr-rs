@@ -1,31 +1,27 @@
-name: Publish
+name: Publish CentOS 7
 
 on:
   push:
     tags:
       - "v[0-9]+.[0-9]+.[0-9]+"
+  workflow_dispatch:
+
+env:
+  RELEASE_BINARY: target/x86_64-unknown-linux-gnu/release/cawlr
+  DIST_DIR: cawlr-${{ github.ref }}/
+  COMPRESSED: cawlr-${{ github.ref }}-linux-centos7-x86_64.tar.gz
 
 jobs:
-  publish:
-    name: Publish for ${{ matrix.os }}
+  centos7:
+    name: Compile and upload release binary
     runs-on: ubuntu-latest
-    container: 'centos:7'
+    container: "centos:7"
 
     steps:
       - name: Install build dependencies
-        run: yum -y install epel-release
-
-      - name: Install make
-        run: yum -y install make
-
-      - name: Install gcc
-        run: yum -y install gcc gcc-gfortran
-
-      - name: Install perl
-        run: yum -y install perl
-
-      - name: Install openblas-devel
-        run: yum -y install openblas-devel
+        run: |
+          yum -y install epel-release
+          yum -y install make gcc gcc-gfortran perl openblas-devel
 
       - name: Checkout main
         uses: actions/checkout@v2
@@ -37,22 +33,20 @@ jobs:
           override: true
           profile: minimal
 
-      - name: Compile
+      - name: Build release binary
         run: cargo build --release --target x86_64-unknown-linux-gnu
         env:
           RUST_BACKTRACE: 1
-      
-      - name: Check permissions
-        run: ls -lh
 
-      - name: Check permissions
-        run: ls -lh target/
-
-      - name: Check permissions
-        run: ls -lh target/release
+      - name: Strip binary and create archive
+        run: |
+          strip ${{ env.RELEASE_BINARY }}
+          mkdir ${{ env.DIST_DIR }}
+          cp README.md LICENSE ${{ env.RELEASE_BINARY }} ${{ env.DIST_DIR }}
+          tar -cvzf ${{ env.COMPRESSED }} ${{ env.DIST_DIR }}
 
       - name: Upload binaries to release
         uses: svenstaro/upload-release-action@v2
         with:
-          asset_name: cawlr-centos7
-          file: target/x86_64-unknown-linux-gnu/release/cawlr
+          file: ${{ env.COMPRESSED }}
+          overwrite: true
