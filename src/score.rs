@@ -4,7 +4,7 @@ use anyhow::Result;
 use arrow2::io::ipc::write::FileWriter;
 use bio::io::fasta::IndexedReader;
 use fnv::FnvHashMap;
-use rstats::Stats;
+use rstats::Median;
 use rv::{
     prelude::{Gaussian, Mixture},
     traits::{Cdf, KlDivergence, Rv},
