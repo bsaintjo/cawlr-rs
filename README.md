@@ -2,20 +2,25 @@
 
 [![License](https://img.shields.io/badge/license-BSD_3--Clause-informational)](./LICENSE)
 
-**C**hromatin **a**ccesibility **w**ith **l**ong **r**eads (`cawlr`) is a tool for detecting accessible regions of chromatin on single molecules. The tool works with nanopore data via [`nanopolish`](https://github.com/jts/nanopolish) or PacBio data via [`kineticsTools`](https://github.com/PacificBiosciences/kineticsTools).
+**C**hromatin **a**ccesibility **w**ith **l**ong **r**eads (`cawlr`) is a tool for detecting accessible regions of chromatin on single molecules. The tool works with nanopore data via [`nanopolish`](https://github.com/jts/nanopolish).
+
+<!-- TODO or PacBio data via [`kineticsTools`](https://github.com/PacificBiosciences/kineticsTools). -->
 
 `cawlr` is flexible and can work with data that uses various modifications for chromatin accessibility detection. Outputs of all `cawlr` modules are in Apache Arrow format can be manipulated via any programming language that has an [Apache Arrow](https://arrow.apache.org/install/) library. Furthermore, `cawlr` includes various scripts for plotting and evaluating the results.
 
+## Table of Contents
+
 - [cawlr 𓅨](#cawlr-𓅨)
+  - [Table of Contents](#table-of-contents)
   - [Installation](#installation)
     - [Installing rust via rustup](#installing-rust-via-rustup)
     - [Installing system dependencies](#installing-system-dependencies)
       - [Installing on Ubuntu/Debian](#installing-on-ubuntudebian)
+      - [Installing on CentOS 7](#installing-on-centos-7)
       - [Installing on MacOS](#installing-on-macos)
       - [Installing on Windows](#installing-on-windows)
     - [Installing cawlr](#installing-cawlr)
       - [Latest from git](#latest-from-git)
-      - [via `cargo install` (Not yet uploaded)](#via-cargo-install-not-yet-uploaded)
       - [(Optional) Run tests](#optional-run-tests)
     - [Python dependencies](#python-dependencies)
   - [Nanopore data preparation](#nanopore-data-preparation)
@@ -37,20 +42,30 @@
 
 ### Installing rust via rustup
 
-It is recommended to use rustup to install the tools for compiling rust code at [rustup.rs](https://rustup.rs/).
+It is recommended to install the Rust compiler is through [rustup.rs](https://rustup.rs/).
 
 ### Installing system dependencies
 
 Ensure you have these installed on your system before installing.
 
-- cmake
+- make
 - openblas
+- perl
+- gcc
+- gfortran
 
 #### Installing on Ubuntu/Debian
 
 ```bash
 sudo apt update
 sudo apt install cmake libopenblas-dev
+```
+
+#### Installing on CentOS 7
+
+```bash
+yum install epel-release
+yum install perl make gcc gcc-gfortran openblas-devel
 ```
 
 #### Installing on MacOS
@@ -71,10 +86,10 @@ cd cawlr-rs
 cargo install --path .
 ```
 
-#### via `cargo install` (Not yet uploaded)
+If your system has GCC version 4.9 or higher then you can compile with the `fast` feature to get decent speedups with the command below.
 
 ```bash
-cargo install cawlr
+cargo install --path . --features fast
 ```
 
 #### (Optional) Run tests
@@ -96,7 +111,7 @@ In order to prepare data for `cawlr` you need to install:
 Example command of running nanopolish to set up inputs
 
 ```bash
-$ nanopolish index -d path/to/fast5s reads.fasta
+$ nanopolish index -d path/to/fast5 reads.fasta
 $ minimap2 -ax map-ont --sam-hit-only --secondary=no genome.fasta reads.fasta | \
     samtools sort -o aln.sorted.bam -T reads.tmp
 $ samtools index aln.sorted.bam
@@ -107,11 +122,20 @@ $ nanopolish eventalign --reads reads.fasta \
     --print-read-names >eventalign.txt
 ```
 
-To use only uniquely mapping reads, a good filtering method to approximate this is shown below. The command filters with the `-f 20` to filter out reads with a MAPQ below 20, and `-F 0x900` removes supplementary and secondary reads as well.
+<!-- TODO Confirm that cawlr collapse will fail without `--sam-hit-only` -->
+
+For training the models, its good practice to avoid using multiple alignments for the same read.
+To avoid this, you can filter the bam files with the command below before running `nanopolish`. The command filters with the `-f 20` to filter out reads with a MAPQ below 20, and `-F 0x900` removes supplementary and secondary reads as well.
 
 ```bash
 # After minimap2 command
 $ samtools view -b -q 20 -F 0x900 aln.sorted.bam >filtered.aln.sorted.bam
+```
+
+Once completed you can confirm that alignments have been filtered correctly with:
+
+```bash
+samtools flagstats filtered.aln.sorted.bam
 ```
 
 ## Usage
