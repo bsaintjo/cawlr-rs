@@ -4,7 +4,7 @@ use anyhow::Result;
 use arrow2::io::ipc::write::FileWriter;
 use bio::io::fasta::IndexedReader;
 use fnv::FnvHashMap;
-use rstats::Median;
+use rstats::Stats;
 use rv::{
     prelude::{Gaussian, Mixture},
     traits::{Cdf, KlDivergence, Rv},
@@ -162,7 +162,7 @@ impl ScoreOptions {
             })
             .collect::<Vec<_>>();
 
-        skipping_scores.median().expect("No skipping scores").median
+        skipping_scores.as_slice().median().expect("No skipping scores").median
     }
 
     /// For a given position, get the values for the position and surrounding

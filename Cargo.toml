@@ -35,7 +35,10 @@ nalgebra = "0.27.1"
 ndarray = { version = "0.15.4", features = ["blas"] }
 openblas-src = { version = "0.10", features = ["static"]}
 rand = { version = "0.8.5", features = ["small_rng", "alloc"] }
-rstats = "1.0.13"
+
+# Newer versions break, avoid updating until confirmed fixed
+rstats = "=1.0.13"
+indxvec = "=1.2.0"
 rv = { version = "0.14.3", features = ["serde1"] }
 serde = "1.0.136"
 serde-pickle = "1.1.0"
