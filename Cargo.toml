@@ -56,7 +56,3 @@ float_eq = "1.0.0"
 [features]
 default = []
 fast = ["mimalloc"]
-
-[[bin]]
-name = "generate_test_data"
-path = "src/bin/generate_test_data.rs"
