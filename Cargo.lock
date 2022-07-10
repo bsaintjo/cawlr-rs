@@ -39,9 +39,9 @@ dependencies = [
 
 [[package]]
 name = "anyhow"
-version = "1.0.58"
+version = "1.0.48"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bb07d2053ccdbe10e2af2995a2f116c1330396493dc1269f6a91d0ae82e19704"
+checksum = "62e1f47f7dc0422027a4e370dd4548d4d66b26782e513e98dca1e689e058a80e"
 
 [[package]]
 name = "approx"
@@ -69,9 +69,9 @@ checksum = "bf7d0a018de4f6aa429b9d33d69edf69072b1c5b1cb8d3e4a5f7ef898fc3eb76"
 
 [[package]]
 name = "arrow-format"
-version = "0.4.0"
+version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2333f8ccf0d597ba779863c57a0b61f635721187fb2fdeabae92691d7d582fe5"
+checksum = "216249afef413d7e9e9b4b543e73b3e371ace3a812380af98f1c871521572cdd"
 dependencies = [
  "planus",
  "serde",
@@ -79,13 +79,14 @@ dependencies = [
 
 [[package]]
 name = "arrow2"
-version = "0.9.2"
+version = "0.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "185b18ba35287d4e6989e451ab3d184f4699befaa05cf95b0da74152b0c5c24a"
+checksum = "5feafd6df4e3f577529e6aa2b9b7cdb3c9fe8e8f66ebc8dc29abbe71a7e968f0"
 dependencies = [
  "arrow-format",
  "bytemuck",
  "chrono",
+ "either",
  "hash_hasher",
  "num-traits",
  "simdutf8",
@@ -93,9 +94,9 @@ dependencies = [
 
 [[package]]
 name = "arrow2_convert"
-version = "0.1.0"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "35f97d5c07106902a07ae63962910439b26e54bb2e9cc55006286c8c443a30c4"
+checksum = "f8cf11efa813424951df94cb0174ae0a22b1dbf1b462360831a3360eefbd693c"
 dependencies = [
  "arrow2",
  "arrow2_convert_derive",
@@ -106,9 +107,9 @@ dependencies = [
 
 [[package]]
 name = "arrow2_convert_derive"
-version = "0.1.0"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ba396ff4ff1bd0918328b8992548786082f1dfb6421224ab65304310dc7a8598"
+checksum = "2f4529d8b694306e1ffe7ba324f91659d1994e1d0a86a6492d80522b918560d1"
 dependencies = [
  "proc-macro-error",
  "proc-macro2",
@@ -178,9 +179,9 @@ dependencies = [
 
 [[package]]
 name = "bio"
-version = "0.39.2"
+version = "0.41.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6b338db6f3c8a8ede1779fad84b6e52f36101dbd79daacc4fb3746efc9fe6002"
+checksum = "4a69423e30444738eccc5e54eccee75779dd3f15ecc0469b95d8529d4b6b7586"
 dependencies = [
  "anyhow",
  "approx 0.5.1",
@@ -1009,6 +1010,7 @@ dependencies = [
  "cauchy",
  "lapack",
  "num-traits",
+ "openblas-src",
  "thiserror",
 ]
 
@@ -1041,45 +1043,56 @@ dependencies = [
 
 [[package]]
 name = "linfa"
-version = "0.5.0"
+version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7496612871c85de124d12006109360ed7ffc4740ce3fe3fe35a749e2d7f2f88f"
+checksum = "20345c27f1041e3d3c6457d92530688a9134c28cabaf4cf9a6e0d90a91ac7075"
 dependencies = [
+ "anyhow",
  "approx 0.4.0",
  "ndarray",
  "ndarray-linalg",
  "num-traits",
- "openblas-src",
  "rand 0.8.5",
  "thiserror",
 ]
 
 [[package]]
 name = "linfa-clustering"
-version = "0.5.0"
+version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3d75b19d064874802fc659f18f5b672a6e16cb4aa3e7e552405e324b77bdb59d"
+checksum = "5b37ddee7557dd269e7e7d637d3cecdcafbad945ba4e890c6cd74582c771e357"
 dependencies = [
  "linfa",
+ "linfa-linalg",
  "linfa-nn",
  "ndarray",
- "ndarray-linalg",
  "ndarray-rand",
  "ndarray-stats",
  "noisy_float",
  "num-traits",
  "partitions",
- "rand_isaac",
+ "rand_xoshiro",
  "serde",
  "space",
  "thiserror",
 ]
 
 [[package]]
-name = "linfa-nn"
-version = "0.5.0"
+name = "linfa-linalg"
+version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "83748e3f71c8fa7fc490a54d2e33d40b8246a335618159fb313989ff6eb209ef"
+checksum = "56e7562b41c8876d3367897067013bb2884cc78e6893f092ecd26b305176ac82"
+dependencies = [
+ "ndarray",
+ "num-traits",
+ "thiserror",
+]
+
+[[package]]
+name = "linfa-nn"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b740479d500b99093b48e8582636c72882f948ac5af36a37783cca79a7db62f2"
 dependencies = [
  "kdtree",
  "linfa",
@@ -1639,10 +1652,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "rand_isaac"
-version = "0.3.0"
+name = "rand_xoshiro"
+version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fac4373cd91b4f55722c553fb0f286edbb81ef3ff6eec7b99d1898a4110a0b28"
+checksum = "6f97cdb2a36ed4183de61b2f824cc45c9f1037f28afe0a322e9fff4c108b5aaa"
 dependencies = [
  "rand_core 0.6.3",
 ]

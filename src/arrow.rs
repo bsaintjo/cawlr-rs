@@ -10,7 +10,7 @@ use arrow2::{
     array::Array,
     chunk::Chunk,
     datatypes::{Field, Schema},
-    error::ArrowError,
+    error::Error,
     io::ipc::{
         read::{read_file_metadata, FileReader},
         write::{FileWriter, WriteOptions},
@@ -416,7 +416,7 @@ where
 // TODO Refactor multiple maps
 pub(crate) fn load_iter<R>(
     mut reader: R,
-) -> impl Iterator<Item = Result<Vec<Eventalign>, ArrowError>>
+) -> impl Iterator<Item = Result<Vec<Eventalign>, Error>>
 where
     R: Read + Seek,
 {
