@@ -86,10 +86,10 @@ cd cawlr-rs
 cargo install --path .
 ```
 
-If your system has GCC version 4.9 or higher then you can compile with the `fast` feature to get decent speedups with the command below.
+While the tool was developed to be as portable as possible, you can sacrifice portability for small speed increases by installing with compiling options shown below. The `fast` feature requires GCC version >= 4.9
 
 ```bash
-cargo install --path . --features fast
+RUSTFLAGS="-C target-cpu=native" cargo install --path . --features fast
 ```
 
 #### (Optional) Run tests
@@ -104,9 +104,9 @@ cargo test
 
 In order to prepare data for `cawlr` you need to install:
 
-- `samtools`
-- `nanopolish`
-- `minimap2`
+- [`samtools`](http://www.htslib.org/)
+- [`nanopolish`](https://github.com/jts/nanopolish)
+- [`minimap2`](https://github.com/lh3/minimap2)
 
 Example command of running nanopolish to set up inputs
 
