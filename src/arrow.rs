@@ -23,6 +23,59 @@ use arrow2_convert::{
     ArrowField,
 };
 
+trait MetadataExt {
+    fn metadata(&self) -> &Metadata;
+
+    fn name(&self) -> &str {
+        self.metadata().name()
+    }
+
+    /// Get a reference to the metadata's chrom.
+    fn chrom(&self) -> &str {
+        self.metadata().chrom.as_ref()
+    }
+
+    /// Get the metadata's start.
+    fn start_0b(&self) -> u64 {
+        // self.metadata().start
+        unimplemented!()
+    }
+
+    /// Get the metadata's start.
+    fn start_1b(&self) -> u64 {
+        // self.metadata().start
+        unimplemented!()
+    }
+
+    /// Get the metadata's length.
+    fn length(&self) -> u64 {
+        self.metadata().length
+    }
+
+    /// Get the metadata's strand.
+    fn strand(&self) -> Strand {
+        self.metadata().strand
+    }
+}
+
+impl MetadataExt for Metadata {
+    fn metadata(&self) -> &Metadata {
+        self
+    }
+}
+
+impl MetadataExt for ScoredRead {
+    fn metadata(&self) -> &Metadata {
+        &self.metadata
+    }
+}
+
+impl MetadataExt for Eventalign {
+    fn metadata(&self) -> &Metadata {
+        &self.metadata
+    }
+}
+
 #[derive(Debug, Clone, ArrowField, Default)]
 pub(crate) struct Metadata {
     name: String,
@@ -51,33 +104,36 @@ impl Metadata {
             seq,
         }
     }
+    
+    fn from_0b_coords() -> Self {
+        unimplemented!()
+    }
+
+    fn from_1b_coords() -> Self {
+        unimplemented!()
+    }
 
     /// Get a reference to the metadata's name.
-    #[must_use]
     pub(crate) fn name(&self) -> &str {
         self.name.as_ref()
     }
 
     /// Get a reference to the metadata's chrom.
-    #[must_use]
     pub(crate) fn chrom(&self) -> &str {
         self.chrom.as_ref()
     }
 
     /// Get the metadata's start.
-    #[must_use]
     pub(crate) fn start(&self) -> u64 {
         self.start
     }
 
     /// Get the metadata's length.
-    #[must_use]
     pub(crate) fn length(&self) -> u64 {
         self.length
     }
 
     /// Get the metadata's strand.
-    #[must_use]
     pub(crate) fn strand(&self) -> Strand {
         self.strand
     }
@@ -102,19 +158,16 @@ impl Signal {
     }
 
     /// Get the signal's signal mean.
-    #[must_use]
     pub(crate) fn mean(&self) -> f64 {
         self.signal_mean
     }
 
     /// Get a reference to the signal's kmer.
-    #[must_use]
     pub(crate) fn kmer(&self) -> &str {
         self.kmer.as_ref()
     }
 
     /// Get the signal's pos.
-    #[must_use]
     pub(crate) fn pos(&self) -> u64 {
         self.pos
     }
@@ -406,7 +459,7 @@ where
 /// })
 /// # }
 /// ```
-/// 
+///
 /// TODO Fix example with correct file
 pub fn load_apply<R, F, T>(reader: R, mut func: F) -> Result<()>
 where
