@@ -3,7 +3,6 @@ use std::path::Path;
 use anyhow::Result;
 use clap::{IntoApp, Parser, Subcommand};
 use clap_verbosity_flag::Verbosity;
-use collapse::CollapseOptions;
 use human_panic::setup_panic;
 #[cfg(feature = "mimalloc")]
 use mimalloc::MiMalloc;
@@ -12,6 +11,7 @@ mod arrow;
 mod bkde;
 mod collapse;
 mod context;
+mod index;
 mod rank;
 mod score;
 mod sma;
@@ -66,6 +66,11 @@ enum Commands {
                           * position, /// should be set with --chrom
                           * /// TODO: Throw error if set without --chrom
                           * stop: Option<u64> */
+    },
+
+    Index {
+        #[clap(short, long)]
+        input: String,
     },
 
     /// For each kmer, train a two-component gaussian mixture model and save
@@ -195,8 +200,11 @@ fn main() -> Result<()> {
                 )
                 .exit();
             }
-            let collapse = CollapseOptions::try_new(&input, &output, capacity)?;
+            let collapse = collapse::CollapseOptions::try_new(&input, &output, capacity)?;
             collapse.run()?;
+        }
+        Commands::Index { input } => {
+            index::index(input)?;
         }
         Commands::Train {
             input,
