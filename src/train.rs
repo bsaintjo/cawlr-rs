@@ -188,6 +188,9 @@ impl Train {
     }
 
     // TODO: Use Context instead
+    // Genome fasta reader method makes clippy think its wrong but it is actually
+    // correct.
+    #[allow(clippy::read_zero_byte_vec)]
     fn get_read_seq(&mut self, read: &Eventalign) -> Result<Vec<u8>> {
         let strand = read.strand();
         let chrom = read.chrom();

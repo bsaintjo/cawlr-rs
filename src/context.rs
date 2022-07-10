@@ -37,6 +37,9 @@ impl Context {
         }
     }
 
+    /// Genome fasta reader method makes clippy think its wrong but it still
+    /// works correctly.
+    #[allow(clippy::read_zero_byte_vec)]
     pub(crate) fn from_read<R>(
         genome: &mut IndexedReader<R>,
         chrom_lens: &FnvHashMap<String, u64>,
@@ -70,6 +73,7 @@ impl Context {
         };
         genome.fetch(chrom, start, stop)?;
         let mut seq = Vec::new();
+
         genome.read(&mut seq)?;
 
         if read.strand().is_minus_strand() {
