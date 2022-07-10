@@ -1,7 +1,7 @@
 use std::{
     fs::File,
     io::{BufWriter, Read, Write},
-    path::Path,
+    path::{Path, PathBuf},
 };
 
 use anyhow::Result;
@@ -87,8 +87,12 @@ fn nprs_to_eventalign(nprs: Vec<Npr>) -> Result<Option<Eventalign>> {
 }
 
 /// Create spinner that wraps an IO read iterator
-fn spin_iter<I: Read>(iter: I) -> ProgressBarIter<I> {
-    let pb = ProgressBar::new_spinner();
+fn spin_iter<I: Read>(iter: I, show_progress: bool) -> ProgressBarIter<I> {
+    let pb = if show_progress {
+        ProgressBar::new_spinner()
+    } else {
+        ProgressBar::hidden()
+    };
     let style = ProgressStyle::default_spinner()
         .template("{spinner} [{elapsed_precise}] {binary_bytes_per_sec} {msg}")
         .on_finish(ProgressFinish::AndLeave);
@@ -98,30 +102,44 @@ fn spin_iter<I: Read>(iter: I) -> ProgressBarIter<I> {
 }
 
 pub struct CollapseOptions<W: Write> {
-    input: String,
-    writer: FileWriter<BufWriter<W>>,
+    input: PathBuf,
+    writer: FileWriter<W>,
     capacity: usize,
+    progress: bool,
 }
 
-impl CollapseOptions<File> {
-    pub fn try_new<P>(input: &str, output: P, capacity: usize) -> Result<Self>
+impl CollapseOptions<BufWriter<File>> {
+    pub fn try_new<P, Q>(input: P, output: Q) -> Result<Self>
     where
         P: AsRef<Path>,
+        Q: AsRef<Path>,
     {
+        // let writer = File::create(output)?;
         let writer = File::create(output)?;
-        CollapseOptions::from_writer(input, writer, capacity)
+        let writer = BufWriter::new(writer);
+        CollapseOptions::from_writer(input.as_ref().to_owned(), writer)
     }
 }
 
 impl<W: Write> CollapseOptions<W> {
-    pub(crate) fn from_writer(input: &str, writer: W, capacity: usize) -> Result<Self> {
+    pub fn capacity(&mut self, capacity: usize) -> &mut Self {
+        self.capacity = capacity;
+        self
+    }
+
+    pub fn progress(&mut self, progress: bool) -> &mut Self {
+        self.progress = progress;
+        self
+    }
+
+    pub(crate) fn from_writer(input: PathBuf, writer: W) -> Result<Self> {
         let schema = arrow::Eventalign::schema();
-        let writer = BufWriter::new(writer);
         let writer = arrow::wrap_writer(writer, &schema)?;
         Ok(CollapseOptions {
-            input: input.to_owned(),
+            input,
             writer,
-            capacity,
+            capacity: 2048,
+            progress: false,
         })
     }
 
@@ -136,7 +154,7 @@ impl<W: Write> CollapseOptions<W> {
 
     pub fn run(mut self) -> Result<()> {
         let file = File::open(&self.input)?;
-        let file = spin_iter(file);
+        let file = spin_iter(file, self.progress);
         let mut builder = csv::ReaderBuilder::new().delimiter(b'\t').from_reader(file);
         let mut npr_iter = builder.deserialize().peekable();
 
@@ -260,7 +278,7 @@ mod test {
         let temp_dir = TempDir::new()?;
         let filepath = "extra/single_read.eventalign.txt";
         let output = temp_dir.path().join("test");
-        let collapse = CollapseOptions::try_new(filepath, &output, 2048)?;
+        let collapse = CollapseOptions::try_new(filepath, &output)?;
         collapse.run()?;
 
         let output = File::open(output)?;
@@ -282,7 +300,7 @@ mod test {
         let temp_dir = TempDir::new()?;
         let filepath = "extra/neg_control.eventalign.txt";
         let output = temp_dir.path().join("test");
-        let collapse = CollapseOptions::try_new(filepath, &output, 2048)?;
+        let collapse = CollapseOptions::try_new(filepath, &output)?;
         collapse.run()?;
 
         let output = File::open(output)?;

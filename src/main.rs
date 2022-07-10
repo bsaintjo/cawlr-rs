@@ -47,25 +47,13 @@ enum Commands {
         input: String,
 
         #[clap(short, long)]
-        /// path to output file in Apache Arrow format
+        /// Path to output file in Apache Arrow format, defaults to stdout if no
+        /// argument provided.
         output: String,
-        // TODO: Reimplement
-        // #[clap(short, long)]
-        // /// output only includes data from this chromosome
-        // chrom: Option<String>,
+
         #[clap(short, long, default_value_t = 2048)]
         /// Number of eventalign records to hold in memory.
-        capacity: usize, /* #[clap(long)]
-                          * /// output only includes data that aligns at or after this position,
-                          * /// should be set with --chrom
-                          * /// TODO: Throw error if set without --chrom
-                          * start: Option<u64>, */
-
-                         /* #[clap(long)]
-                          * /// output only includes data that aligns at or before this
-                          * position, /// should be set with --chrom
-                          * /// TODO: Throw error if set without --chrom
-                          * stop: Option<u64> */
+        capacity: usize,
     },
 
     Index {
@@ -200,7 +188,9 @@ fn main() -> Result<()> {
                 )
                 .exit();
             }
-            let collapse = collapse::CollapseOptions::try_new(&input, &output, capacity)?;
+
+            let mut collapse = collapse::CollapseOptions::try_new(&input, &output)?;
+            collapse.capacity(capacity).progress(true);
             collapse.run()?;
         }
         Commands::Index { input } => {

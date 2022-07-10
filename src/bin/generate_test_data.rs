@@ -8,13 +8,13 @@ use cawlr::{
     utils::CawlrIO,
 };
 
-const POS_CTRL: &'static str = "extra/pos_control.eventalign.txt";
-const NEG_CTRL: &'static str = "extra/neg_control.eventalign.txt";
-const READ: &'static str = "extra/single_read.eventalign.txt";
-const GENOME: &'static str = "extra/sacCer3.fa";
+const POS_CTRL: &str = "extra/pos_control.eventalign.txt";
+const NEG_CTRL: &str = "extra/neg_control.eventalign.txt";
+const READ: &str = "extra/single_read.eventalign.txt";
+const GENOME: &str = "extra/sacCer3.fa";
 
 fn collapse(input: &str, output: &PathBuf) -> Result<()> {
-    let collapse_opts = CollapseOptions::try_new(input, output, 4096)?;
+    let collapse_opts = CollapseOptions::try_new(input, output)?;
     collapse_opts.run()
 }
 
@@ -36,7 +36,7 @@ fn score() {}
 
 fn main() -> Result<()> {
     let args = std::env::args();
-    let output_dir = args.into_iter().next().unwrap_or("test_data".to_string());
+    let output_dir = args.into_iter().next().unwrap_or_else(|| "test_data".to_string());
     let output_dir = PathBuf::from(output_dir);
 
     let pos_output = output_dir.join("pos_collapse");

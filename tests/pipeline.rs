@@ -2,15 +2,15 @@ use std::path::Path;
 
 use anyhow::Result;
 use assert_fs::TempDir;
-use cawlr::CollapseOptions;
+use cawlr::collapse::CollapseOptions;
 
-const POS_CTRL: &'static str = "extra/pos_control.eventalign.txt";
-const NEG_CTRL: &'static str = "extra/neg_control.eventalign.txt";
-const READ: &'static str = "extra/single_read.eventalign.txt";
-const DEVNULL: &'static str = "dev/null";
+const POS_CTRL: &str = "extra/pos_control.eventalign.txt";
+const NEG_CTRL: &str = "extra/neg_control.eventalign.txt";
+const READ: &str = "extra/single_read.eventalign.txt";
+const DEVNULL: &str = "dev/null";
 
 fn test_collapse<P: AsRef<Path>>(input: &str, output: P) -> Result<()> {
-    let collapse_opts = CollapseOptions::try_new(input, output, 4096)?;
+    let collapse_opts = CollapseOptions::try_new(input, output)?;
     collapse_opts.run()
 }
 

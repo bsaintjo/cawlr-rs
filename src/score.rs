@@ -404,7 +404,7 @@ mod test {
         let temp_dir = TempDir::new()?;
         let filepath = "extra/single_read.eventalign.txt";
         let output = temp_dir.path().join("test");
-        let collapse = CollapseOptions::try_new(filepath, &output, 2048)?;
+        let collapse = CollapseOptions::try_new(filepath, &output)?;
         collapse.run()?;
 
         let output = File::open(output)?;
