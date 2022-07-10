@@ -17,7 +17,7 @@ use crate::{
     utils::{chrom_lens, CawlrIO},
 };
 
-pub(crate) struct ScoreOptions {
+pub struct ScoreOptions {
     pos_ctrl: Model,
     neg_ctrl: Model,
     genome: IndexedReader<File>,
@@ -29,7 +29,7 @@ pub(crate) struct ScoreOptions {
 }
 
 impl ScoreOptions {
-    pub(crate) fn try_new<P>(
+    pub fn try_new<P>(
         pos_ctrl_filepath: &str,
         neg_ctrl_filepath: &str,
         genome_filepath: &str,
@@ -68,7 +68,7 @@ impl ScoreOptions {
 
     /// For every read in the input file, try to calculate scores for each base
     /// position and write to file.
-    pub(crate) fn run<P>(mut self, input: P) -> Result<()>
+    pub fn run<P>(mut self, input: P) -> Result<()>
     where
         P: AsRef<Path>,
     {

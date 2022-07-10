@@ -2,10 +2,10 @@ use std::path::{Path, PathBuf};
 
 use anyhow::Result;
 use cawlr::{
+    collapse::CollapseOptions,
     rank::{RankOptions, Ranks},
     train::{Model, Train},
     utils::CawlrIO,
-    CollapseOptions,
 };
 
 const POS_CTRL: &'static str = "extra/pos_control.eventalign.txt";

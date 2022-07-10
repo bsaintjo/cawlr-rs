@@ -62,7 +62,7 @@ impl Rankings {
 }
 
 impl RankOptions {
-    pub(crate) fn new(seed: u64, n_samples: usize) -> Self {
+    pub fn new(seed: u64, n_samples: usize) -> Self {
         let rng = SmallRng::seed_from_u64(seed);
         RankOptions { rng, n_samples }
     }

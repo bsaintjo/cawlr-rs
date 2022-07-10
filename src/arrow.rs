@@ -156,7 +156,7 @@ impl Strand {
         self == &Strand::unknown()
     }
 
-    pub(crate) fn as_str(&self) -> &str {
+    pub(crate) fn as_str(&self) -> &'static str {
         if self.is_plus_strand() {
             "+"
         } else if self.is_minus_strand() {
@@ -168,7 +168,7 @@ impl Strand {
 }
 
 #[derive(Debug, Clone, ArrowField)]
-pub(crate) struct Eventalign {
+pub struct Eventalign {
     metadata: Metadata,
     signal_data: Vec<Signal>,
 }
@@ -181,7 +181,7 @@ impl Eventalign {
         }
     }
 
-    pub(crate) fn name(&self) -> &str {
+    pub fn name(&self) -> &str {
         self.metadata.name.as_str()
     }
 
@@ -392,7 +392,23 @@ where
 }
 
 /// Apply a function to chunks of data loaded from an Arrow Feather File.
-pub(crate) fn load_apply<R, F, T>(reader: R, mut func: F) -> Result<()>
+///
+/// # Example
+/// ```rust, ignore
+/// # use std::fs::File;
+/// # use std::error::Error;
+/// # use cawlr::arrow::Eventalign;
+/// # use cawlr::arrow::load_apply;
+/// # fn main() -> Result<(), Box<dyn Error>> {
+/// load_apply(file, |eventalign: Vec<Eventalign>| {
+///     // Do stuff with each chunk
+/// # Ok(())
+/// })
+/// # }
+/// ```
+/// 
+/// TODO Fix example with correct file
+pub fn load_apply<R, F, T>(reader: R, mut func: F) -> Result<()>
 where
     R: Read + Seek,
     F: FnMut(Vec<T>) -> anyhow::Result<()>,
@@ -414,9 +430,7 @@ where
 }
 
 // TODO Refactor multiple maps
-pub(crate) fn load_iter<R>(
-    mut reader: R,
-) -> impl Iterator<Item = Result<Vec<Eventalign>, Error>>
+pub(crate) fn load_iter<R>(mut reader: R) -> impl Iterator<Item = Result<Vec<Eventalign>, Error>>
 where
     R: Read + Seek,
 {
