@@ -370,6 +370,7 @@ dependencies = [
  "serde_with",
  "tempfile",
  "test-log",
+ "thiserror",
 ]
 
 [[package]]

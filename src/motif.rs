@@ -1,26 +1,122 @@
-struct Motif {
+use std::{collections::HashSet, str::FromStr};
+
+use thiserror::Error;
+
+#[derive(Error, Debug)]
+pub enum MotifError {
+    #[error("Invalid format, should be in the form [pos]:[motif]")]
+    InvalidFormat,
+    #[error("Invalid base, should only be ACGT, uppercase only")]
+    InvalidBase,
+    #[error("Position should be less than the length of the motif given.")]
+    PositionOutsideofMotif,
+    #[error("Position is one-based.")]
+    PositionOneBased,
+    #[error("Position must be positive integer")]
+    PositionParseFailed,
+    #[error("Additional parts not expected. Invalid format")]
+    UnexpectedAdditionalFormat,
+}
+
+fn valid_motif_bases(motif: &str) -> bool {
+    let bases = HashSet::from(['A', 'C', 'G', 'T']);
+    !motif.is_empty() && motif.chars().all(|b| bases.contains(&b))
+}
+
+pub struct Motif {
     motif: String,
     position: usize,
 }
 
 impl Motif {
-    fn new(motif: String, position: usize) -> Self {
+    pub(crate) fn new(motif: String, position: usize) -> Self {
         Self { motif, position }
     }
 
-    fn from_string<T>(string: T, position: usize) -> Option<Self>
+    pub fn parse_from_str<T>(string: T) -> Result<Self, MotifError>
     where
-        T: Into<String>,
+        T: AsRef<str>,
     {
-        let motif = string.into();
-        if position >= motif.len() {
-            None
+        let string = string.as_ref();
+        let mut iter = string.split(':');
+        let pos = iter
+            .next()
+            .ok_or(MotifError::InvalidFormat)?
+            .parse::<usize>()
+            .map_err(|_| MotifError::PositionParseFailed)?;
+        let motif = iter.next().ok_or(MotifError::InvalidFormat)?;
+        if !valid_motif_bases(motif) {
+            Err(MotifError::InvalidBase)
+        } else if pos == 0 {
+            Err(MotifError::PositionOneBased)
+        } else if pos >= motif.len() {
+            Err(MotifError::PositionOutsideofMotif)
+        } else if iter.next().is_some() {
+            Err(MotifError::UnexpectedAdditionalFormat)
         } else {
-            Some(Motif::new(motif, position))
+            Ok(Motif::new(motif.to_string(), pos))
         }
     }
 
-    fn is_valid(&self) -> bool {
-        self.position < self.motif.len()
+    pub fn motif(&self) -> &str {
+        self.motif.as_ref()
+    }
+
+    pub fn position(&self) -> usize {
+        self.position
+    }
+}
+
+impl FromStr for Motif {
+    type Err = MotifError;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Motif::parse_from_str(s)
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_motif() {
+        let m = Motif::parse_from_str("1:AT");
+        assert!(m.is_ok());
+
+        let m = Motif::parse_from_str("1:TA");
+        assert!(m.is_ok());
+
+        let m = Motif::parse_from_str("0:TA");
+        assert!(m.is_err());
+
+        let m = Motif::parse_from_str("TA:1");
+        assert!(m.is_err());
+
+        let m = Motif::parse_from_str("1:ZA");
+        assert!(m.is_err());
+
+        let m = Motif::parse_from_str("1:ZAhfd");
+        assert!(m.is_err());
+
+        let m = Motif::parse_from_str("3:TA");
+        assert!(m.is_err());
+
+        let m = Motif::parse_from_str("");
+        assert!(m.is_err());
+
+        let m = Motif::parse_from_str("T");
+        assert!(m.is_err());
+
+        let m = Motif::parse_from_str("-1:TG");
+        assert!(m.is_err());
+
+        let m = Motif::parse_from_str("2.1:TG");
+        assert!(m.is_err());
+
+        let m = Motif::parse_from_str("quack:TG");
+        assert!(m.is_err());
+
+        let m = Motif::parse_from_str("1:TA:");
+        assert!(m.is_err());
     }
 }
