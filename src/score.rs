@@ -1,6 +1,6 @@
 use std::{collections::HashMap, fs::File, hash::BuildHasher, ops::RangeInclusive, path::Path};
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use arrow2::io::ipc::write::FileWriter;
 use bio::io::fasta::IndexedReader;
 use fnv::FnvHashMap;
@@ -12,7 +12,7 @@ use rv::{
 
 use crate::{
     arrow::{load_apply, save, wrap_writer, Eventalign, Score, ScoredRead, Signal},
-    context::Context,
+    context,
     train::{Model, ModelDB},
     utils::{chrom_lens, CawlrIO},
 };
@@ -94,7 +94,7 @@ impl ScoreOptions {
     fn score_eventalign(&mut self, read: Eventalign) -> Result<ScoredRead> {
         log::info!("{:?}", read.metadata());
         let mut acc = Vec::new();
-        let context = Context::from_read(&mut self.genome, &self.chrom_lens, &read)?;
+        let context = context::Context::from_read(&mut self.genome, &self.chrom_lens, &read)?;
         log::debug!("{context:.3?}");
         let data_pos = pos_with_data(&read);
         for pos in read.start_ob()..=read.stop_ob() {
@@ -114,7 +114,7 @@ impl ScoreOptions {
                 log::debug!("Position {pos} kmer: {kmer}");
 
                 let signal_score = self.calc_signal_score(pos, &data_pos);
-                let skipping_score = self.calc_skipping_score(pos, &data_pos, &context);
+                let skipping_score = self.calc_skipping_score(pos, &data_pos, &context)?;
                 let final_score = signal_score.map_or(skipping_score, |x| x.max(skipping_score));
                 let score = Score::new(
                     pos,
@@ -136,8 +136,8 @@ impl ScoreOptions {
         &self,
         pos: u64,
         data_pos: &FnvHashMap<u64, &Signal>,
-        context: &Context,
-    ) -> f64 {
+        context: &context::Context,
+    ) -> Result<f64> {
         let sur_kmers = context.surrounding(pos);
         let sur_has_data = surround_has_data(pos, data_pos);
         let skipping_scores = sur_kmers
@@ -162,7 +162,11 @@ impl ScoreOptions {
             })
             .collect::<Vec<_>>();
 
-        skipping_scores.as_slice().median().expect("No skipping scores").median
+        let skip_score = skipping_scores
+            .median()
+            .context("No skipping scores")?
+            .median;
+        Ok(skip_score)
     }
 
     /// For a given position, get the values for the position and surrounding
@@ -416,7 +420,7 @@ mod test {
 
         let chrom_lens = chrom_lens(&genome);
 
-        let context = Context::from_read(&mut genome, &chrom_lens, read)?;
+        let context = context::Context::from_read(&mut genome, &chrom_lens, read)?;
         assert_eq!(context.start_slop(), 5);
         assert_eq!(context.end_slop(), 5);
 

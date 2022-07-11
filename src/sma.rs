@@ -1,6 +1,6 @@
 use std::{collections::VecDeque, fs::File, io::Write, path::Path};
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use criterion_stats::univariate::{
     kde::{kernel::Gaussian, Bandwidth, Kde},
     Sample,
@@ -141,7 +141,7 @@ impl SmaOptions {
                     self.motifs.as_slice(),
                 );
                 let result = backtrace(matrix);
-                let result = states_to_readable(&result);
+                let result = states_to_readable(&result)?;
                 for (state, size) in result.into_iter() {
                     let chrom = read.metadata().chrom();
                     let start = read.metadata().start();
@@ -160,7 +160,7 @@ impl SmaOptions {
         })
     }
 
-    pub fn run_read(&self, read: &ScoredRead) -> SmaMatrix {
+    pub fn run_read(&self, read: &ScoredRead) -> Result<SmaMatrix> {
         let mut matrix = SmaMatrix::from_read(read);
         let scores = read.to_expanded_scores();
         for col_idx in 1..=read.length() {
@@ -182,7 +182,7 @@ impl SmaOptions {
             };
             matrix.ptrs_mut().column_mut(col_idx)[0] = Some(prev_max_idx);
             let mut col = matrix.probs_mut().column_mut(col_idx);
-            let first: &mut f64 = col.get_mut(0).expect("No values in matrix.");
+            let first: &mut f64 = col.get_mut(0).context("No values in matrix.")?;
             let val: f64 = match score {
                 Some(score) => prev_max + self.pos_bkde.pmf_from_score(score.score()).ln(),
                 None => prev_max,
@@ -195,7 +195,7 @@ impl SmaOptions {
                 matrix.ptrs_mut().column_mut(col_idx)[rest] = Some(prev_idx);
                 let nuc_prev = matrix.probs().column(col_idx - 1)[prev_idx];
                 let mut col = matrix.probs_mut().column_mut(col_idx);
-                let next = col.get_mut(rest).expect("Failed to get column value");
+                let next = col.get_mut(rest).context("Failed to get column value")?;
                 let val = match score {
                     Some(score) => nuc_prev + self.neg_bkde.pmf_from_score(score.score()).ln(),
                     None => prev_max,
@@ -203,7 +203,7 @@ impl SmaOptions {
                 *next = val;
             }
         }
-        matrix
+        Ok(matrix)
     }
 }
 
@@ -338,10 +338,10 @@ pub enum States {
 
 /// Converts a slice of States into a more readable format, to make it easier
 /// for downstream parsing in python
-pub fn states_to_readable(states: &[States]) -> Vec<(String, u64)> {
+pub fn states_to_readable(states: &[States]) -> Result<Vec<(String, u64)>> {
     let init_state = *states
         .get(0)
-        .expect("Failed to convert, empty States slice");
+        .context("Failed to convert, empty States slice")?;
     let mut curr = (init_state, 1);
     let mut acc = Vec::new();
     for &state in &states[1..] {
@@ -354,12 +354,14 @@ pub fn states_to_readable(states: &[States]) -> Vec<(String, u64)> {
     }
     acc.push(curr);
 
-    acc.into_iter()
+    let readable = acc
+        .into_iter()
         .map(|(x, y)| match x {
             States::Linker => ("linker".to_string(), y),
             States::Nucleosome => ("nucleosome".to_string(), y),
         })
-        .collect()
+        .collect();
+    Ok(readable)
 }
 
 pub fn backtrace(matrix: DMatrix<f64>) -> Vec<States> {
@@ -400,10 +402,9 @@ mod test {
     }
 
     #[test]
-    #[should_panic]
     fn test_states_to_readable_empty() {
         let acc = Vec::new();
-        states_to_readable(&acc);
+        assert!(states_to_readable(&acc).is_err());
     }
 
     #[test]
@@ -423,6 +424,6 @@ mod test {
             ("linker".to_string(), 5),
             ("nucleosome".to_string(), 7),
         ];
-        assert_eq!(states_to_readable(&states), answer);
+        assert_eq!(states_to_readable(&states).unwrap(), answer);
     }
 }

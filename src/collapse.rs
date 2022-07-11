@@ -4,7 +4,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use anyhow::Result;
+use anyhow::{Result, Context};
 use arrow2::io::ipc::write::FileWriter;
 use bio::alphabets::dna::revcomp;
 use indicatif::{ProgressBar, ProgressBarIter, ProgressFinish, ProgressStyle};
@@ -56,7 +56,7 @@ fn nprs_to_eventalign(nprs: Vec<Npr>) -> Result<Option<Eventalign>> {
         let mean = npr
             .samples
             .amean()
-            .expect("No signal sample values to take mean of, malformed input?");
+            .context("No signal sample values to take mean of, malformed input?")?;
         let time = npr.event_length;
         let signal = Signal::new(position, ref_kmer, mean, time);
         eventalign.signal_data_mut().push(signal);
