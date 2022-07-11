@@ -23,7 +23,7 @@ use arrow2_convert::{
     ArrowField,
 };
 
-trait MetadataExt {
+pub trait MetadataExt {
     fn metadata(&self) -> &Metadata;
 
     fn name(&self) -> &str {
@@ -77,7 +77,7 @@ impl MetadataExt for Eventalign {
 }
 
 #[derive(Debug, Clone, ArrowField, Default)]
-pub(crate) struct Metadata {
+pub struct Metadata {
     name: String,
     chrom: String,
     start: u64,
@@ -180,7 +180,7 @@ impl Signal {
 
 #[derive(Default, Debug, Copy, Clone, ArrowField, PartialEq, Eq)]
 // Currently arrow2 doesn't support newtypes or enums so for now it is a struct
-pub(crate) struct Strand {
+pub struct Strand {
     strand: i8,
 }
 
@@ -309,7 +309,7 @@ impl Eventalign {
 }
 
 #[derive(Default, Debug, Clone, ArrowField)]
-pub(crate) struct Score {
+pub struct Score {
     pos: u64,
     kmer: String,
     skipped: bool,
@@ -338,14 +338,12 @@ impl Score {
     }
 
     /// Get the score's score.
-    #[must_use]
-    pub(crate) fn score(&self) -> f64 {
+    pub fn score(&self) -> f64 {
         self.score
     }
 
     /// Get a reference to the score's kmer.
-    #[must_use]
-    pub(crate) fn kmer(&self) -> &str {
+    pub fn kmer(&self) -> &str {
         self.kmer.as_ref()
     }
 }
@@ -374,12 +372,12 @@ impl ScoredRead {
         ScoredRead::new(metadata, scores)
     }
 
-    pub(crate) fn schema() -> Schema {
+    pub fn schema() -> Schema {
         let data_type = Self::data_type();
         Schema::from(vec![Field::new("scored", data_type, false)])
     }
 
-    pub(crate) fn scores(&self) -> &[Score] {
+    pub fn scores(&self) -> &[Score] {
         &self.scores
     }
 
@@ -415,7 +413,7 @@ impl<'a, I: SliceIndex<[Option<&'a Score>]>> Index<I> for ExpandedScores<'a> {
     }
 }
 
-pub(crate) fn wrap_writer<W>(writer: W, schema: &Schema) -> Result<FileWriter<W>>
+pub fn wrap_writer<W>(writer: W, schema: &Schema) -> Result<FileWriter<W>>
 where
     W: Write,
 {
@@ -424,7 +422,7 @@ where
     Ok(fw)
 }
 
-pub(crate) fn save<W, T>(writer: &mut FileWriter<W>, x: &[T]) -> Result<()>
+pub fn save<W, T>(writer: &mut FileWriter<W>, x: &[T]) -> Result<()>
 where
     T: ArrowField<Type = T> + ArrowSerialize + 'static,
     W: Write,
