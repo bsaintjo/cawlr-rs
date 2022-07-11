@@ -1,12 +1,13 @@
 use std::{error::Error, process::Command};
 
 use assert_cmd::prelude::OutputAssertExt;
-use assert_fs::TempDir;
+use assert_fs::{assert::PathAssert, fixture::PathChild, TempDir};
 use escargot::CargoBuild;
+use predicates::prelude::predicate;
 
-#[test_log::test]
-fn pipeline() -> Result<(), Box<dyn Error>> {
-    let temp_dir = TempDir::new()?;
+#[test]
+fn integration() -> Result<(), Box<dyn Error>> {
+    let temp_dir = TempDir::new()?.into_persistent_if(std::env::var("TEST_PERSIST").is_ok());
 
     eprintln!("Building release cawlr");
     let run = CargoBuild::new()
@@ -52,6 +53,17 @@ fn pipeline() -> Result<(), Box<dyn Error>> {
         .env("RUST_BACKTRACE", "full")
         .assert()
         .success();
+
+    // Indexing
+    Command::new(cawlr)
+        .arg("index")
+        .arg("-i")
+        .arg(&single_read_output)
+        .assert()
+        .success();
+    temp_dir
+        .child("single_read.output.idx.bed")
+        .assert(predicate::path::exists());
 
     eprintln!("Training on positive control");
     let pos_train = temp_dir.path().join("pos_control.train");

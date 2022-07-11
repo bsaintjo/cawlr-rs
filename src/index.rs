@@ -1,10 +1,11 @@
 use std::{
+    fmt::Display,
     fs::File,
     io::{BufWriter, Write},
     path::Path,
 };
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 
 use crate::arrow::{load_apply, Eventalign, Metadata};
 
@@ -22,11 +23,16 @@ fn to_bed_line(metadata: &Metadata, chunk_idx: usize, rec_idx: usize) -> String 
 
 pub(crate) fn index<P>(filepath: P) -> Result<()>
 where
-    P: AsRef<Path>,
+    P: AsRef<Path> + Display,
 {
     let file = File::open(&filepath)?;
-    let output_filepath = filepath.as_ref().join(".idx.bed");
-    let writer = File::create(output_filepath)?;
+    let output_filepath = filepath
+        .as_ref()
+        .to_str()
+        .with_context(|| format!("Invalid unicode as path {}", filepath))?;
+    let idx_filepath = format!("{}.idx.bed", output_filepath);
+    let idx_filepath = Path::new(&idx_filepath);
+    let writer = File::create(idx_filepath)?;
     let mut writer = BufWriter::new(writer);
 
     let mut chunk_idx = 0usize;
@@ -40,4 +46,17 @@ where
     })?;
     writer.flush()?;
     Ok(())
+}
+
+#[cfg(test)]
+mod test {
+    use std::path::PathBuf;
+
+    #[test]
+    fn test_new_file_extension() {
+        let path = PathBuf::from("test.output");
+        let x = format!("{}.extra.stuff", path.to_str().unwrap());
+
+        assert_eq!(x, String::from("test.output.extra.stuff"));
+    }
 }
