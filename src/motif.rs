@@ -23,14 +23,21 @@ fn valid_motif_bases(motif: &str) -> bool {
     !motif.is_empty() && motif.chars().all(|b| bases.contains(&b))
 }
 
+#[derive(Debug)]
 pub struct Motif {
     motif: String,
     position: usize,
 }
 
 impl Motif {
-    pub(crate) fn new(motif: String, position: usize) -> Self {
-        Self { motif, position }
+    pub(crate) fn new<S>(motif: S, position: usize) -> Self
+    where
+        S: Into<String>,
+    {
+        Self {
+            motif: motif.into(),
+            position,
+        }
     }
 
     pub fn parse_from_str<T>(string: T) -> Result<Self, MotifError>
@@ -54,7 +61,7 @@ impl Motif {
         } else if iter.next().is_some() {
             Err(MotifError::UnexpectedAdditionalFormat)
         } else {
-            Ok(Motif::new(motif.to_string(), pos))
+            Ok(Motif::new(motif, pos))
         }
     }
 
@@ -65,6 +72,15 @@ impl Motif {
     pub fn position(&self) -> usize {
         self.position
     }
+
+    // TODO impl std::str::pattern::Pattern when it stabilizes
+    pub fn within_kmer(&self, kmer: &str) -> bool {
+        kmer.contains(self.motif())
+    }
+
+    pub fn surrounding_idxs(&self, pos: usize) -> Vec<usize> {
+        unimplemented!()
+    }
 }
 
 impl FromStr for Motif {
@@ -72,6 +88,15 @@ impl FromStr for Motif {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Motif::parse_from_str(s)
     }
+}
+
+pub fn all_bases() -> Vec<Motif> {
+    vec![
+        Motif::new("A", 1),
+        Motif::new("C", 1),
+        Motif::new("G", 1),
+        Motif::new("T", 1),
+    ]
 }
 
 #[cfg(test)]

@@ -12,12 +12,14 @@ mod bkde;
 mod collapse;
 mod context;
 mod index;
+mod motif;
 mod rank;
 mod score;
 mod sma;
 mod train;
 mod utils;
 
+use motif::Motif;
 use train::Model;
 use utils::CawlrIO;
 
@@ -158,7 +160,7 @@ enum Commands {
 
         #[clap(short, long)]
         // Motif context to use
-        motif: Option<Vec<String>>,
+        motif: Option<Vec<Motif>>,
 
         #[clap(long, default_value_t = 10_000_usize)]
         kde_samples: usize,
@@ -267,7 +269,7 @@ fn main() -> Result<()> {
             output,
             pos_ctrl_scores: pos_control_scores,
             neg_ctrl_scores: neg_control_scores,
-            motifs,
+            motif,
             kde_samples,
             seed,
         } => {
@@ -275,7 +277,7 @@ fn main() -> Result<()> {
             builder
                 .kde_samples(kde_samples)
                 .seed(seed)
-                .try_motifs(motifs)
+                .try_motifs(motif)
                 .try_output_file(output);
             let sma = builder.build()?;
             sma.run(input)?;

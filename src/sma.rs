@@ -14,6 +14,8 @@ use rand::{
 use crate::{
     arrow::{load_apply, ScoredRead},
     bkde::BinnedKde,
+    motif,
+    motif::Motif,
     utils,
 };
 
@@ -21,7 +23,7 @@ pub struct Builder<P> {
     pos_score_file: P,
     neg_score_file: P,
     output_file: Option<P>,
-    motifs: Vec<String>,
+    motifs: Vec<Motif>,
     seed: u64,
     kde_samples: usize,
 }
@@ -31,12 +33,7 @@ where
     P: AsRef<Path>,
 {
     pub fn new(pos_ctrl_file: P, neg_ctrl_file: P) -> Self {
-        let motifs = vec![
-            "A".to_string(),
-            "T".to_string(),
-            "C".to_string(),
-            "G".to_string(),
-        ];
+        let motifs = motif::all_bases();
         Builder {
             pos_score_file: pos_ctrl_file,
             neg_score_file: neg_ctrl_file,
@@ -57,12 +54,12 @@ where
         self
     }
 
-    pub fn motifs(&mut self, motifs: Vec<String>) -> &mut Self {
+    pub fn motifs(&mut self, motifs: Vec<Motif>) -> &mut Self {
         self.motifs = motifs;
         self
     }
 
-    pub fn try_motifs(&mut self, motifs: Option<Vec<String>>) -> &mut Self {
+    pub fn try_motifs(&mut self, motifs: Option<Vec<Motif>>) -> &mut Self {
         if let Some(motifs) = motifs {
             self.motifs = motifs;
         }
@@ -108,7 +105,7 @@ where
 pub struct SmaOptions {
     pos_bkde: BinnedKde,
     neg_bkde: BinnedKde,
-    motifs: Vec<String>,
+    motifs: Vec<Motif>,
     writer: Box<dyn Write>,
 }
 
@@ -116,7 +113,7 @@ impl SmaOptions {
     fn new(
         pos_bkde: BinnedKde,
         neg_bkde: BinnedKde,
-        motifs: Vec<String>,
+        motifs: Vec<Motif>,
         writer: Box<dyn Write>,
     ) -> Self {
         Self {
@@ -134,13 +131,15 @@ impl SmaOptions {
         let scores_file = File::open(scores_filepath)?;
         load_apply(scores_file, |reads| {
             for read in reads {
-                let matrix = run_read(
-                    &read,
-                    &self.pos_bkde,
-                    &self.neg_bkde,
-                    self.motifs.as_slice(),
-                );
-                let result = backtrace(matrix);
+                let matrix = self.run_read(&read)?;
+                // let matrix = run_read(
+                //     &read,
+                //     &self.pos_bkde,
+                //     &self.neg_bkde,
+                //     self.motifs.as_slice(),
+                // );
+                let result = matrix.backtrace().into_iter().collect::<Vec<_>>();
+                // TODO Take VecDeque in states_to_readable
                 let result = states_to_readable(&result)?;
                 for (state, size) in result.into_iter() {
                     let chrom = read.metadata().chrom();
@@ -168,7 +167,7 @@ impl SmaOptions {
             // Score will be None if a) No data at that position, or b) Position kmer didn't
             // contain motif of interest
             let score =
-                scores[col_idx - 1].filter(|s| self.motifs.iter().any(|m| s.kmer().contains(m)));
+                scores[col_idx - 1].filter(|s| self.motifs.iter().any(|m| m.within_kmer(s.kmer())));
 
             // Start nucleosome vs linker
             let linker_val = matrix.probs().column(col_idx - 1)[0];
