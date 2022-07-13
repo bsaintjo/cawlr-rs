@@ -22,6 +22,7 @@ use arrow2_convert::{
     serialize::{ArrowSerialize, TryIntoArrow},
     ArrowField,
 };
+use itertools::Itertools;
 
 pub trait MetadataExt {
     fn metadata(&self) -> &Metadata;
@@ -104,7 +105,7 @@ impl Metadata {
             seq,
         }
     }
-    
+
     fn from_0b_coords() -> Self {
         unimplemented!()
     }
@@ -308,6 +309,26 @@ impl Eventalign {
     }
 }
 
+#[derive(Default)]
+pub struct ScoreBuilder {
+    score: Score,
+}
+
+impl ScoreBuilder {
+    fn new(score: Score) -> Self {
+        Self { score }
+    }
+
+    pub fn score(mut self, score: f64) -> Self {
+        self.score.score = score;
+        self
+    }
+
+    pub fn build(self) -> Score {
+        self.score
+    }
+}
+
 #[derive(Default, Debug, Clone, ArrowField)]
 pub struct Score {
     pos: u64,
@@ -348,7 +369,7 @@ impl Score {
     }
 }
 
-#[derive(Debug, Clone, ArrowField)]
+#[derive(Debug, Clone, ArrowField, Default)]
 pub struct ScoredRead {
     metadata: Metadata,
     scores: Vec<Score>,
@@ -498,6 +519,22 @@ where
                 .collect::<Vec<_>>()
             })
         })
+}
+
+pub(crate) fn load_iter2<R>(
+    mut reader: R,
+) -> impl Iterator<Item = Result<impl Iterator<Item = Result<Vec<Eventalign>>>, arrow2::error::Error>>
+where
+    R: Read + Seek,
+{
+    let metadata = read_file_metadata(&mut reader).unwrap();
+    let reader = FileReader::new(reader, metadata, None);
+    reader.map_ok(|c| {
+        c.into_arrays().into_iter().map(|a| {
+            let x: Vec<Eventalign> = a.try_into_collection_as_type::<Eventalign>()?;
+            Ok(x)
+        })
+    })
 }
 
 #[cfg(test)]

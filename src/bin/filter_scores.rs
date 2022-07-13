@@ -1,7 +1,7 @@
 use std::{fs::File, path::PathBuf};
 
 use anyhow::Result;
-use cawlr::arrow::{load_apply, save, wrap_writer, MetadataExt, ScoredRead};
+use cawlr::arrow::{load_apply, save, wrap_writer, MetadataExt, Score, ScoredRead};
 use clap::Parser;
 
 #[derive(Parser)]
@@ -23,7 +23,7 @@ struct Args {
     #[clap(long)]
     stop: Option<usize>,
 
-    // Threshold for score to be modified
+    // Score must be greater than or equal to this value to count as modified.
     #[clap(long, default_value_t = 0.0)]
     modification_threshold: f64,
 
@@ -44,17 +44,34 @@ struct Args {
     read_length_max: u64,
 }
 
-fn percent_mod(read: &ScoredRead, threshold: f64) -> f64 {
-    let above = read
-        .scores()
-        .iter()
-        .filter(|s| s.score() >= threshold)
-        .count() as f64;
-    above / read.length() as f64
+impl Default for Args {
+    fn default() -> Self {
+        Args {
+            input: PathBuf::default(),
+            output: PathBuf::default(),
+            chrom: None,
+            start: None,
+            stop: None,
+            modification_threshold: 0.0,
+            percent_modified_min: 0.0,
+            percent_modified_max: 100.0,
+            read_length_min: 0,
+            read_length_max: u64::MAX,
+        }
+    }
+}
+
+fn percent_mod(scores: &[Score], threshold: f64) -> f64 {
+    if scores.is_empty() {
+        0.0
+    } else {
+        let above = scores.iter().filter(|s| s.score() >= threshold).count() as f64;
+        above / scores.len() as f64
+    }
 }
 
 fn filter_by(args: &Args, read: &ScoredRead) -> bool {
-    let pmod = percent_mod(read, args.modification_threshold);
+    let pmod = percent_mod(read.scores(), args.modification_threshold);
     read.length() >= args.read_length_min
         && read.length() < args.read_length_max
         && pmod >= args.percent_modified_min
@@ -79,4 +96,47 @@ fn main() -> Result<()> {
     })?;
 
     Ok(())
+}
+
+#[cfg(test)]
+mod test {
+    use cawlr::arrow::ScoreBuilder;
+
+    use super::*;
+
+    #[test]
+    fn test_percent_mod_empty() {
+        let read = ScoredRead::default();
+        let pmod = percent_mod(read.scores(), 0.0);
+        assert_eq!(pmod, 0.0f64)
+    }
+
+    #[test]
+    fn test_percent_mod() {
+        let scores = [10.0, 20.0, 30.0]
+            .into_iter()
+            .map(|s| ScoreBuilder::default().score(s).build())
+            .collect::<Vec<_>>();
+        let pmod = percent_mod(&scores, 25.0);
+        assert_eq!(pmod, (1. / 3.));
+
+        // let scores = [10.0, 20.0, 30.0].into_iter().map(|s|
+        // ScoreBuilder::default().score(s).build()).collect::<Vec<_>>();
+        let pmod = percent_mod(&scores, 40.0);
+        assert_eq!(pmod, 0.0f64);
+
+        let pmod = percent_mod(&scores, 0.0);
+        assert_eq!(pmod, 1.0f64);
+
+        let scores = [0.0, 100.0]
+            .into_iter()
+            .map(|s| ScoreBuilder::default().score(s).build())
+            .collect::<Vec<_>>();
+
+        let pmod = percent_mod(&scores, 0.0);
+        assert_eq!(pmod, 1.0f64);
+
+        let pmod = percent_mod(&scores, 100.0);
+        assert_eq!(pmod, 0.5f64);
+    }
 }
