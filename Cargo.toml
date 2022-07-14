@@ -8,6 +8,7 @@ authors = ["Brandon Saint-John <bsaintjo@ucsc.edu>"]
 readme = "README.md"
 description = "calwr: Chromatin accessibility with long reads"
 license = "BSD-3-Clause"
+rust-version = "1.56.1"
 categories = ["science", "command-line-utilities"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
