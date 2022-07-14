@@ -1,0 +1,6 @@
+[book]
+authors = ["Brandon Saint-John"]
+language = "en"
+multilingual = false
+src = "src"
+title = "Chromatin Accessibility with Long Reads"
