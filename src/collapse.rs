@@ -4,7 +4,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use anyhow::{Result, Context};
+use anyhow::{Context, Result};
 use arrow2::io::ipc::write::FileWriter;
 use bio::alphabets::dna::revcomp;
 use indicatif::{ProgressBar, ProgressBarIter, ProgressFinish, ProgressStyle};

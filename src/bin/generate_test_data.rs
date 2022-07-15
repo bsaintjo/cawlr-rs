@@ -36,7 +36,10 @@ fn score() {}
 
 fn main() -> Result<()> {
     let args = std::env::args();
-    let output_dir = args.into_iter().next().unwrap_or_else(|| "test_data".to_string());
+    let output_dir = args
+        .into_iter()
+        .next()
+        .unwrap_or_else(|| "test_data".to_string());
     let output_dir = PathBuf::from(output_dir);
 
     let pos_output = output_dir.join("pos_collapse");
