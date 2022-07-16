@@ -8,8 +8,8 @@ on:
 
 env:
   RELEASE_BINARY: target/x86_64-unknown-linux-gnu/release/cawlr
-  DIST_DIR: cawlr-${{ github.event.release.tag_name }}/
-  COMPRESSED: cawlr-${{ github.event.release.tag_name }}-linux-centos7-x86_64.tar.gz
+  DIST_DIR: cawlr-${{ github.ref_name }}/
+  COMPRESSED: cawlr-${{ github.ref_name }}-linux-centos7-x86_64.tar.gz
 
 jobs:
   centos7:
