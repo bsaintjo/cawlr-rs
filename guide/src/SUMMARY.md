@@ -2,7 +2,7 @@
 
 [Introduction](./intro.md)
 
-## User Guide
+# User Guide
 
 - [Installation](./installation.md)
 
@@ -10,7 +10,7 @@
   - [Nanopore Data Preparation]()
   - [Manipulating Output]()
 
-## Reference Guide
+# Reference Guide
 
 - [Command Line Tool]()
   - [collapse]()
