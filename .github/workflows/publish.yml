@@ -5,11 +5,13 @@ on:
     tags:
       - "v[0-9]+.[0-9]+.[0-9]+"
   workflow_dispatch:
+  release:
+    types: [unpublished]
 
 env:
   RELEASE_BINARY: target/x86_64-unknown-linux-gnu/release/cawlr
-  DIST_DIR: cawlr-${{ github.ref }}/
-  COMPRESSED: cawlr-${{ github.ref }}-linux-centos7-x86_64.tar.gz
+  DIST_DIR: cawlr-${{ github.event.release.tag_name }}/
+  COMPRESSED: cawlr-${{ github.event.release.tag_name }}-linux-centos7-x86_64.tar.gz
 
 jobs:
   centos7:
@@ -46,6 +48,7 @@ jobs:
           tar -cvzf ${{ env.COMPRESSED }} ${{ env.DIST_DIR }}
 
       - name: Upload binaries to release
+        if: ${{ github.ref != 'refs/heads/main'}}
         uses: svenstaro/upload-release-action@v2
         with:
           file: ${{ env.COMPRESSED }}

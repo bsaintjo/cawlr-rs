@@ -5,15 +5,17 @@ on:
     tags:
       - "v[0-9]+.[0-9]+.[0-9]+"
   workflow_dispatch:
+  release:
+    types: [unpublished]
 
 env:
   CARGO_TERM_COLOR: always
   RELEASE_BINARY: target/x86_64-unknown-linux-gnu/release/cawlr
-  DIST_DIR: cawlr-${{ github.ref }}/
-  COMPRESSED: cawlr-${{ github.ref }}-linux-ubuntu-latest-x86_64.tar.gz
+  DIST_DIR: cawlr-${{ github.event.release.tag_name }}/
+  COMPRESSED: cawlr-${{ github.event.release.tag_name }}-linux-ubuntu-latest-x86_64.tar.gz
 
 jobs:
-  test:
+  compile:
     runs-on: ubuntu-latest
 
     steps:
@@ -27,12 +29,6 @@ jobs:
           override: true
           profile: minimal
 
-      - name: Run cargo build
-        uses: actions-rs/cargo@v1
-        with:
-          command: build
-          args: --release --bin cawlr --all-features --target x86_64-unknown-linux-gnu --locked
-
       - name: Run cargo test
         env:
           RUST_LOG: warn
@@ -40,6 +36,12 @@ jobs:
         with:
           command: test
           args: --bin cawlr --locked -- --nocapture
+
+      - name: Run cargo build
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --release --bin cawlr --all-features --target x86_64-unknown-linux-gnu --locked
 
       - name: Strip binary and create archive
         run: |
@@ -49,6 +51,7 @@ jobs:
           tar -cvzf ${{ env.COMPRESSED }} ${{ env.DIST_DIR }}
 
       - name: Upload binaries to release
+        if: ${{ github.ref != 'refs/heads/main'}}
         uses: svenstaro/upload-release-action@v2
         with:
           file: ${{ env.COMPRESSED }}
