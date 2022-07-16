@@ -2,6 +2,11 @@ name: Deploy to GH Pages
 
 on:
   push:
+    branches:
+      - main
+    paths:
+      - "guide/src/*md"
+      - "guide/book.toml"
     tags:
       - "v[0-9]+.[0-9]+.[0-9]+"
   workflow_dispatch:
