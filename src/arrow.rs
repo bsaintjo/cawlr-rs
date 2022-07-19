@@ -38,18 +38,16 @@ pub trait MetadataExt {
 
     /// Get the metadata's start.
     fn start_0b(&self) -> u64 {
-        // self.metadata().start
-        unimplemented!()
+        self.metadata().start
     }
 
     /// Get the metadata's start.
     fn start_1b(&self) -> u64 {
-        // self.metadata().start
-        unimplemented!()
+        self.metadata().start + 1
     }
 
     /// Get the metadata's length.
-    fn length(&self) -> u64 {
+    fn np_length(&self) -> u64 {
         self.metadata().length
     }
 
@@ -57,6 +55,29 @@ pub trait MetadataExt {
     fn strand(&self) -> Strand {
         self.metadata().strand
     }
+
+    /// stop)
+    fn seq_stop_1b_excl(&self) -> u64 {
+        self.metadata().start + self.seq_length()
+    }
+
+    // /// stop)
+    // fn seq_stop_1b_incl(&self) -> u64 {
+    //     self.seq_stop_1b_excl() + 1
+    // }
+
+    /// stop]
+    fn seq_length(&self) -> u64 {
+        self.metadata().length + 5
+    }
+
+    fn end_1b_excl(&self) -> u64 {
+        self.seq_stop_1b_excl() - 5
+    }
+
+    // fn end_1b_incl(&self) -> u64 {
+    //     self.seq_stop_1b_incl() - 5
+    // }
 }
 
 impl MetadataExt for Metadata {
@@ -77,6 +98,11 @@ impl MetadataExt for Eventalign {
     }
 }
 
+/// Represents the genomic coordinates and other information about a sequencing
+/// read.
+///
+/// Note: All coordinate data will be zero-based for the start and one based
+/// (zero-based not inclusive) for the end
 #[derive(Debug, Clone, ArrowField, Default)]
 pub struct Metadata {
     name: String,
@@ -104,14 +130,6 @@ impl Metadata {
             strand,
             seq,
         }
-    }
-
-    fn from_0b_coords() -> Self {
-        unimplemented!()
-    }
-
-    fn from_1b_coords() -> Self {
-        unimplemented!()
     }
 
     /// Get a reference to the metadata's name.
@@ -240,12 +258,12 @@ impl Eventalign {
     }
 
     /// 1-based indexing
-    pub(crate) fn start_ob(&self) -> u64 {
+    pub(crate) fn start_1b(&self) -> u64 {
         self.metadata.start + 1
     }
 
     /// 0-based indexing
-    pub(crate) fn start_zb(&self) -> u64 {
+    pub(crate) fn start_0b(&self) -> u64 {
         self.metadata.start
     }
 
@@ -253,23 +271,23 @@ impl Eventalign {
         &mut self.metadata.length
     }
 
-    pub(crate) fn length(&self) -> u64 {
-        self.metadata.length
-    }
+    // pub(crate) fn length(&self) -> u64 {
+    //     self.metadata.length
+    // }
 
-    /// 1-based indexing inclusive stop
-    pub(crate) fn stop_ob(&self) -> u64 {
-        self.start_ob() + self.length() - 1
-    }
+    // /// 1-based indexing inclusive stop
+    // pub(crate) fn stop_ob(&self) -> u64 {
+    //     self.start_1b() + self.length() - 1
+    // }
 
-    /// 0-based indexing inclusive stop
-    pub(crate) fn stop_zb(&self) -> u64 {
-        self.start_zb() + self.length() - 1
-    }
+    // /// 0-based indexing inclusive stop
+    // pub(crate) fn stop_zb(&self) -> u64 {
+    //     self.start_0b() + self.length() - 1
+    // }
 
-    pub(crate) fn seq_stop_zb(&self) -> u64 {
-        self.stop_zb() + 5
-    }
+    // pub(crate) fn seq_stop_zb(&self) -> u64 {
+    //     self.stop_zb() + 5
+    // }
 
     pub(crate) fn chrom(&self) -> &str {
         self.metadata.chrom.as_str()
@@ -542,6 +560,7 @@ mod test {
     use std::io::Cursor;
 
     use arrow2_convert::deserialize::TryIntoCollection;
+    use bio::io::fasta::IndexedReader;
 
     use super::*;
 
@@ -633,5 +652,19 @@ mod test {
         assert!(expanded.0[0].is_some());
         assert!(expanded.0[1].is_none());
         assert!(expanded.0[9].is_none());
+    }
+
+    #[test]
+    fn test_fasta_reader_start() {
+        let genome = "extra/sacCer3.fa";
+        let mut genome = IndexedReader::from_file(&genome).unwrap();
+        let chrom = "chrI";
+        let start = 71071;
+        let stop = start + 6;
+        genome.fetch(chrom, start, stop).unwrap();
+        let mut seq = Vec::new();
+        genome.read(&mut seq).unwrap();
+
+        assert_eq!(b"GCAAGC", seq.as_slice());
     }
 }

@@ -17,7 +17,7 @@ use ndarray::Array;
 use rv::prelude::{Gaussian, Mixture};
 use serde::{Deserialize, Serialize};
 
-use crate::arrow::{load_apply, Eventalign};
+use crate::arrow::{load_apply, Eventalign, MetadataExt};
 
 pub(crate) type ModelDB = FnvHashMap<String, Mixture<Gaussian>>;
 type KmerMeans = FnvHashMap<String, Vec<f64>>;
@@ -174,7 +174,7 @@ impl Train {
             pos_scores.insert(signal.pos());
         }
         let read_seq = self.get_read_seq(read)?;
-        for (kmer, pos) in read_seq.windows(6).zip(read.start_zb()..) {
+        for (kmer, pos) in read_seq.windows(6).zip(read.start_0b()..) {
             let has_score = pos_scores.contains(&pos);
             let kskip = self.skips.0.entry(kmer.to_owned()).or_default();
             kskip.had_score(has_score);
@@ -194,8 +194,8 @@ impl Train {
     fn get_read_seq(&mut self, read: &Eventalign) -> Result<Vec<u8>> {
         let strand = read.strand();
         let chrom = read.chrom();
-        let start = read.start_zb();
-        self.genome_mut().fetch(chrom, start, read.seq_stop_zb())?;
+        let start = read.start_0b();
+        self.genome_mut().fetch(chrom, start, read.seq_stop_1b_excl())?;
         let mut seq = Vec::new();
         self.genome_mut().read(&mut seq)?;
         let seq = if strand == crate::arrow::Strand::plus() {

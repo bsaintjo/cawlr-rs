@@ -69,8 +69,12 @@ impl Motif {
         self.motif.as_ref()
     }
 
-    pub fn position(&self) -> usize {
+    pub fn position_1b(&self) -> usize {
         self.position
+    }
+
+    pub fn position_0b(&self) -> usize {
+        self.position - 1
     }
 
     // TODO impl std::str::pattern::Pattern when it stabilizes

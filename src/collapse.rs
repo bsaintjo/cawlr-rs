@@ -40,7 +40,7 @@ fn nprs_to_eventalign(nprs: Vec<Npr>) -> Result<Option<Eventalign>> {
         .get(0)
         .ok_or(anyhow::anyhow!("Empty nprs"))
         .map(empty_from_npr)?;
-    let mut stop = eventalign.start_zb();
+    let mut stop = eventalign.start_0b();
     for npr in nprs.into_iter() {
         stop = npr.position;
         let position = npr.position;
@@ -65,7 +65,7 @@ fn nprs_to_eventalign(nprs: Vec<Npr>) -> Result<Option<Eventalign>> {
 
     // Handle last edge case with multi-mapped reads, throwing away the read if
     // length calculation leads to overflow
-    if let Some(len) = stop.checked_sub(eventalign.start_zb()) {
+    if let Some(len) = stop.checked_sub(eventalign.start_0b()) {
         *eventalign.length_mut() = len + 1;
     } else {
         return Ok(None);
@@ -271,7 +271,7 @@ mod test {
     use assert_fs::TempDir;
 
     use super::*;
-    use crate::arrow::{load_apply, load_iter};
+    use crate::arrow::{load_apply, load_iter, MetadataExt};
 
     #[test]
     fn test_collapse() -> Result<()> {
@@ -287,10 +287,11 @@ mod test {
         let read = &x[0];
         assert_eq!(read.strand(), arrow::Strand::plus());
         assert_eq!(read.chrom(), "chrXIII");
-        assert_eq!(read.start_zb(), 182504);
-        assert_eq!(read.stop_zb(), 182681);
-        assert_eq!(read.length(), 178);
-        assert_eq!(read.seq_stop_zb(), 182686);
+        assert_eq!(read.start_0b(), 182504);
+        assert_eq!(read.end_1b_excl(), 182682);
+
+        assert_eq!(read.seq_stop_1b_excl(), 182687);
+        assert_eq!(read.seq_length(), 183);
 
         Ok(())
     }

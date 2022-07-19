@@ -72,8 +72,8 @@ fn percent_mod(scores: &[Score], threshold: f64) -> f64 {
 
 fn filter_by(args: &Args, read: &ScoredRead) -> bool {
     let pmod = percent_mod(read.scores(), args.modification_threshold);
-    read.length() >= args.read_length_min
-        && read.length() < args.read_length_max
+    read.seq_length() >= args.read_length_min
+        && read.seq_length() < args.read_length_max
         && pmod >= args.percent_modified_min
         && pmod <= args.percent_modified_max
 }

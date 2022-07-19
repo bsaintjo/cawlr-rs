@@ -7,12 +7,12 @@ use std::{
 
 use anyhow::{Context, Result};
 
-use crate::arrow::{load_apply, Eventalign, Metadata};
+use crate::arrow::{load_apply, Eventalign, MetadataExt};
 
-fn to_bed_line(metadata: &Metadata, chunk_idx: usize, rec_idx: usize) -> String {
+fn to_bed_line<M: MetadataExt>(metadata: M, chunk_idx: usize, rec_idx: usize) -> String {
     let chrom = metadata.chrom();
-    let start = metadata.start();
-    let stop = start + metadata.length();
+    let start = metadata.start_0b();
+    let stop = metadata.end_1b_excl();
     let read_name = metadata.name();
     let strand = metadata.strand().as_str();
     format!(
@@ -38,7 +38,7 @@ where
     let mut chunk_idx = 0usize;
     load_apply(file, |chunk: Vec<Eventalign>| {
         for (rec_idx, event) in chunk.into_iter().enumerate() {
-            let idx_rec = to_bed_line(event.metadata(), chunk_idx, rec_idx);
+            let idx_rec = to_bed_line(event, chunk_idx, rec_idx);
             writeln!(writer, "{}", idx_rec)?;
         }
         chunk_idx += 1;
