@@ -14,7 +14,7 @@ const READ: &str = "extra/single_read.eventalign.txt";
 const GENOME: &str = "extra/sacCer3.fa";
 
 fn collapse(input: &str, output: &PathBuf) -> Result<()> {
-    let collapse_opts = CollapseOptions::try_new(input, output)?;
+    let collapse_opts = CollapseOptions::try_new(input, todo!(), output)?;
     collapse_opts.run()
 }
 

@@ -10,7 +10,7 @@ const READ: &str = "extra/single_read.eventalign.txt";
 const DEVNULL: &str = "dev/null";
 
 fn test_collapse<P: AsRef<Path>>(input: &str, output: P) -> Result<()> {
-    let collapse_opts = CollapseOptions::try_new(input, output)?;
+    let collapse_opts = CollapseOptions::try_new(input, todo!(), output)?;
     collapse_opts.run()
 }
 

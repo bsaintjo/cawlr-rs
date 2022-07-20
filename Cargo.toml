@@ -65,6 +65,7 @@ serde-pickle = "1.1.1"
 # Deals with eventalign tsv having to split columns to extract pA measurements
 serde_with = "1.14.0"
 thiserror = "1.0.31"
+noodles-bam = "0.20.0"
 
 [profile.release]
 lto = "fat"

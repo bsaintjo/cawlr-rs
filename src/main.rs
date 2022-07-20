@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use anyhow::Result;
 use clap::{IntoApp, Parser, Subcommand};
@@ -47,6 +47,9 @@ enum Commands {
         #[clap(short, long)]
         /// path to nanopolish eventalign output with samples column
         input: String,
+
+        #[clap(short, long)]
+        bam: PathBuf,
 
         #[clap(short, long)]
         /// Path to output file in Apache Arrow format, defaults to stdout if no
@@ -179,6 +182,7 @@ fn main() -> Result<()> {
     match args.command {
         Commands::Collapse {
             input,
+            bam,
             output,
             capacity,
         } => {
@@ -191,7 +195,7 @@ fn main() -> Result<()> {
                 .exit();
             }
 
-            let mut collapse = collapse::CollapseOptions::try_new(&input, &output)?;
+            let mut collapse = collapse::CollapseOptions::try_new(&input, &bam, &output)?;
             collapse.capacity(capacity).progress(true);
             collapse.run()?;
         }

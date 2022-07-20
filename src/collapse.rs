@@ -1,18 +1,53 @@
 use std::{
     fs::File,
     io::{BufWriter, Read, Write},
-    path::{Path, PathBuf},
+    path::{Path, PathBuf}, collections::hash_map::Entry,
 };
 
 use anyhow::{Context, Result};
 use arrow2::io::ipc::write::FileWriter;
 use bio::alphabets::dna::revcomp;
+use fnv::FnvHashMap;
 use indicatif::{ProgressBar, ProgressBarIter, ProgressFinish, ProgressStyle};
+use noodles_bam::Reader;
 use rstats::Stats;
 use serde::Deserialize;
 use serde_with::{serde_as, CommaSeparator, StringWithSeparator};
 
 use crate::arrow::{self, save, Eventalign, Signal};
+
+struct StrandDB(FnvHashMap<Vec<u8>, bool>);
+
+impl StrandDB {
+    fn new(db: FnvHashMap<Vec<u8>, bool>) -> Self {
+        Self(db)
+    }
+
+    fn from_bam_file<P: AsRef<Path>>(bam_file: P) -> Result<Self> {
+        let mut acc = FnvHashMap::default();
+        let bam_file = bam_file.as_ref();
+        let mut reader = File::open(bam_file).map(Reader::new)?;
+        for record in reader.lazy_records() {
+            let record = record?;
+            let read_name= record.read_name()?.context(anyhow::anyhow!("Missing read name"))?;
+            log::info!("ReadName from bam: {}", read_name.as_ref() as &str);
+            let read_name: &[u8] = read_name.as_ref();
+            let plus_stranded = !record.flags()?.is_reverse_complemented();
+            match acc.entry(read_name.to_owned()) {
+                Entry::Occupied(mut entry) => {
+                    let old_stranded = entry.insert(plus_stranded);
+                    if old_stranded != plus_stranded {
+                        log::warn!("Multimapped read has strand swap");
+                    }
+                }
+                Entry::Vacant(entry) => {
+                    entry.insert(plus_stranded);
+                }
+            }
+        }
+        Ok(StrandDB::new(acc))
+    }
+}
 
 fn empty_from_npr(npr: &Npr) -> Eventalign {
     let name = npr.read_name.clone();
@@ -104,12 +139,13 @@ fn spin_iter<I: Read>(iter: I, show_progress: bool) -> ProgressBarIter<I> {
 pub struct CollapseOptions<W: Write> {
     input: PathBuf,
     writer: FileWriter<W>,
+    strand_db: StrandDB,
     capacity: usize,
     progress: bool,
 }
 
 impl CollapseOptions<BufWriter<File>> {
-    pub fn try_new<P, Q>(input: P, output: Q) -> Result<Self>
+    pub fn try_new<P, Q>(input: P, bam_file: &Path, output: Q) -> Result<Self>
     where
         P: AsRef<Path>,
         Q: AsRef<Path>,
@@ -117,7 +153,7 @@ impl CollapseOptions<BufWriter<File>> {
         // let writer = File::create(output)?;
         let writer = File::create(output)?;
         let writer = BufWriter::new(writer);
-        CollapseOptions::from_writer(input.as_ref().to_owned(), writer)
+        CollapseOptions::from_writer(input.as_ref().to_owned(), writer, bam_file)
     }
 }
 
@@ -132,7 +168,8 @@ impl<W: Write> CollapseOptions<W> {
         self
     }
 
-    pub(crate) fn from_writer(input: PathBuf, writer: W) -> Result<Self> {
+    pub(crate) fn from_writer(input: PathBuf, writer: W, bam_file: &Path) -> Result<Self> {
+        let strand_db = StrandDB::from_bam_file(bam_file)?;
         let schema = arrow::Eventalign::schema();
         let writer = arrow::wrap_writer(writer, &schema)?;
         Ok(CollapseOptions {
@@ -140,6 +177,7 @@ impl<W: Write> CollapseOptions<W> {
             writer,
             capacity: 2048,
             progress: false,
+            strand_db
         })
     }
 
