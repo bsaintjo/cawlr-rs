@@ -14,7 +14,7 @@ use crate::{
     arrow::{load_apply, save, wrap_writer, Eventalign, Score, ScoredRead, Signal, MetadataExt},
     context,
     train::{Model, ModelDB},
-    utils::{chrom_lens, CawlrIO},
+    utils::{chrom_lens, CawlrIO}, motif::Motif,
 };
 
 pub struct ScoreOptions {
@@ -114,7 +114,7 @@ impl ScoreOptions {
                 log::debug!("Position {pos} kmer: {kmer}");
 
                 let signal_score = self.calc_signal_score(pos, &data_pos);
-                let skipping_score = self.calc_skipping_score(pos, &data_pos, &context)?;
+                let skipping_score = self.calc_skipping_score(pos, &data_pos, &context, todo!())?;
                 let final_score = signal_score.map_or(skipping_score, |x| x.max(skipping_score));
                 let score = Score::new(
                     pos,
@@ -137,8 +137,9 @@ impl ScoreOptions {
         pos: u64,
         data_pos: &FnvHashMap<u64, &Signal>,
         context: &context::Context,
+        motif: &Motif
     ) -> Result<f64> {
-        let sur_kmers = context.surrounding(pos);
+        let sur_kmers = context.surrounding(pos, motif);
         let sur_has_data = surround_has_data(pos, data_pos);
         let skipping_scores = sur_kmers
             .into_iter()
@@ -426,7 +427,7 @@ mod test {
 
         assert_eq!(
             context
-                .surrounding(182522)
+                .surrounding(182522, todo!())
                 .into_iter()
                 .flat_map(std::str::from_utf8)
                 .collect::<Vec<_>>(),
