@@ -15,7 +15,7 @@ use crate::{
     context,
     motif::Motif,
     train::{Model, ModelDB},
-    utils::{chrom_lens, CawlrIO}, motif::Motif,
+    utils::{chrom_lens, CawlrIO}, 
 };
 
 pub struct ScoreOptions {
