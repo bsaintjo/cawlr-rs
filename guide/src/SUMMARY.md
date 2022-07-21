@@ -9,6 +9,8 @@
 - [Analysis]()
   - [Nanopore Data Preparation]()
   - [Manipulating Output]()
+    - [Arrow file format]()
+    - [Pickle file format](./pickle.md)
 
 # Reference Guide
 
