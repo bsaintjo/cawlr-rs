@@ -69,6 +69,10 @@ impl Motif {
         self.motif.as_ref()
     }
 
+    pub fn len_motif(&self) -> usize {
+        self.motif.len()
+    }
+
     pub fn position_1b(&self) -> usize {
         self.position
     }

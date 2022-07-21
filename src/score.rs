@@ -11,8 +11,9 @@ use rv::{
 };
 
 use crate::{
-    arrow::{load_apply, save, wrap_writer, Eventalign, Score, ScoredRead, Signal, MetadataExt},
+    arrow::{load_apply, save, wrap_writer, Eventalign, MetadataExt, Score, ScoredRead, Signal},
     context,
+    motif::Motif,
     train::{Model, ModelDB},
     utils::{chrom_lens, CawlrIO}, motif::Motif,
 };
@@ -25,7 +26,7 @@ pub struct ScoreOptions {
     rank: FnvHashMap<String, f64>,
     writer: FileWriter<File>,
     cutoff: f64,
-    motifs: Option<Vec<String>>,
+    motifs: Option<Vec<Motif>>,
 }
 
 impl ScoreOptions {
@@ -36,7 +37,7 @@ impl ScoreOptions {
         rank_filepath: &str,
         output: P,
         cutoff: f64,
-        motifs: Option<Vec<String>>,
+        motifs: Option<Vec<Motif>>,
     ) -> Result<Self>
     where
         P: AsRef<Path>,
@@ -92,17 +93,19 @@ impl ScoreOptions {
     /// position, and if the kmer at the position matches the motif attempt to
     /// score it.
     fn score_eventalign(&mut self, read: Eventalign) -> Result<ScoredRead> {
-        log::info!("{:?}", read.metadata());
         let mut acc = Vec::new();
         let context = context::Context::from_read(&mut self.genome, &self.chrom_lens, &read)?;
+
+        log::info!("{:?}", read.metadata());
         log::debug!("{context:.3?}");
+
         let data_pos = pos_with_data(&read);
         for pos in read.start_1b()..read.end_1b_excl() {
             // Get kmer and check if kmer matches the motifs, if there are any supplied
             let pos_kmer = context.sixmer_at(pos).filter(|k| {
                 if let Some(motifs) = &self.motifs {
                     motifs.iter().any(|m| {
-                        let m = m.as_bytes();
+                        let m = m.motif().as_bytes();
                         k.starts_with(m)
                     })
                 } else {
@@ -200,6 +203,17 @@ impl ScoreOptions {
             }
         })
     }
+}
+
+/// If a kmer starts with one of the given motifs, return the motif that
+/// matched, otherwise return None.
+fn contains_motif<'a>(kmer: &[u8], motifs: &'a [Motif]) -> Option<&'a Motif> {
+    for motif in motifs {
+        if kmer.starts_with(motif.motif().as_bytes()) {
+            return Some(motif);
+        }
+    }
+    None
 }
 
 fn surrounding_pos(pos: u64) -> RangeInclusive<u64> {
@@ -388,7 +402,7 @@ mod test {
     use float_eq::assert_float_eq;
 
     use super::*;
-    use crate::{arrow::load_iter, collapse::CollapseOptions};
+    use crate::{arrow::load_iter, collapse::CollapseOptions, motif::Motif};
 
     #[test]
     fn test_zscore_to_tt_pvalue() {
@@ -425,9 +439,10 @@ mod test {
         assert_eq!(context.start_slop(), 5);
         // assert_eq!(context.end_slop(), 5);
 
+        let m = Motif::new("AT", 2);
         assert_eq!(
             context
-                .surrounding(182522, todo!())
+                .surrounding(182522, &m)
                 .into_iter()
                 .flat_map(std::str::from_utf8)
                 .collect::<Vec<_>>(),

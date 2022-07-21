@@ -144,7 +144,7 @@ enum Commands {
         cutoff: f64,
 
         #[clap(short, long)]
-        motif: Option<Vec<String>>,
+        motif: Option<Vec<Motif>>,
     },
     Sma {
         #[clap(short, long)]
@@ -250,7 +250,7 @@ fn main() -> Result<()> {
 
             motif.iter().for_each(|ms| {
                 ms.iter().for_each(|m| {
-                    if m.len() > 6 {
+                    if m.len_motif() > 6 {
                         let mut cmd = Args::command();
                         cmd.error(
                             clap::ErrorKind::InvalidValue,
