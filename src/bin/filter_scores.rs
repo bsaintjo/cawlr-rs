@@ -95,6 +95,8 @@ fn main() -> Result<()> {
         Ok(())
     })?;
 
+    writer.finish()?;
+
     Ok(())
 }
 
