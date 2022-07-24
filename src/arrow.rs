@@ -61,11 +61,6 @@ pub trait MetadataExt {
         self.metadata().start + self.seq_length()
     }
 
-    // /// stop)
-    // fn seq_stop_1b_incl(&self) -> u64 {
-    //     self.seq_stop_1b_excl() + 1
-    // }
-
     /// stop]
     fn seq_length(&self) -> u64 {
         self.metadata().length + 5
@@ -74,10 +69,6 @@ pub trait MetadataExt {
     fn end_1b_excl(&self) -> u64 {
         self.seq_stop_1b_excl() - 5
     }
-
-    // fn end_1b_incl(&self) -> u64 {
-    //     self.seq_stop_1b_incl() - 5
-    // }
 }
 
 impl MetadataExt for Metadata {
@@ -270,24 +261,6 @@ impl Eventalign {
     pub(crate) fn length_mut(&mut self) -> &mut u64 {
         &mut self.metadata.length
     }
-
-    // pub(crate) fn length(&self) -> u64 {
-    //     self.metadata.length
-    // }
-
-    // /// 1-based indexing inclusive stop
-    // pub(crate) fn stop_ob(&self) -> u64 {
-    //     self.start_1b() + self.length() - 1
-    // }
-
-    // /// 0-based indexing inclusive stop
-    // pub(crate) fn stop_zb(&self) -> u64 {
-    //     self.start_0b() + self.length() - 1
-    // }
-
-    // pub(crate) fn seq_stop_zb(&self) -> u64 {
-    //     self.stop_zb() + 5
-    // }
 
     pub(crate) fn chrom(&self) -> &str {
         self.metadata.chrom.as_str()
