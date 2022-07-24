@@ -15,7 +15,7 @@ use crate::{
     context,
     motif::Motif,
     train::{Model, ModelDB},
-    utils::{chrom_lens, CawlrIO}, motif::Motif,
+    utils::{chrom_lens, CawlrIO},
 };
 
 pub struct ScoreOptions {
@@ -140,7 +140,7 @@ impl ScoreOptions {
         pos: u64,
         data_pos: &FnvHashMap<u64, &Signal>,
         context: &context::Context,
-        motif: &Motif
+        motif: &Motif,
     ) -> Result<f64> {
         let sur_kmers = context.surrounding(pos, motif);
         let sur_has_data = surround_has_data(pos, data_pos);
@@ -208,7 +208,9 @@ impl ScoreOptions {
 /// If a kmer starts with one of the given motifs, return the motif that
 /// matched, otherwise return None.
 fn contains_motif<'a>(kmer: &[u8], motifs: &'a [Motif]) -> Option<&'a Motif> {
-    motifs.iter().find(|m| kmer.starts_with(m.motif().as_bytes()))
+    motifs
+        .iter()
+        .find(|m| kmer.starts_with(m.motif().as_bytes()))
 }
 
 fn surrounding_pos(pos: u64) -> RangeInclusive<u64> {
