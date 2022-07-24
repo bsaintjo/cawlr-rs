@@ -1,7 +1,9 @@
 use std::{fs::File, path::PathBuf};
 
 use anyhow::Result;
-use cawlr::arrow::{load_apply, save, wrap_writer, MetadataExt, Score, ScoredRead};
+use cawlr::arrow::{
+    load_read_write, save, wrap_writer, MetadataExt, Score, ScoredRead,
+};
 use clap::Parser;
 
 #[derive(Parser)]
@@ -86,16 +88,13 @@ fn main() -> Result<()> {
     let schema = ScoredRead::schema();
     let mut writer = wrap_writer(writer, &schema)?;
 
-    load_apply(reader, |reads: Vec<ScoredRead>| {
+    load_read_write(reader, writer, |reads: Vec<ScoredRead>| {
         let reads = reads
             .into_iter()
             .filter(|read| filter_by(&args, read))
-            .collect::<Vec<_>>();
-        save(&mut writer, &reads)?;
-        Ok(())
+            .collect();
+        Ok(reads)
     })?;
-
-    writer.finish()?;
 
     Ok(())
 }

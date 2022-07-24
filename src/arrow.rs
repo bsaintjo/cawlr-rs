@@ -519,6 +519,39 @@ where
     Ok(())
 }
 
+/// Loops over every chunk in an arrow file, applies the closure to the chunk,
+/// and writes the results to the writer.
+///
+/// TODO make F: ... Result<&[U]> instead to avoid allocation?
+pub fn load_read_write<R, W, F, T, U>(
+    reader: R,
+    mut writer: FileWriter<W>,
+    mut func: F,
+) -> Result<()>
+where
+    R: Read + Seek,
+    W: Write,
+    F: FnMut(Vec<T>) -> anyhow::Result<Vec<U>>,
+    T: ArrowField<Type = T> + ArrowDeserialize + 'static,
+    U: ArrowField<Type = U> + ArrowSerialize + 'static,
+    for<'a> &'a <T as ArrowDeserialize>::ArrayType: IntoIterator,
+{
+    let feather = load(reader)?;
+    for read in feather {
+        if let Ok(chunk) = read {
+            for arr in chunk.into_arrays().into_iter() {
+                let eventaligns: Vec<T> = arr.try_into_collection()?;
+                let res = func(eventaligns)?;
+                save(&mut writer, &res)?;
+            }
+        } else {
+            log::warn!("Failed to load arrow chunk")
+        }
+    }
+    writer.finish()?;
+    Ok(())
+}
+
 // TODO Refactor multiple maps
 pub(crate) fn load_iter<R>(mut reader: R) -> impl Iterator<Item = Result<Vec<Eventalign>, Error>>
 where
