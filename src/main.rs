@@ -13,6 +13,7 @@ mod collapse;
 mod context;
 mod index;
 mod motif;
+mod plus_strand_map;
 mod rank;
 mod score;
 mod sma;
@@ -45,9 +46,10 @@ struct Args {
 enum Commands {
     Collapse {
         #[clap(short, long)]
-        /// path to nanopolish eventalign output with samples column
+        /// Path to nanopolish eventalign output with samples column
         input: String,
 
+        /// Path to BAM alignment file used in nanopolish eventalign
         #[clap(short, long)]
         bam: PathBuf,
 

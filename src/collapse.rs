@@ -1,53 +1,21 @@
 use std::{
     fs::File,
     io::{BufWriter, Read, Write},
-    path::{Path, PathBuf}, collections::hash_map::Entry,
+    path::{Path, PathBuf},
 };
 
 use anyhow::{Context, Result};
 use arrow2::io::ipc::write::FileWriter;
 use bio::alphabets::dna::revcomp;
-use fnv::FnvHashMap;
 use indicatif::{ProgressBar, ProgressBarIter, ProgressFinish, ProgressStyle};
-use noodles_bam::Reader;
 use rstats::Stats;
 use serde::Deserialize;
 use serde_with::{serde_as, CommaSeparator, StringWithSeparator};
 
-use crate::arrow::{self, save, Eventalign, Signal};
-
-struct StrandDB(FnvHashMap<Vec<u8>, bool>);
-
-impl StrandDB {
-    fn new(db: FnvHashMap<Vec<u8>, bool>) -> Self {
-        Self(db)
-    }
-
-    fn from_bam_file<P: AsRef<Path>>(bam_file: P) -> Result<Self> {
-        let mut acc = FnvHashMap::default();
-        let bam_file = bam_file.as_ref();
-        let mut reader = File::open(bam_file).map(Reader::new)?;
-        for record in reader.lazy_records() {
-            let record = record?;
-            let read_name= record.read_name()?.context(anyhow::anyhow!("Missing read name"))?;
-            log::info!("ReadName from bam: {}", read_name.as_ref() as &str);
-            let read_name: &[u8] = read_name.as_ref();
-            let plus_stranded = !record.flags()?.is_reverse_complemented();
-            match acc.entry(read_name.to_owned()) {
-                Entry::Occupied(mut entry) => {
-                    let old_stranded = entry.insert(plus_stranded);
-                    if old_stranded != plus_stranded {
-                        log::warn!("Multimapped read has strand swap");
-                    }
-                }
-                Entry::Vacant(entry) => {
-                    entry.insert(plus_stranded);
-                }
-            }
-        }
-        Ok(StrandDB::new(acc))
-    }
-}
+use crate::{
+    arrow::{self, save, Eventalign, Signal},
+    plus_strand_map::PlusStrandMap,
+};
 
 fn empty_from_npr(npr: &Npr) -> Eventalign {
     let name = npr.read_name.clone();
@@ -59,18 +27,7 @@ fn empty_from_npr(npr: &Npr) -> Eventalign {
 }
 
 /// Takes a vector of nanpolish records and converts them into a Eventalign.
-/// Since strand info isn't immediately available, it is inferred by comparing
-/// the reference kmer to the model kmer. If they are the same then it is a plus
-/// strand read, if it isn't
-/// Differences between model kmer and reference kmer can be due to,
-/// - Mismatch
-/// - NNNNNN, ie nanopolish failed to choose any 6-mer model
-/// - Opposite strand +? above
-/// TODO: Strand inference will almost always work but needs to handle edge
-/// cases, ie mismatch in low complexity region at end of the read can lead to
-/// strand "switching"
-/// TODO Strand inference by difference in event_index
-fn nprs_to_eventalign(nprs: Vec<Npr>) -> Result<Option<Eventalign>> {
+fn nprs_to_eventalign(nprs: Vec<Npr>, strand_map: &PlusStrandMap) -> Result<Option<Eventalign>> {
     let mut eventalign = nprs
         .get(0)
         .ok_or(anyhow::anyhow!("Empty nprs"))
@@ -79,15 +36,7 @@ fn nprs_to_eventalign(nprs: Vec<Npr>) -> Result<Option<Eventalign>> {
     for npr in nprs.into_iter() {
         stop = npr.position;
         let position = npr.position;
-        let kmer = npr.model_kmer;
         let ref_kmer = npr.reference_kmer;
-        if kmer == ref_kmer {
-            *eventalign.strand_mut() = arrow::Strand::plus();
-        }
-        let rev_ref_kmer = revcomp(ref_kmer.as_bytes());
-        if kmer.as_bytes() == rev_ref_kmer {
-            *eventalign.strand_mut() = arrow::Strand::minus();
-        }
         let mean = npr
             .samples
             .amean()
@@ -96,7 +45,19 @@ fn nprs_to_eventalign(nprs: Vec<Npr>) -> Result<Option<Eventalign>> {
         let signal = Signal::new(position, ref_kmer, mean, time);
         eventalign.signal_data_mut().push(signal);
     }
-    log::debug!("Read stop {stop}");
+
+    // Update strand from bam file results
+    let strand = strand_map.get(eventalign.name());
+    if let Some(b) = strand {
+        let strand_ptr = eventalign.strand_mut();
+        *strand_ptr = if b {
+            arrow::Strand::plus()
+        } else {
+            arrow::Strand::minus()
+        }
+    } else {
+        log::warn!("Read {} could not find strand", eventalign.name())
+    }
 
     // Handle last edge case with multi-mapped reads, throwing away the read if
     // length calculation leads to overflow
@@ -111,6 +72,7 @@ fn nprs_to_eventalign(nprs: Vec<Npr>) -> Result<Option<Eventalign>> {
         return Ok(None);
     }
 
+    // Reverse kmer
     if eventalign.strand().is_minus_strand() {
         for signal in eventalign.signal_data_mut().iter_mut() {
             let rev_kmer = revcomp(signal.kmer().as_bytes());
@@ -118,6 +80,7 @@ fn nprs_to_eventalign(nprs: Vec<Npr>) -> Result<Option<Eventalign>> {
             signal.set_kmer(rev_kmer)
         }
     }
+    log::debug!("Parsed Eventalign: {eventalign:.2?} ");
     Ok(Some(eventalign))
 }
 
@@ -139,21 +102,21 @@ fn spin_iter<I: Read>(iter: I, show_progress: bool) -> ProgressBarIter<I> {
 pub struct CollapseOptions<W: Write> {
     input: PathBuf,
     writer: FileWriter<W>,
-    strand_db: StrandDB,
+    strand_db: PlusStrandMap,
     capacity: usize,
     progress: bool,
 }
 
 impl CollapseOptions<BufWriter<File>> {
-    pub fn try_new<P, Q>(input: P, bam_file: &Path, output: Q) -> Result<Self>
+    pub fn try_new<P, Q, R>(input: P, bam_file: Q, output: R) -> Result<Self>
     where
         P: AsRef<Path>,
         Q: AsRef<Path>,
+        R: AsRef<Path>,
     {
-        // let writer = File::create(output)?;
         let writer = File::create(output)?;
         let writer = BufWriter::new(writer);
-        CollapseOptions::from_writer(input.as_ref().to_owned(), writer, bam_file)
+        CollapseOptions::from_writer(input.as_ref(), writer, bam_file)
     }
 }
 
@@ -168,8 +131,13 @@ impl<W: Write> CollapseOptions<W> {
         self
     }
 
-    pub(crate) fn from_writer(input: PathBuf, writer: W, bam_file: &Path) -> Result<Self> {
-        let strand_db = StrandDB::from_bam_file(bam_file)?;
+    pub(crate) fn from_writer<P, R>(input: P, writer: W, bam_file: R) -> Result<Self>
+    where
+        P: AsRef<Path>,
+        R: AsRef<Path>,
+    {
+        let input = input.as_ref().to_owned();
+        let strand_db = PlusStrandMap::from_bam_file(bam_file)?;
         let schema = arrow::Eventalign::schema();
         let writer = arrow::wrap_writer(writer, &schema)?;
         Ok(CollapseOptions {
@@ -177,7 +145,7 @@ impl<W: Write> CollapseOptions<W> {
             writer,
             capacity: 2048,
             progress: false,
-            strand_db
+            strand_db,
         })
     }
 
@@ -247,7 +215,7 @@ impl<W: Write> CollapseOptions<W> {
             }
             // Add converted reads to buffer and if buffer is full
             // write to disc and clear buffer
-            if let Some(eventalign) = nprs_to_eventalign(acc)? {
+            if let Some(eventalign) = nprs_to_eventalign(acc, &self.strand_db)? {
                 flats.push(eventalign);
             }
             if flats.len() >= self.capacity {
@@ -288,6 +256,7 @@ struct Npr {
 
     event_length: f64,
 
+    #[serde(skip)]
     model_kmer: String,
 
     #[serde(skip)]
@@ -315,8 +284,9 @@ mod test {
     fn test_collapse() -> Result<()> {
         let temp_dir = TempDir::new()?;
         let filepath = "extra/single_read.eventalign.txt";
+        let bam_file = "extra/single_read.bam";
         let output = temp_dir.path().join("test");
-        let collapse = CollapseOptions::try_new(filepath, &output)?;
+        let collapse = CollapseOptions::try_new(filepath, bam_file, &output)?;
         collapse.run()?;
 
         let output = File::open(output)?;
@@ -338,8 +308,9 @@ mod test {
     fn test_collapse_big() -> Result<()> {
         let temp_dir = TempDir::new()?;
         let filepath = "extra/neg_control.eventalign.txt";
+        let bam_file = "extra/neg_control.bam";
         let output = temp_dir.path().join("test");
-        let collapse = CollapseOptions::try_new(filepath, &output)?;
+        let collapse = CollapseOptions::try_new(filepath, bam_file, &output)?;
         collapse.run()?;
 
         let output = File::open(output)?;

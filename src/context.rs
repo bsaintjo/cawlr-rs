@@ -5,7 +5,10 @@ use anyhow::Result;
 use bio::{alphabets::dna, io::fasta::IndexedReader};
 use fnv::FnvHashMap;
 
-use crate::{arrow::{Eventalign, MetadataExt}, motif::Motif};
+use crate::{
+    arrow::{Eventalign, MetadataExt},
+    motif::Motif,
+};
 
 /// Contains the genomic bases for a given position including additional
 /// metadata to handle positions near the end of the genome.
@@ -89,7 +92,11 @@ impl Context {
         let true_pos = (pos - self.read_start) + self.start_slop + motif.position_0b() as u64;
 
         let start_coord = 5 + motif.position_0b() as u64;
-        let true_start = if true_pos < start_coord { 0 } else { true_pos - start_coord };
+        let true_start = if true_pos < start_coord {
+            0
+        } else {
+            true_pos - start_coord
+        };
 
         let ctxt_len = self.context.len() as u64;
         for base_pos in true_start..=true_pos {
@@ -123,7 +130,10 @@ mod test {
     use std::io::Cursor;
 
     use super::*;
-    use crate::{arrow::{Strand, MetadataExt}, utils::chrom_lens};
+    use crate::{
+        arrow::{MetadataExt, Strand},
+        utils::chrom_lens,
+    };
 
     // #[test]
     // fn test_context() -> Result<(), anyhow::Error> {

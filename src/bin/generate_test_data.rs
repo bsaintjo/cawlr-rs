@@ -9,14 +9,15 @@ use cawlr::{
 };
 
 const POS_CTRL: &str = "extra/pos_control.eventalign.txt";
-const NEG_CTRL: &str = "extra/neg_control.eventalign.txt";
-const READ: &str = "extra/single_read.eventalign.txt";
-const GENOME: &str = "extra/sacCer3.fa";
+const POS_CTRL_BAM: &str = "extra/pos_control.bam";
 
-fn collapse(input: &str, output: &PathBuf) -> Result<()> {
-    let collapse_opts = CollapseOptions::try_new(input, todo!(), output)?;
-    collapse_opts.run()
-}
+const NEG_CTRL: &str = "extra/neg_control.eventalign.txt";
+const NEG_CTRL_BAM: &str = "extra/neg_control.bam";
+
+const READ: &str = "extra/single_read.eventalign.txt";
+const READ_BAM: &str = "extra/single_read.bam";
+
+const GENOME: &str = "extra/sacCer3.fa";
 
 fn train(input: &PathBuf, output: &PathBuf) -> Result<Model> {
     let train = Train::try_new(input, GENOME, 2048)?;
@@ -46,9 +47,9 @@ fn main() -> Result<()> {
     let neg_output = output_dir.join("neg_collapse");
     let read_output = output_dir.join("read_collapse");
 
-    collapse(POS_CTRL, &pos_output)?;
-    collapse(NEG_CTRL, &neg_output)?;
-    collapse(READ, &read_output)?;
+    CollapseOptions::try_new(NEG_CTRL, NEG_CTRL_BAM, &neg_output)?.run()?;
+    CollapseOptions::try_new(POS_CTRL, POS_CTRL_BAM, &pos_output)?.run()?;
+    CollapseOptions::try_new(READ, READ_BAM, &read_output)?.run()?;
 
     let pos_model_path = output_dir.join("pos_model");
     let neg_model_path = output_dir.join("neg_model");

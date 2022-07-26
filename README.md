@@ -146,13 +146,17 @@ samtools flagstats filtered.aln.sorted.bam
 cawlr-collapse 
 
 USAGE:
-    cawlr collapse [OPTIONS] --input <INPUT> --output <OUTPUT>
+    cawlr collapse [OPTIONS] --input <INPUT> --bam <BAM> --output <OUTPUT>
 
 OPTIONS:
+    -b, --bam <BAM>              Path to BAM alignment file used in nanopolish eventalign
     -c, --capacity <CAPACITY>    Number of eventalign records to hold in memory [default: 2048]
     -h, --help                   Print help information
-    -i, --input <INPUT>          path to nanopolish eventalign output with samples column
-    -o, --output <OUTPUT>        path to output file in Apache Arrow format
+    -i, --input <INPUT>          Path to nanopolish eventalign output with samples column
+    -o, --output <OUTPUT>        Path to output file in Apache Arrow format, defaults to stdout if
+                                 no argument provided
+    -q, --quiet                  Less output per occurrence
+    -v, --verbose                More output per occurrence
 ```
 
 ### `cawlr train`

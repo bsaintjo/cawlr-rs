@@ -195,7 +195,8 @@ impl Train {
         let strand = read.strand();
         let chrom = read.chrom();
         let start = read.start_0b();
-        self.genome_mut().fetch(chrom, start, read.seq_stop_1b_excl())?;
+        self.genome_mut()
+            .fetch(chrom, start, read.seq_stop_1b_excl())?;
         let mut seq = Vec::new();
         self.genome_mut().read(&mut seq)?;
         let seq = if strand == crate::arrow::Strand::plus() {
