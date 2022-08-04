@@ -441,13 +441,15 @@ mod test {
         // assert_eq!(context.end_slop(), 5);
 
         let m = Motif::new("AT", 2);
+        assert_eq!(m.position_0b(), 1);
         assert_eq!(
             context
                 .surrounding(182522, &m)
                 .into_iter()
                 .flat_map(std::str::from_utf8)
                 .collect::<Vec<_>>(),
-            vec!["AACATA", "ACATAT", "CATATT", "ATATTC", "TATTCA", "ATTCAA"]
+            vec!["ACATAT", "CATATT", "ATATTC", "TATTCA", "ATTCAA", "TTCAAT"]
+
         );
 
         Ok(())

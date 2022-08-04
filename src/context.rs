@@ -88,16 +88,15 @@ impl Context {
     }
 
     pub(crate) fn surrounding(&self, pos: u64, motif: &Motif) -> Vec<&[u8]> {
-        let mut acc = Vec::new();
         let true_pos = (pos - self.read_start) + self.start_slop + motif.position_0b() as u64;
 
-        let start_coord = 5 + motif.position_0b() as u64;
-        let true_start = if true_pos < start_coord {
+        let true_start = if true_pos < 5 {
             0
         } else {
-            true_pos - start_coord
+            true_pos - 5
         };
 
+        let mut acc = Vec::new();
         let ctxt_len = self.context.len() as u64;
         for base_pos in true_start..=true_pos {
             if (base_pos + 5) < ctxt_len {
