@@ -4,13 +4,13 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 use arrow2::io::ipc::write::FileWriter;
 use bio::alphabets::dna::revcomp;
 use indicatif::{ProgressBar, ProgressBarIter, ProgressFinish, ProgressStyle};
-use rstats::Stats;
 use serde::Deserialize;
 use serde_with::{serde_as, CommaSeparator, StringWithSeparator};
+use statrs::statistics::Statistics;
 
 use crate::{
     arrow::{self, save, Eventalign, Signal},
@@ -37,10 +37,12 @@ fn nprs_to_eventalign(nprs: Vec<Npr>, strand_map: &PlusStrandMap) -> Result<Opti
         stop = npr.position;
         let position = npr.position;
         let ref_kmer = npr.reference_kmer;
-        let mean = npr
-            .samples
-            .amean()
-            .context("No signal sample values to take mean of, malformed input?")?;
+        let mean = npr.samples.mean();
+
+        if mean.is_nan() {
+            return Err(anyhow::anyhow!("No signal samples values, malformed input"));
+        }
+
         let time = npr.event_length;
         let signal = Signal::new(position, ref_kmer, mean, time);
         eventalign.signal_data_mut().push(signal);

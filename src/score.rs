@@ -1,14 +1,14 @@
 use std::{collections::HashMap, fs::File, hash::BuildHasher, ops::RangeInclusive, path::Path};
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 use arrow2::io::ipc::write::FileWriter;
 use bio::io::fasta::IndexedReader;
 use fnv::FnvHashMap;
-use rstats::Stats;
 use rv::{
     prelude::{Gaussian, Mixture},
     traits::{Cdf, KlDivergence, Rv},
 };
+use statrs::statistics::{Data, OrderStatistics};
 
 use crate::{
     arrow::{load_apply, save, wrap_writer, Eventalign, MetadataExt, Score, ScoredRead, Signal},
@@ -166,11 +166,12 @@ impl ScoreOptions {
             })
             .collect::<Vec<_>>();
 
-        let skip_score = skipping_scores
-            .median()
-            .context("No skipping scores")?
-            .median;
-        Ok(skip_score)
+        let skip_score = Data::new(skipping_scores).median();
+        if skip_score.is_nan() {
+            Err(anyhow::anyhow!("No data for calculating median"))
+        } else {
+            Ok(skip_score)
+        }
     }
 
     /// For a given position, get the values for the position and surrounding

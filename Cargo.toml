@@ -18,7 +18,10 @@ anyhow = "1.0.48"
 
 # Output format for intensive data results
 arrow2 = { version = "0.12.0", features = ["io_ipc"] }
-arrow2_convert = { version = "0.2.0", features = ["derive", "arrow2_convert_derive"] }
+arrow2_convert = { version = "0.2.0", features = [
+    "derive",
+    "arrow2_convert_derive",
+] }
 
 # Read genomic sequences from FASTA file
 bio = "0.41.0"
@@ -37,21 +40,16 @@ fnv = "1.0.7"
 human-panic = "1.0.3"
 indicatif = { version = "0.16.2", features = ["improved_unicode"] }
 itertools = "0.10.3"
-linfa = { version = "0.6.0", features = ["openblas-static"]}
-linfa-clustering = { version = "0.6.0", features=["serde"] }
+linfa = { version = "0.6.0", features = ["openblas-static"] }
+linfa-clustering = { version = "0.6.0", features = ["serde"] }
 log = "0.4.17"
 
 # Optional allocator to get speed ups
 mimalloc = { version = "0.1.29", default-features = false, optional = true }
 nalgebra = "0.27.1"
 ndarray = { version = "0.15.4", features = ["blas"] }
-openblas-src = { version = "0.10", features = ["static"]}
+openblas-src = { version = "0.10", features = ["static"] }
 rand = { version = "0.8.5", features = ["small_rng", "alloc"] }
-
-# Calculate mean of signal data, median of something
-# Newer versions break, avoid updating until confirmed fixed
-rstats = "=1.0.13"
-indxvec = "=1.2.0"
 
 # Saveable gaussian components and calculation of KL divergence
 rv = { version = "0.14.3", features = ["serde1"] }
@@ -68,6 +66,10 @@ thiserror = "1.0.31"
 
 # Parse bam files to extract strand information
 bam = "0.1.4"
+
+# Calculate mean of signal data, median of something
+# Newer versions break, avoid updating until confirmed fixed
+statrs = "0.15.0"
 
 [profile.release]
 lto = "fat"
