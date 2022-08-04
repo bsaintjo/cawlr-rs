@@ -56,7 +56,7 @@ impl Motif {
             Err(MotifError::InvalidBase)
         } else if pos == 0 {
             Err(MotifError::PositionOneBased)
-        } else if pos >= motif.len() {
+        } else if pos > motif.len() {
             Err(MotifError::PositionOutsideofMotif)
         } else if iter.next().is_some() {
             Err(MotifError::UnexpectedAdditionalFormat)
@@ -113,6 +113,9 @@ mod test {
 
     #[test]
     fn test_motif() {
+        let m = Motif::parse_from_str("2:GC");
+        assert!(m.is_ok());
+
         let m = Motif::parse_from_str("1:AT");
         assert!(m.is_ok());
 
