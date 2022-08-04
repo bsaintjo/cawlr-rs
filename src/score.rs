@@ -101,23 +101,25 @@ impl ScoreOptions {
 
         let data_pos = pos_with_data(&read);
         for pos in read.start_1b()..read.end_1b_excl() {
+
             // Get kmer and check if kmer matches the motifs, if there are any supplied
-            let pos_kmer = context.sixmer_at(pos).filter(|k| {
+            let pos_kmer: Option<(&[u8], &Motif)> = context.sixmer_at(pos).and_then(|k| {
                 if let Some(motifs) = &self.motifs {
-                    motifs.iter().any(|m| {
+                    motifs.iter().find(|m| {
                         let m = m.motif().as_bytes();
                         k.starts_with(m)
-                    })
+                    }).map(|m| (k, m))
                 } else {
-                    true
+                    None
                 }
             });
-            if let Some(kmer) = pos_kmer {
+
+            if let Some((kmer, motif)) = pos_kmer {
                 let kmer = std::str::from_utf8(kmer).unwrap().to_string();
                 log::debug!("Position {pos} kmer: {kmer}");
 
                 let signal_score = self.calc_signal_score(pos, &data_pos);
-                let skipping_score = self.calc_skipping_score(pos, &data_pos, &context, todo!())?;
+                let skipping_score = self.calc_skipping_score(pos, &data_pos, &context, motif)?;
                 let final_score = signal_score.map_or(skipping_score, |x| x.max(skipping_score));
                 let score = Score::new(
                     pos,
