@@ -388,7 +388,7 @@ fn score_signal(
     let score = pos_log_proba / (pos_log_proba + neg_log_proba);
     log::debug!("Score: {score:.3}");
 
-    if (pos_mix.ln_f(&signal) > -cutoff) && (neg_mix.ln_f(&signal) > -cutoff) {
+    if (pos_mix.ln_f(&signal) > -cutoff) || (neg_mix.ln_f(&signal) > -cutoff) {
         log::debug!("Below cutoff, not scoring.");
         None
     } else {
