@@ -117,59 +117,71 @@ enum Commands {
 
     /// Score each kmer with likelihood based on positive and negative controls
     Score {
-        #[clap(short, long)]
         /// Path to Apache Arrow file from cawlr collapse
+        #[clap(short, long)]
         input: String,
 
-        #[clap(short, long)]
         /// Path to output file
+        #[clap(short, long)]
         output: String,
 
-        #[clap(long)]
         /// Positive control file from cawlr train
+        #[clap(long)]
         pos_ctrl: String,
 
-        #[clap(long)]
         /// Negative control file from cawlr train
+        #[clap(long)]
         neg_ctrl: String,
 
-        #[clap(short, long)]
         /// Path to rank file from cawlr rank
+        #[clap(short, long)]
         ranks: String,
 
-        #[clap(short, long)]
         /// Path to fasta file for organisms genome, must have a .fai file from
         /// samtools faidx
+        #[clap(short, long)]
         genome: String,
 
+        /// Threshold for current value to be considered reasonable
         #[clap(long, default_value_t = 10.0)]
         cutoff: f64,
 
+        /// Threshold for kmer model to be used
+        #[clap(long, default_value_t = 0.05)]
+        p_value_threshold: f64,
+
+        /// Only score in kmers that contain this motif, by default will score
+        /// all kmers
         #[clap(short, long)]
         motif: Option<Vec<Motif>>,
     },
     Sma {
-        #[clap(short, long)]
         /// Path to scored data from cawlr score
+        #[clap(short, long)]
         input: String,
 
-        #[clap(short, long)]
         /// Path to output file
+        #[clap(short, long)]
         output: Option<String>,
 
+        /// Path to score from positive control dataset
         #[clap(long)]
         pos_ctrl_scores: String,
 
+        /// Path to score from negative control dataset
         #[clap(long)]
         neg_ctrl_scores: String,
 
+        /// Only that contain this motif will be used to perform single molecule
+        /// analysis, by default will use all kmers
         #[clap(short, long)]
-        // Motif context to use
         motif: Option<Vec<Motif>>,
 
+        /// Number of scores sampled to create kernel density estimate
         #[clap(long, default_value_t = 10_000_usize)]
         kde_samples: usize,
 
+        /// Set seed to have reproducible sampling
         #[clap(long, default_value_t = 2456_u64)]
         seed: u64,
     },
@@ -237,6 +249,7 @@ fn main() -> Result<()> {
             ranks,
             genome,
             cutoff,
+            p_value_threshold,
             motif,
         } => {
             let fai_file = format!("{}.fai", genome);
@@ -265,7 +278,14 @@ fn main() -> Result<()> {
 
             log::debug!("Motifs parsed: {motif:?}");
             let scoring = score::ScoreOptions::try_new(
-                &pos_ctrl, &neg_ctrl, &genome, &ranks, &output, -cutoff, motif,
+                &pos_ctrl,
+                &neg_ctrl,
+                &genome,
+                &ranks,
+                &output,
+                -cutoff,
+                p_value_threshold,
+                motif,
             )?;
             scoring.run(input)?;
         }

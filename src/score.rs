@@ -26,6 +26,7 @@ pub struct ScoreOptions {
     rank: FnvHashMap<String, f64>,
     writer: FileWriter<File>,
     cutoff: f64,
+    p_value_threshold: f64,
     motifs: Option<Vec<Motif>>,
 }
 
@@ -37,6 +38,7 @@ impl ScoreOptions {
         rank_filepath: &str,
         output: P,
         cutoff: f64,
+        p_value_threshold: f64,
         motifs: Option<Vec<Motif>>,
     ) -> Result<Self>
     where
@@ -58,6 +60,7 @@ impl ScoreOptions {
             rank: kmer_ranks,
             writer,
             cutoff,
+            p_value_threshold,
             motifs,
         })
     }
@@ -101,14 +104,16 @@ impl ScoreOptions {
 
         let data_pos = pos_with_data(&read);
         for pos in read.start_1b()..read.end_1b_excl() {
-
             // Get kmer and check if kmer matches the motifs, if there are any supplied
             let pos_kmer: Option<(&[u8], &Motif)> = context.sixmer_at(pos).and_then(|k| {
                 if let Some(motifs) = &self.motifs {
-                    motifs.iter().find(|m| {
-                        let m = m.motif().as_bytes();
-                        k.starts_with(m)
-                    }).map(|m| (k, m))
+                    motifs
+                        .iter()
+                        .find(|m| {
+                            let m = m.motif().as_bytes();
+                            k.starts_with(m)
+                        })
+                        .map(|m| (k, m))
                 } else {
                     None
                 }
@@ -188,6 +193,7 @@ impl ScoreOptions {
             &self.rank,
             self.pos_ctrl.gmms(),
             self.neg_ctrl.gmms(),
+            self.p_value_threshold
         );
 
         log::debug!("Best signal: {best_signal:.3?}");
@@ -282,6 +288,7 @@ fn best_surrounding_signal<'a, S>(
     ranks: &HashMap<String, f64, S>,
     pos_gmms: &ModelDB,
     neg_gmms: &ModelDB,
+    p_value_threshold: f64,
 ) -> Option<&'a Signal>
 where
     S: BuildHasher,
@@ -301,7 +308,7 @@ where
                     let pos_model = choose_pos_model(neg_model, &pos_gmms[kmer]);
                     let pvalue = gauss_to_pvalue(pos_model, neg_model);
                     log::debug!("p-value: {pvalue:.3?}");
-                    pvalue < 0.05
+                    pvalue < p_value_threshold
                 }
             })
             // Of the ones the best, choose the one with the best ranking
@@ -449,7 +456,6 @@ mod test {
                 .flat_map(std::str::from_utf8)
                 .collect::<Vec<_>>(),
             vec!["ACATAT", "CATATT", "ATATTC", "TATTCA", "ATTCAA", "TTCAAT"]
-
         );
 
         Ok(())
