@@ -387,18 +387,25 @@ fn score_signal(
     neg_mix: &Mixture<Gaussian>,
     cutoff: f64,
 ) -> Option<f64> {
-    log::debug!("Scoring signal");
+    log::debug!("Scoring signal: {signal}");
     let neg_mix = choose_model(neg_mix);
     let pos_mix = choose_pos_model(neg_mix, pos_mix);
-    let pos_log_proba = pos_mix.f(&signal);
-    let neg_log_proba = neg_mix.f(&signal);
-    let score = pos_log_proba / (pos_log_proba + neg_log_proba);
+    let pos_proba = pos_mix.f(&signal);
+    let neg_proba = neg_mix.f(&signal);
+    let score = pos_proba / (pos_proba + neg_proba);
     log::debug!("Score: {score:.3}");
+    
+    let pos_log_proba = pos_mix.ln_f(&signal);
+    let neg_log_proba = neg_mix.ln_f(&signal);
 
-    if (pos_mix.ln_f(&signal) > -cutoff) || (neg_mix.ln_f(&signal) > -cutoff) {
+    log::debug!("+ Gaussian log proba: {pos_log_proba}");
+    log::debug!("- Gaussian log proba: {neg_log_proba}");
+
+    if (pos_log_proba> -cutoff) || (neg_log_proba> -cutoff) {
         log::debug!("Below cutoff, not scoring.");
         None
     } else {
+        log::debug!("Valid score");
         Some(score)
     }
 }

@@ -283,7 +283,7 @@ fn main() -> Result<()> {
                 &genome,
                 &ranks,
                 &output,
-                -cutoff,
+                cutoff,
                 p_value_threshold,
                 motif,
             )?;
