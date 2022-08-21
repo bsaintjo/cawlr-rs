@@ -270,7 +270,21 @@ pub enum States {
     Nucleosome,
 }
 
-// Converts a list of States into a Run-length encoding vector of states
+/// Converts a list of States into a Run-length encoding vector of states
+///
+/// # Examples
+/// ```rust, ignore
+/// # fn main() -> anyhow::Result<()> {
+/// use cawlr::sma::States::*;
+/// let states = vec![Linker, Linker, Linker, Nucleosome, Nucleosome, Linker];
+/// let rle = states_to_rle(&states);
+/// assert_eq!(rle, [(Linker, 3), (Nucleosome, 2), (Linker, 1)]);
+/// # Ok(())
+/// # }
+/// ```
+///
+/// # Panics
+/// Will panic if states is empty
 fn states_to_rle(states: &[States]) -> Vec<(States, u64)> {
     let init_state = *states
         .get(0)
@@ -454,5 +468,13 @@ mod test {
         let formatted = format!("{}", sma_output);
         let answer = "chrI\t100\t150\ttest\t0\t.\t100\t150\t0,0,0\t2\t105,130\t20,10";
         assert_eq!(formatted, answer);
+    }
+
+    #[test]
+    fn test_states_to_rle() {
+        use States::*;
+        let states = vec![Linker, Linker, Linker, Nucleosome, Nucleosome, Linker];
+        let rle = states_to_rle(&states);
+        assert_eq!(rle, [(Linker, 3), (Nucleosome, 2), (Linker, 1)]);
     }
 }

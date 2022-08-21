@@ -173,6 +173,7 @@ fn integration() -> Result<(), Box<dyn Error>> {
         .assert()
         .success();
 
+    let sma_output = temp_dir.path().join("sma_output");
     Command::new(cawlr)
         .arg("sma")
         .arg("--input")
@@ -180,7 +181,11 @@ fn integration() -> Result<(), Box<dyn Error>> {
         .arg("--pos-ctrl-scores")
         .arg(pos_scores)
         .arg("--neg-ctrl-scores")
-        .arg(neg_scores);
+        .arg(neg_scores)
+        .arg("--output")
+        .arg(sma_output)
+        .assert()
+        .success();
 
     temp_dir.close()?;
     Ok(())
