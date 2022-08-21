@@ -39,7 +39,7 @@ pub struct ScoreOptions {
     writer: FileWriter<File>,
     cutoff: f64,
     p_value_threshold: f64,
-    motifs: Option<Vec<Motif>>,
+    motifs: Vec<Motif>,
 }
 
 impl ScoreOptions {

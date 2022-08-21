@@ -84,7 +84,7 @@ fn main() -> Result<()> {
     let reader = File::open(&args.input)?;
     let writer = File::create(&args.output)?;
     let schema = ScoredRead::schema();
-    let mut writer = wrap_writer(writer, &schema)?;
+    let writer = wrap_writer(writer, &schema)?;
 
     load_read_write(reader, writer, |reads: Vec<ScoredRead>| {
         let reads = reads

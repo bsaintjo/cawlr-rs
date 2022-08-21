@@ -301,7 +301,7 @@ impl Eventalign {
 }
 
 #[derive(Default)]
-pub struct ScoreBuilder {
+pub(crate) struct ScoreBuilder {
     score: Score,
 }
 
@@ -310,12 +310,12 @@ impl ScoreBuilder {
         Self { score }
     }
 
-    pub fn score(mut self, score: f64) -> Self {
+    pub(crate) fn score(mut self, score: f64) -> Self {
         self.score.score = score;
         self
     }
 
-    pub fn build(self) -> Score {
+    pub(crate) fn build(self) -> Score {
         self.score
     }
 }

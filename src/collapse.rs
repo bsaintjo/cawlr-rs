@@ -259,7 +259,7 @@ struct Npr {
     event_length: f64,
 
     #[serde(skip)]
-    model_kmer: String,
+    _model_kmer: String,
 
     #[serde(skip)]
     _model_mean: f64,
