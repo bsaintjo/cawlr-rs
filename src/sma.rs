@@ -98,7 +98,7 @@ where
     let scores_file = File::open(filepath)?;
     let scores = extract_samples_from_file(scores_file)?;
     let scores: Vec<f64> = scores.choose_multiple(rng, kde_samples).cloned().collect();
-    let kde = sample_kde(&scores);
+    let kde = sample_kde(&scores)?;
     let bkde = BinnedKde::from_kde(1000, kde);
     Ok(bkde)
 }
@@ -189,13 +189,16 @@ impl SmaOptions {
     }
 }
 
+// TODO Use full score instead of signal score
 pub fn extract_samples(reads: &[ScoredRead]) -> Vec<f64> {
     reads
         .iter()
         .flat_map(|lr| {
             lr.scores()
                 .iter()
-                .map(|score| score.score())
+                .flat_map(|score| score.signal_score())
+                .filter(|x| !x.is_nan())
+                .copied()
                 .collect::<Vec<_>>()
         })
         .collect()
@@ -211,9 +214,12 @@ pub fn extract_samples_from_file(file: File) -> Result<Vec<f64>> {
     Ok(scores)
 }
 
-fn sample_kde(samples: &[f64]) -> Kde<f64, Gaussian> {
+fn sample_kde(samples: &[f64]) -> Result<Kde<f64, Gaussian>> {
+    if samples.is_empty() {
+        return Err(anyhow::anyhow!("Score file does not contain any values."));
+    }
     let samples = Sample::new(samples);
-    Kde::new(samples, Gaussian, Bandwidth::Silverman)
+    Ok(Kde::new(samples, Gaussian, Bandwidth::Silverman))
 }
 
 pub struct SmaMatrix {

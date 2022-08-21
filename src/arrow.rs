@@ -354,6 +354,10 @@ impl Score {
         self.score
     }
 
+    pub(crate) fn signal_score(&self) -> &Option<f64> {
+        &self.signal_score
+    }
+
     /// Get a reference to the score's kmer.
     pub fn kmer(&self) -> &str {
         self.kmer.as_ref()
