@@ -179,22 +179,6 @@ fn integration() -> Result<(), Box<dyn Error>> {
         .assert()
         .success();
 
-    eprintln!("Single molecule analysis");
-    let sma_output = temp_dir.path().join("sma_output");
-    Command::new(cawlr)
-        .arg("sma")
-        .arg("--input")
-        .arg(scores)
-        .arg("--pos-ctrl-scores")
-        .arg(pos_scores)
-        .arg("--neg-ctrl-scores")
-        .arg(neg_scores)
-        .arg("--output")
-        .arg(sma_output)
-        .env("RUST_BACKTRACE", "full")
-        .assert()
-        .success();
-
     temp_dir.close()?;
     Ok(())
 }
