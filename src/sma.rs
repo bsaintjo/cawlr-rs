@@ -258,8 +258,34 @@ impl SmaMatrix {
         &mut self.ptr_matrix
     }
 
-    pub fn backtrace(&self) -> VecDeque<States> {
-        unimplemented!()
+    /// Use the pointer matrix to infer the most likley sequence of states from
+    /// the probability matrix.
+    ///
+    /// First use the probability matrix to find the most likely state it ended
+    /// with. Then use that index walk through the pointer matrix and get
+    /// each state and what was the state used to update the probability matrix.
+    pub fn backtrack(&self) -> VecDeque<States> {
+        use States::*;
+
+        let ncols = self.probs().ncols();
+        let mut acc = VecDeque::new();
+        let mut idx = self.probs().column(ncols - 1).argmax().0;
+        let mut pos = self.probs().ncols() - 1;
+        // At pos = 0, the column will be the data intialized from 1/147
+        while pos > 0 {
+            if idx > 0 {
+                acc.push_front(Nucleosome);
+            } else {
+                acc.push_front(Linker);
+            }
+
+            if let Some(new_idx) = self.ptrs().column(pos)[idx] {
+                idx = new_idx;
+            } else {
+                break;
+            }
+        }
+        acc
     }
 }
 
