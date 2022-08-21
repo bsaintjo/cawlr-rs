@@ -132,15 +132,10 @@ impl SmaOptions {
         load_apply(scores_file, |reads| {
             for read in reads {
                 let matrix = self.run_read(&read)?;
-                // let matrix = run_read(
-                //     &read,
-                //     &self.pos_bkde,
-                //     &self.neg_bkde,
-                //     self.motifs.as_slice(),
-                // );
                 let result = matrix.backtrace().into_iter().collect::<Vec<_>>();
                 // TODO Take VecDeque in states_to_readable
                 let result = states_to_readable(&result)?;
+
                 for (state, size) in result.into_iter() {
                     let chrom = read.metadata().chrom();
                     let start = read.metadata().start();
@@ -231,54 +226,6 @@ pub fn extract_samples_from_file(file: File) -> Result<Vec<f64>> {
 fn sample_kde(samples: &[f64]) -> Kde<f64, Gaussian> {
     let samples = Sample::new(samples);
     Kde::new(samples, Gaussian, Bandwidth::Silverman)
-}
-
-pub fn run_read(
-    read: &ScoredRead,
-    pos_kde: &BinnedKde,
-    neg_kde: &BinnedKde,
-    motifs: &[String],
-) -> DMatrix<f64> {
-    let mut matrix = init_dmatrix(read);
-    let scores = read.to_expanded_scores();
-    for col_idx in 1..=read.length() {
-        let col_idx = col_idx as usize;
-        // Score will be None if a) No data at that position, or b) Position kmer didn't
-        // contain motif of interest
-        let score = scores[col_idx - 1].filter(|s| motifs.iter().any(|m| s.kmer().contains(m)));
-
-        // Start nucleosome vs linker
-        let linker_val = matrix.column(col_idx - 1)[0];
-        let nuc_val = matrix.column(col_idx - 1)[146];
-        let (prev_max, prev_max_idx) = {
-            if linker_val > nuc_val {
-                (linker_val, 0usize)
-            } else {
-                (nuc_val, 146usize)
-            }
-        };
-        let mut col = matrix.column_mut(col_idx);
-        let first: &mut f64 = col.get_mut(0).expect("No values in matrix.");
-        let val: f64 = match score {
-            Some(score) => prev_max + pos_kde.pmf_from_score(score.score()).ln(),
-            None => prev_max,
-        };
-        *first = val;
-
-        // Within nucleosome
-        for rest in 1..147 {
-            let prev_idx = rest - 1;
-            let nuc_prev = matrix.column(col_idx - 1)[rest - 1];
-            let mut col = matrix.column_mut(col_idx);
-            let next = col.get_mut(rest).expect("Failed to get column value");
-            let val = match score {
-                Some(score) => nuc_prev + neg_kde.pmf_from_score(score.score()).ln(),
-                None => prev_max,
-            };
-            *next = val;
-        }
-    }
-    matrix
 }
 
 pub struct SmaMatrix {
