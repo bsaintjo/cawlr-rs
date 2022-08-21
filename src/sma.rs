@@ -133,8 +133,7 @@ impl SmaOptions {
         load_apply(scores_file, |reads| {
             for read in reads {
                 let matrix = self.run_read(&read)?;
-                // TODO Use VecDeque and avoid unnnecessary reallocation
-                let states = matrix.backtrack().into_iter().collect::<Vec<_>>();
+                let states = matrix.backtrack();
                 let states_rle = states_to_rle(&states);
                 let sma_output = SmaOutput::new(read.metadata(), states_rle);
                 writeln!(&mut self.writer, "{}", sma_output)?;
@@ -240,6 +239,7 @@ impl SmaMatrix {
         &self.val_matrix
     }
 
+    // TODO Make initial value 10/157 for linker, 1/157 for nucleosome positions
     pub fn from_read(read: &ScoredRead) -> Self {
         let mut val_dm = DMatrix::from_element(147usize, read.length() as usize + 1, f64::MIN);
         val_dm.column_mut(0).fill((1. / 147.0f64).ln());
@@ -293,13 +293,6 @@ impl SmaMatrix {
     }
 }
 
-// TODO Make initial value 10/157 for linker, 1/157 for nucleosome positions
-pub fn init_dmatrix(read: &ScoredRead) -> DMatrix<f64> {
-    let mut dm = DMatrix::from_element(147usize, read.length() as usize + 1, f64::MIN);
-    dm.column_mut(0).fill((1. / 147.0f64).ln());
-    dm
-}
-
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum States {
     Linker,
@@ -321,13 +314,13 @@ pub enum States {
 ///
 /// # Panics
 /// Will panic if states is empty
-fn states_to_rle(states: &[States]) -> Vec<(States, u64)> {
+fn states_to_rle(states: &VecDeque<States>) -> Vec<(States, u64)> {
     let init_state = *states
         .get(0)
         .expect("Failed to convert, empty States slice");
     let mut curr = (init_state, 1);
     let mut acc = Vec::new();
-    for &state in &states[1..] {
+    for &state in states.iter().skip(1) {
         if state == curr.0 {
             curr.1 += 1;
         } else {
@@ -336,26 +329,6 @@ fn states_to_rle(states: &[States]) -> Vec<(States, u64)> {
         }
     }
     acc.push(curr);
-    acc
-}
-
-pub fn backtrace(matrix: DMatrix<f64>) -> Vec<States> {
-    let mut pos = matrix.ncols() - 1;
-    let mut acc = Vec::new();
-    let nuc_idx = matrix.ncols() - 1;
-    while pos > 0 {
-        let linker_val = matrix.column(pos)[0];
-        let nuc_val = matrix.column(pos)[nuc_idx];
-        if linker_val > nuc_val {
-            acc.push(States::Linker);
-            pos -= 1;
-        } else {
-            let n = if pos > 147 { 147 } else { pos };
-            acc.append(&mut vec![States::Nucleosome; n]);
-            pos -= n;
-        }
-    }
-    acc.reverse();
     acc
 }
 
@@ -432,17 +405,6 @@ mod test {
     use crate::arrow::Strand;
 
     #[test]
-    fn test_backtrace() {
-        let matrix = dmatrix![0.1, 0.9, 0.9;
-                                                                0.2, 0.3, 0.4;
-                                                                0.9, 0.0, 0.0];
-        assert_eq!(matrix[(0, 1)], 0.9);
-
-        let answer = vec![States::Linker, States::Linker];
-        assert_eq!(backtrace(matrix), answer);
-    }
-
-    #[test]
     fn test_backtrack() {
         use States::*;
 
@@ -482,7 +444,7 @@ mod test {
     #[test]
     fn test_states_to_rle() {
         use States::*;
-        let states = vec![Linker, Linker, Linker, Nucleosome, Nucleosome, Linker];
+        let states = VecDeque::from([Linker, Linker, Linker, Nucleosome, Nucleosome, Linker]);
         let rle = states_to_rle(&states);
         assert_eq!(rle, [(Linker, 3), (Nucleosome, 2), (Linker, 1)]);
     }
