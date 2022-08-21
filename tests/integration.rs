@@ -129,6 +129,8 @@ fn integration() -> Result<(), Box<dyn Error>> {
         .arg(&genome)
         .arg("-o")
         .arg(&scores)
+        .arg("--cutoff")
+        .arg("0.0")
         .env("RUST_BACKTRACE", "1")
         .assert()
         .success();
@@ -149,6 +151,8 @@ fn integration() -> Result<(), Box<dyn Error>> {
         .arg(&genome)
         .arg("-o")
         .arg(&pos_scores)
+        .arg("--cutoff")
+        .arg("0.0")
         .env("RUST_BACKTRACE", "1")
         .assert()
         .success();
@@ -169,10 +173,13 @@ fn integration() -> Result<(), Box<dyn Error>> {
         .arg(&genome)
         .arg("-o")
         .arg(&neg_scores)
+        .arg("--cutoff")
+        .arg("0.0")
         .env("RUST_BACKTRACE", "1")
         .assert()
         .success();
 
+    eprintln!("Single molecule analysis");
     let sma_output = temp_dir.path().join("sma_output");
     Command::new(cawlr)
         .arg("sma")
@@ -184,6 +191,7 @@ fn integration() -> Result<(), Box<dyn Error>> {
         .arg(neg_scores)
         .arg("--output")
         .arg(sma_output)
+        .env("RUST_BACKTRACE", "full")
         .assert()
         .success();
 
