@@ -309,24 +309,6 @@ fn states_to_rle(states: &[States]) -> Vec<(States, u64)> {
     acc
 }
 
-/// Converts a slice of States into a more readable format, to make it easier
-/// for downstream parsing in python
-pub fn states_to_readable(states: &[States]) -> Result<Vec<(String, u64)>> {
-    if states.is_empty() {
-        return Err(anyhow::anyhow!("Empty list of states"));
-    }
-
-    let acc = states_to_rle(states);
-    let readable = acc
-        .into_iter()
-        .map(|(x, y)| match x {
-            States::Linker => ("linker".to_string(), y),
-            States::Nucleosome => ("nucleosome".to_string(), y),
-        })
-        .collect();
-    Ok(readable)
-}
-
 pub fn backtrace(matrix: DMatrix<f64>) -> Vec<States> {
     let mut pos = matrix.ncols() - 1;
     let mut acc = Vec::new();
@@ -428,32 +410,6 @@ mod test {
 
         let answer = vec![States::Linker, States::Linker];
         assert_eq!(backtrace(matrix), answer);
-    }
-
-    #[test]
-    fn test_states_to_readable_empty() {
-        let acc = Vec::new();
-        assert!(states_to_readable(&acc).is_err());
-    }
-
-    #[test]
-    fn test_states_to_readable() {
-        let mut states = Vec::new();
-
-        for (x, y) in [(10, 5), (5, 7)] {
-            let mut xs = vec![States::Linker; x];
-            let mut ys = vec![States::Nucleosome; y];
-            states.append(&mut xs);
-            states.append(&mut ys);
-        }
-
-        let answer = vec![
-            ("linker".to_string(), 10),
-            ("nucleosome".to_string(), 5),
-            ("linker".to_string(), 5),
-            ("nucleosome".to_string(), 7),
-        ];
-        assert_eq!(states_to_readable(&states).unwrap(), answer);
     }
 
     #[test]
