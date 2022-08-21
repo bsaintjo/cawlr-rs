@@ -3,7 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>Installation - Chromatin Accessibility with Long Reads</title>
+        <title>Pickle file format - Chromatin Accessibility with Long Reads</title>
         <!-- Custom HTML head -->
         <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
         <meta name="description" content="">
@@ -75,7 +75,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded affix "><a href="intro.html">Introduction</a></li><li class="chapter-item expanded affix "><li class="part-title">User Guide</li><li class="chapter-item expanded "><a href="installation.html" class="active"><strong aria-hidden="true">1.</strong> Installation</a></li><li class="chapter-item expanded "><div><strong aria-hidden="true">2.</strong> Analysis</div></li><li><ol class="section"><li class="chapter-item expanded "><div><strong aria-hidden="true">2.1.</strong> Nanopore Data Preparation</div></li><li class="chapter-item expanded "><div><strong aria-hidden="true">2.2.</strong> Manipulating Output</div></li><li><ol class="section"><li class="chapter-item expanded "><div><strong aria-hidden="true">2.2.1.</strong> Arrow file format</div></li><li class="chapter-item expanded "><a href="pickle.html"><strong aria-hidden="true">2.2.2.</strong> Pickle file format</a></li></ol></li></ol></li><li class="chapter-item expanded "><li class="part-title">Reference Guide</li><li class="chapter-item expanded "><div><strong aria-hidden="true">3.</strong> Command Line Tool</div></li><li><ol class="section"><li class="chapter-item expanded "><div><strong aria-hidden="true">3.1.</strong> collapse</div></li><li class="chapter-item expanded "><div><strong aria-hidden="true">3.2.</strong> train</div></li><li class="chapter-item expanded "><div><strong aria-hidden="true">3.3.</strong> rank</div></li><li class="chapter-item expanded "><div><strong aria-hidden="true">3.4.</strong> score</div></li><li class="chapter-item expanded "><div><strong aria-hidden="true">3.5.</strong> sma</div></li></ol></li><li class="chapter-item expanded "><div><strong aria-hidden="true">4.</strong> Output Formats</div></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded affix "><a href="intro.html">Introduction</a></li><li class="chapter-item expanded affix "><li class="part-title">User Guide</li><li class="chapter-item expanded "><a href="installation.html"><strong aria-hidden="true">1.</strong> Installation</a></li><li class="chapter-item expanded "><div><strong aria-hidden="true">2.</strong> Analysis</div></li><li><ol class="section"><li class="chapter-item expanded "><div><strong aria-hidden="true">2.1.</strong> Nanopore Data Preparation</div></li><li class="chapter-item expanded "><div><strong aria-hidden="true">2.2.</strong> Manipulating Output</div></li><li><ol class="section"><li class="chapter-item expanded "><div><strong aria-hidden="true">2.2.1.</strong> Arrow file format</div></li><li class="chapter-item expanded "><a href="pickle.html" class="active"><strong aria-hidden="true">2.2.2.</strong> Pickle file format</a></li></ol></li></ol></li><li class="chapter-item expanded "><li class="part-title">Reference Guide</li><li class="chapter-item expanded "><div><strong aria-hidden="true">3.</strong> Command Line Tool</div></li><li><ol class="section"><li class="chapter-item expanded "><div><strong aria-hidden="true">3.1.</strong> collapse</div></li><li class="chapter-item expanded "><div><strong aria-hidden="true">3.2.</strong> train</div></li><li class="chapter-item expanded "><div><strong aria-hidden="true">3.3.</strong> rank</div></li><li class="chapter-item expanded "><div><strong aria-hidden="true">3.4.</strong> score</div></li><li class="chapter-item expanded "><div><strong aria-hidden="true">3.5.</strong> sma</div></li></ol></li><li class="chapter-item expanded "><div><strong aria-hidden="true">4.</strong> Output Formats</div></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -134,17 +134,35 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1 id="installation"><a class="header" href="#installation">Installation</a></h1>
+                        <h1 id="pickle-file-format"><a class="header" href="#pickle-file-format">Pickle file format</a></h1>
+<p>The outputs from <code>cawlr train</code> and <code>cawlr rank</code> use the Python pickle format. You can use the <a href="https://docs.python.org/3/library/pickle.html">pickle library</a>.</p>
+<h2 id="loading-the-file"><a class="header" href="#loading-the-file">Loading the file</a></h2>
+<pre><code class="language-python">import pickle
+
+# Can also be output from cawlr train
+with open(&quot;ranks.pickle&quot;, 'rb') as rank_file:
+    ranks = pickle.load(rank_file)
+</code></pre>
+<h2 id="cawlr-rank"><a class="header" href="#cawlr-rank"><code>cawlr rank</code></a></h2>
+<p>The <code>ranks</code> object acts as a Python dictionary, mapping a kmer to the Kulback-Liebler divergence between the models from the positive and negative controls.</p>
+<pre><code class="language-python">&gt;&gt;&gt; ranks
+{'TACTAC': 0.36897146906453593, 'GCTGAC': 1.1134219577325406, 'TCTGCG': 0.7802014312171258, ..
+# cutoff for brevity
+}
+
+</code></pre>
+<h2 id="cawlr-train"><a class="header" href="#cawlr-train"><code>cawlr train</code></a></h2>
+<p>Similar to above, the loaded file acts like a Python dictionary mapping kmers to</p>
+<pre><code class="language-python">&gt;&gt;&gt; with open(&quot;/scratch/bsaintjo/220525_unique_cawlr/unique.500.model&quot;, 'rb') as model_file:
+...     model = pickle.load(model_file)
+</code></pre>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                            <a rel="prev" href="intro.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="installation.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <i class="fa fa-angle-left"></i>
-                            </a>
-                            <a rel="next" href="pickle.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
-                                <i class="fa fa-angle-right"></i>
                             </a>
                         <div style="clear: both"></div>
                     </nav>
@@ -152,11 +170,8 @@
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                    <a rel="prev" href="intro.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="installation.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <i class="fa fa-angle-left"></i>
-                    </a>
-                    <a rel="next" href="pickle.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
-                        <i class="fa fa-angle-right"></i>
                     </a>
             </nav>
 
