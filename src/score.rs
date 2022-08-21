@@ -8,15 +8,27 @@ use rv::{
     prelude::{Gaussian, Mixture},
     traits::{Cdf, KlDivergence, Rv},
 };
-use statrs::statistics::{Data, OrderStatistics};
+use statrs::statistics::{Data, OrderStatistics, Statistics};
 
 use crate::{
     arrow::{load_apply, save, wrap_writer, Eventalign, MetadataExt, Score, ScoredRead, Signal},
     context,
-    motif::Motif,
+    motif::{all_bases, Motif},
     train::{Model, ModelDB},
     utils::{chrom_lens, CawlrIO},
 };
+
+fn median(xs: Vec<f64>) -> Option<f64> {
+    let mut xs: Vec<f64> = xs.into_iter().filter(|x| !x.is_nan()).collect();
+    xs.sort_by(|a, b| a.partial_cmp(b).unwrap());
+    if xs.is_empty() {
+        None
+    } else if xs.len() % 2 == 0 {  // Even
+        todo!()
+    } else {  // Odd
+        todo!()
+    }
+}
 
 pub struct ScoreOptions {
     pos_ctrl: Model,
@@ -52,6 +64,7 @@ impl ScoreOptions {
         let chrom_lens = chrom_lens(&genome);
         let pos_ctrl_db = Model::load(&pos_ctrl_filepath)?;
         let neg_ctrl_db = Model::load(&neg_ctrl_filepath)?;
+        let motifs = motifs.unwrap_or_else(all_bases);
         Ok(ScoreOptions {
             pos_ctrl: pos_ctrl_db,
             neg_ctrl: neg_ctrl_db,
@@ -106,18 +119,16 @@ impl ScoreOptions {
         for pos in read.start_1b()..read.end_1b_excl() {
             // Get kmer and check if kmer matches the motifs, if there are any supplied
             let pos_kmer: Option<(&[u8], &Motif)> = context.sixmer_at(pos).and_then(|k| {
-                if let Some(motifs) = &self.motifs {
-                    motifs
-                        .iter()
-                        .find(|m| {
-                            let m = m.motif().as_bytes();
-                            k.starts_with(m)
-                        })
-                        .map(|m| (k, m))
-                } else {
-                    None
-                }
+                self.motifs
+                    .iter()
+                    .find(|m| {
+                        let m = m.motif().as_bytes();
+                        k.starts_with(m)
+                    })
+                    .map(|m| (k, m))
             });
+
+            log::debug!("pos_kmer: {:?}", pos_kmer);
 
             if let Some((kmer, motif)) = pos_kmer {
                 let kmer = std::str::from_utf8(kmer).unwrap().to_string();
@@ -173,7 +184,8 @@ impl ScoreOptions {
             })
             .collect::<Vec<_>>();
 
-        let skip_score = Data::new(skipping_scores).median();
+        // TODO: Switch to median when it can be correctly handled
+        let skip_score = skipping_scores.mean();
         if skip_score.is_nan() {
             Err(anyhow::anyhow!("No data for calculating median"))
         } else {

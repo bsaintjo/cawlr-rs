@@ -1,10 +1,11 @@
-use std::{collections::VecDeque, fs::File, io::Write, path::Path};
+use std::{collections::VecDeque, fmt::Display, fs::File, io::Write, path::Path};
 
 use anyhow::{Context, Result};
 use criterion_stats::univariate::{
     kde::{kernel::Gaussian, Bandwidth, Kde},
     Sample,
 };
+use itertools::Itertools;
 use nalgebra::DMatrix;
 use rand::{
     prelude::{SliceRandom, SmallRng},
@@ -12,7 +13,7 @@ use rand::{
 };
 
 use crate::{
-    arrow::{load_apply, ScoredRead},
+    arrow::{load_apply, Metadata, MetadataExt, ScoredRead},
     bkde::BinnedKde,
     motif,
     motif::Motif,
@@ -97,7 +98,7 @@ where
     let scores_file = File::open(filepath)?;
     let scores = extract_samples_from_file(scores_file)?;
     let scores: Vec<f64> = scores.choose_multiple(rng, kde_samples).cloned().collect();
-    let kde = sample_kde(&scores);
+    let kde = sample_kde(&scores)?;
     let bkde = BinnedKde::from_kde(1000, kde);
     Ok(bkde)
 }
@@ -132,28 +133,10 @@ impl SmaOptions {
         load_apply(scores_file, |reads| {
             for read in reads {
                 let matrix = self.run_read(&read)?;
-                // let matrix = run_read(
-                //     &read,
-                //     &self.pos_bkde,
-                //     &self.neg_bkde,
-                //     self.motifs.as_slice(),
-                // );
-                let result = matrix.backtrace().into_iter().collect::<Vec<_>>();
-                // TODO Take VecDeque in states_to_readable
-                let result = states_to_readable(&result)?;
-                for (state, size) in result.into_iter() {
-                    let chrom = read.metadata().chrom();
-                    let start = read.metadata().start();
-                    let stop = start + read.metadata().length();
-                    let strand = read.metadata().strand();
-                    let strand = strand.as_str();
-                    let name = read.metadata().name();
-
-                    writeln!(
-                        &mut self.writer,
-                        "{chrom}\t{start}\t{stop}\t{name}\t0\t{strand}\t{state}\t{size}"
-                    )?;
-                }
+                let states = matrix.backtrack();
+                let states_rle = states_to_rle(&states);
+                let sma_output = SmaOutput::new(read.metadata(), states_rle);
+                writeln!(&mut self.writer, "{}", sma_output)?;
             }
             Ok(())
         })
@@ -206,13 +189,16 @@ impl SmaOptions {
     }
 }
 
+// TODO Use full score instead of signal score
 pub fn extract_samples(reads: &[ScoredRead]) -> Vec<f64> {
     reads
         .iter()
         .flat_map(|lr| {
             lr.scores()
                 .iter()
-                .map(|score| score.score())
+                .flat_map(|score| score.signal_score())
+                .filter(|x| !x.is_nan())
+                .copied()
                 .collect::<Vec<_>>()
         })
         .collect()
@@ -228,57 +214,12 @@ pub fn extract_samples_from_file(file: File) -> Result<Vec<f64>> {
     Ok(scores)
 }
 
-fn sample_kde(samples: &[f64]) -> Kde<f64, Gaussian> {
-    let samples = Sample::new(samples);
-    Kde::new(samples, Gaussian, Bandwidth::Silverman)
-}
-
-pub fn run_read(
-    read: &ScoredRead,
-    pos_kde: &BinnedKde,
-    neg_kde: &BinnedKde,
-    motifs: &[String],
-) -> DMatrix<f64> {
-    let mut matrix = init_dmatrix(read);
-    let scores = read.to_expanded_scores();
-    for col_idx in 1..=read.length() {
-        let col_idx = col_idx as usize;
-        // Score will be None if a) No data at that position, or b) Position kmer didn't
-        // contain motif of interest
-        let score = scores[col_idx - 1].filter(|s| motifs.iter().any(|m| s.kmer().contains(m)));
-
-        // Start nucleosome vs linker
-        let linker_val = matrix.column(col_idx - 1)[0];
-        let nuc_val = matrix.column(col_idx - 1)[146];
-        let (prev_max, prev_max_idx) = {
-            if linker_val > nuc_val {
-                (linker_val, 0usize)
-            } else {
-                (nuc_val, 146usize)
-            }
-        };
-        let mut col = matrix.column_mut(col_idx);
-        let first: &mut f64 = col.get_mut(0).expect("No values in matrix.");
-        let val: f64 = match score {
-            Some(score) => prev_max + pos_kde.pmf_from_score(score.score()).ln(),
-            None => prev_max,
-        };
-        *first = val;
-
-        // Within nucleosome
-        for rest in 1..147 {
-            let prev_idx = rest - 1;
-            let nuc_prev = matrix.column(col_idx - 1)[rest - 1];
-            let mut col = matrix.column_mut(col_idx);
-            let next = col.get_mut(rest).expect("Failed to get column value");
-            let val = match score {
-                Some(score) => nuc_prev + neg_kde.pmf_from_score(score.score()).ln(),
-                None => prev_max,
-            };
-            *next = val;
-        }
+fn sample_kde(samples: &[f64]) -> Result<Kde<f64, Gaussian>> {
+    if samples.is_empty() {
+        return Err(anyhow::anyhow!("Score file does not contain any values."));
     }
-    matrix
+    let samples = Sample::new(samples);
+    Ok(Kde::new(samples, Gaussian, Bandwidth::Silverman))
 }
 
 pub struct SmaMatrix {
@@ -298,8 +239,10 @@ impl SmaMatrix {
         &self.val_matrix
     }
 
+    // TODO Make initial value 10/157 for linker, 1/157 for nucleosome positions
     pub fn from_read(read: &ScoredRead) -> Self {
-        let val_dm = init_dmatrix(read);
+        let mut val_dm = DMatrix::from_element(147usize, read.length() as usize + 1, f64::MIN);
+        val_dm.column_mut(0).fill((1. / 147.0f64).ln());
 
         let ptr_dm = DMatrix::from_element(147, read.length() as usize + 1, None);
         Self::new(val_dm, ptr_dm)
@@ -317,16 +260,37 @@ impl SmaMatrix {
         &mut self.ptr_matrix
     }
 
-    pub fn backtrace(&self) -> VecDeque<States> {
-        unimplemented!()
-    }
-}
+    /// Use the pointer matrix to infer the most likley sequence of states from
+    /// the probability matrix.
+    ///
+    /// First use the probability matrix to find the most likely state it ended
+    /// with. Then use that index walk through the pointer matrix and get
+    /// each state and what was the state used to update the probability matrix.
+    pub fn backtrack(&self) -> VecDeque<States> {
+        use States::*;
 
-// TODO Make initial value 10/157 for linker, 1/157 for nucleosome positions
-pub fn init_dmatrix(read: &ScoredRead) -> DMatrix<f64> {
-    let mut dm = DMatrix::from_element(147usize, read.length() as usize + 1, f64::MIN);
-    dm.column_mut(0).fill((1. / 147.0f64).ln());
-    dm
+        let ncols = self.probs().ncols();
+        let mut acc = VecDeque::new();
+        let mut idx = self.probs().column(ncols - 1).argmax().0;
+        let mut pos = self.probs().ncols() - 1;
+        // At pos = 0, the column will be the data intialized from 1/147
+        while pos > 0 {
+            if idx > 0 {
+                acc.push_front(Nucleosome);
+            } else {
+                acc.push_front(Linker);
+            }
+
+            if let Some(new_idx) = self.ptrs().column(pos)[idx] {
+                idx = new_idx;
+            } else {
+                break;
+            }
+
+            pos -= 1;
+        }
+        acc
+    }
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -335,15 +299,28 @@ pub enum States {
     Nucleosome,
 }
 
-/// Converts a slice of States into a more readable format, to make it easier
-/// for downstream parsing in python
-pub fn states_to_readable(states: &[States]) -> Result<Vec<(String, u64)>> {
+/// Converts a list of States into a Run-length encoding vector of states
+///
+/// # Examples
+/// ```rust, ignore
+/// # fn main() -> anyhow::Result<()> {
+/// use cawlr::sma::States::*;
+/// let states = vec![Linker, Linker, Linker, Nucleosome, Nucleosome, Linker];
+/// let rle = states_to_rle(&states);
+/// assert_eq!(rle, [(Linker, 3), (Nucleosome, 2), (Linker, 1)]);
+/// # Ok(())
+/// # }
+/// ```
+///
+/// # Panics
+/// Will panic if states is empty
+fn states_to_rle(states: &VecDeque<States>) -> Vec<(States, u64)> {
     let init_state = *states
         .get(0)
-        .context("Failed to convert, empty States slice")?;
+        .expect("Failed to convert, empty States slice");
     let mut curr = (init_state, 1);
     let mut acc = Vec::new();
-    for &state in &states[1..] {
+    for &state in states.iter().skip(1) {
         if state == curr.0 {
             curr.1 += 1;
         } else {
@@ -352,35 +329,72 @@ pub fn states_to_readable(states: &[States]) -> Result<Vec<(String, u64)>> {
         }
     }
     acc.push(curr);
-
-    let readable = acc
-        .into_iter()
-        .map(|(x, y)| match x {
-            States::Linker => ("linker".to_string(), y),
-            States::Nucleosome => ("nucleosome".to_string(), y),
-        })
-        .collect();
-    Ok(readable)
+    acc
 }
 
-pub fn backtrace(matrix: DMatrix<f64>) -> Vec<States> {
-    let mut pos = matrix.ncols() - 1;
-    let mut acc = Vec::new();
-    let nuc_idx = matrix.ncols() - 1;
-    while pos > 0 {
-        let linker_val = matrix.column(pos)[0];
-        let nuc_val = matrix.column(pos)[nuc_idx];
-        if linker_val > nuc_val {
-            acc.push(States::Linker);
-            pos -= 1;
-        } else {
-            let n = if pos > 147 { 147 } else { pos };
-            acc.append(&mut vec![States::Nucleosome; n]);
-            pos -= n;
+struct SmaOutput<'a> {
+    metadata: &'a Metadata,
+    states_rle: Vec<(States, u64)>,
+}
+
+impl<'a> MetadataExt for SmaOutput<'a> {
+    fn metadata(&self) -> &Metadata {
+        self.metadata
+    }
+}
+
+impl<'a> SmaOutput<'a> {
+    fn new(metadata: &'a Metadata, states_rle: Vec<(States, u64)>) -> Self {
+        Self {
+            metadata,
+            states_rle,
         }
     }
-    acc.reverse();
-    acc
+
+    // Count number of runs of States::Nucleosomes
+    fn num_nuc(&self) -> usize {
+        self.states_rle
+            .iter()
+            .filter(|x| x.0 == States::Nucleosome)
+            .count()
+    }
+
+    // Converts the RLE States list into two vectors, one containing the starts of
+    // the nucleosome positions, the other of their lengths
+    fn nuc_starts_lens(&self) -> (Vec<u64>, Vec<u64>) {
+        let mut acc = Vec::new();
+        let mut curr = self.start_0b();
+
+        for (state, length) in self.states_rle.iter() {
+            if *state == States::Nucleosome {
+                acc.push((curr, *length));
+            }
+            curr += length;
+        }
+
+        acc.into_iter().unzip()
+    }
+}
+
+impl<'a> Display for SmaOutput<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let (starts, lengths) = self.nuc_starts_lens();
+        let starts = starts.iter().map(|x| x.to_string()).join(",");
+        let lengths = lengths.iter().map(|x| x.to_string()).join(",");
+        write!(
+            f,
+            "{}\t{}\t{}\t{}\t0\t.\t{}\t{}\t0,0,0\t{}\t{}\t{}",
+            self.chrom(),
+            self.start_0b(),
+            self.end_1b_excl(),
+            self.name(),
+            self.start_0b(),
+            self.end_1b_excl(),
+            self.num_nuc(),
+            starts,
+            lengths,
+        )
+    }
 }
 
 #[cfg(test)]
@@ -388,41 +402,50 @@ mod test {
     use nalgebra::dmatrix;
 
     use super::*;
+    use crate::arrow::Strand;
 
     #[test]
-    fn test_backtrace() {
-        let matrix = dmatrix![0.1, 0.9, 0.9;
-                                                                0.2, 0.3, 0.4;
-                                                                0.9, 0.0, 0.0];
-        assert_eq!(matrix[(0, 1)], 0.9);
+    fn test_backtrack() {
+        use States::*;
 
-        let answer = vec![States::Linker, States::Linker];
-        assert_eq!(backtrace(matrix), answer);
+        let val_matrix = dmatrix![0.5, 0.1, 0.9, 0.9;
+                                                                    0.5, 0.2, 0.3, 0.4;
+                                                                    0.5, 0.9, 0.0, 0.0];
+        let ptr_matrix = dmatrix![None, Some(0), Some(0), Some(1);
+                                                                     None, Some(0), Some(0), Some(1);
+                                                                     None, Some(0), Some(0), Some(1)];
+        let sma_matrix = SmaMatrix::new(val_matrix, ptr_matrix);
+        assert_eq!(sma_matrix.val_matrix[(0, 0)], 0.5);
+
+        let answer: VecDeque<States> = VecDeque::from([Linker, Nucleosome, Linker]);
+        assert_eq!(sma_matrix.backtrack(), answer);
     }
 
     #[test]
-    fn test_states_to_readable_empty() {
-        let acc = Vec::new();
-        assert!(states_to_readable(&acc).is_err());
+    fn test_sma_output() {
+        use States::*;
+        let metadata = Metadata::new(
+            "test".to_string(),
+            "chrI".to_string(),
+            100,
+            50,
+            Strand::plus(),
+            "".to_string(),
+        );
+
+        let states_rle = vec![(Linker, 5), (Nucleosome, 20), (Linker, 5), (Nucleosome, 10)];
+
+        let sma_output = SmaOutput::new(&metadata, states_rle);
+        let formatted = format!("{}", sma_output);
+        let answer = "chrI\t100\t150\ttest\t0\t.\t100\t150\t0,0,0\t2\t105,130\t20,10";
+        assert_eq!(formatted, answer);
     }
 
     #[test]
-    fn test_states_to_readable() {
-        let mut states = Vec::new();
-
-        for (x, y) in [(10, 5), (5, 7)] {
-            let mut xs = vec![States::Linker; x];
-            let mut ys = vec![States::Nucleosome; y];
-            states.append(&mut xs);
-            states.append(&mut ys);
-        }
-
-        let answer = vec![
-            ("linker".to_string(), 10),
-            ("nucleosome".to_string(), 5),
-            ("linker".to_string(), 5),
-            ("nucleosome".to_string(), 7),
-        ];
-        assert_eq!(states_to_readable(&states).unwrap(), answer);
+    fn test_states_to_rle() {
+        use States::*;
+        let states = VecDeque::from([Linker, Linker, Linker, Nucleosome, Nucleosome, Linker]);
+        let rle = states_to_rle(&states);
+        assert_eq!(rle, [(Linker, 3), (Nucleosome, 2), (Linker, 1)]);
     }
 }

@@ -105,7 +105,7 @@ pub struct Metadata {
 }
 
 impl Metadata {
-    fn new(
+    pub(crate) fn new(
         name: String,
         chrom: String,
         start: u64,
@@ -352,6 +352,10 @@ impl Score {
     /// Get the score's score.
     pub fn score(&self) -> f64 {
         self.score
+    }
+
+    pub(crate) fn signal_score(&self) -> &Option<f64> {
+        &self.signal_score
     }
 
     /// Get a reference to the score's kmer.

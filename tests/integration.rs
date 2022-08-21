@@ -129,6 +129,8 @@ fn integration() -> Result<(), Box<dyn Error>> {
         .arg(&genome)
         .arg("-o")
         .arg(&scores)
+        .arg("--cutoff")
+        .arg("0.0")
         .env("RUST_BACKTRACE", "1")
         .assert()
         .success();
@@ -149,6 +151,8 @@ fn integration() -> Result<(), Box<dyn Error>> {
         .arg(&genome)
         .arg("-o")
         .arg(&pos_scores)
+        .arg("--cutoff")
+        .arg("0.0")
         .env("RUST_BACKTRACE", "1")
         .assert()
         .success();
@@ -169,18 +173,11 @@ fn integration() -> Result<(), Box<dyn Error>> {
         .arg(&genome)
         .arg("-o")
         .arg(&neg_scores)
+        .arg("--cutoff")
+        .arg("0.0")
         .env("RUST_BACKTRACE", "1")
         .assert()
         .success();
-
-    Command::new(cawlr)
-        .arg("sma")
-        .arg("--input")
-        .arg(scores)
-        .arg("--pos-ctrl-scores")
-        .arg(pos_scores)
-        .arg("--neg-ctrl-scores")
-        .arg(neg_scores);
 
     temp_dir.close()?;
     Ok(())
