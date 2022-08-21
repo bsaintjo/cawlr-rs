@@ -419,6 +419,35 @@ mod test {
     use crate::{arrow::load_iter, collapse::CollapseOptions, motif::Motif};
 
     #[test]
+    fn test_score_signal() {
+        let signal = 80.0;
+        let cutoff = 10.0;
+
+        let neg_mix = Mixture::new(
+            vec![0.9, 0.1],
+            vec![
+                Gaussian::new(100.0, 1.0).unwrap(),
+                Gaussian::new(100.0, 1.0).unwrap(),
+            ],
+        )
+        .unwrap();
+        let pos_mix = Mixture::new(
+            vec![0.9, 0.1],
+            vec![
+                Gaussian::new(80.0, 1.0).unwrap(),
+                Gaussian::new(100.0, 1.0).unwrap(),
+            ],
+        )
+        .unwrap();
+
+        let result = score_signal(signal, &pos_mix, &neg_mix, cutoff);
+        assert!(result.is_some());
+
+        let result = score_signal(1000.0, &pos_mix, &neg_mix, cutoff);
+        assert!(result.is_none());
+    }
+
+    #[test]
     fn test_zscore_to_tt_pvalue() {
         assert_float_eq!(zscore_to_tt_pvalue(2.9), 0.003_732, abs <= 0.000_001);
         assert_float_eq!(zscore_to_tt_pvalue(0.1), 0.920_344, abs <= 0.000_001);
