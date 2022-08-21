@@ -1,10 +1,11 @@
-use std::{collections::VecDeque, fs::File, io::Write, path::Path};
+use std::{collections::VecDeque, fmt::Display, fs::File, io::Write, path::Path};
 
 use anyhow::{Context, Result};
 use criterion_stats::univariate::{
     kde::{kernel::Gaussian, Bandwidth, Kde},
     Sample,
 };
+use itertools::Itertools;
 use nalgebra::DMatrix;
 use rand::{
     prelude::{SliceRandom, SmallRng},
@@ -12,7 +13,7 @@ use rand::{
 };
 
 use crate::{
-    arrow::{load_apply, ScoredRead},
+    arrow::{load_apply, Metadata, MetadataExt, ScoredRead},
     bkde::BinnedKde,
     motif,
     motif::Motif,
@@ -132,23 +133,10 @@ impl SmaOptions {
         load_apply(scores_file, |reads| {
             for read in reads {
                 let matrix = self.run_read(&read)?;
-                let result = matrix.backtrace().into_iter().collect::<Vec<_>>();
-                // TODO Take VecDeque in states_to_readable
-                let result = states_to_readable(&result)?;
-
-                for (state, size) in result.into_iter() {
-                    let chrom = read.metadata().chrom();
-                    let start = read.metadata().start();
-                    let stop = start + read.metadata().length();
-                    let strand = read.metadata().strand();
-                    let strand = strand.as_str();
-                    let name = read.metadata().name();
-
-                    writeln!(
-                        &mut self.writer,
-                        "{chrom}\t{start}\t{stop}\t{name}\t0\t{strand}\t{state}\t{size}"
-                    )?;
-                }
+                let states = matrix.backtrace().into_iter().collect::<Vec<_>>();
+                let states_rle = states_to_rle(&states);
+                let sma_output = SmaOutput::new(read.metadata(), states_rle);
+                writeln!(&mut self.writer, "{}", sma_output)?;
             }
             Ok(())
         })
@@ -282,12 +270,11 @@ pub enum States {
     Nucleosome,
 }
 
-/// Converts a slice of States into a more readable format, to make it easier
-/// for downstream parsing in python
-pub fn states_to_readable(states: &[States]) -> Result<Vec<(String, u64)>> {
+// Converts a list of States into a Run-length encoding vector of states
+fn states_to_rle(states: &[States]) -> Vec<(States, u64)> {
     let init_state = *states
         .get(0)
-        .context("Failed to convert, empty States slice")?;
+        .expect("Failed to convert, empty States slice");
     let mut curr = (init_state, 1);
     let mut acc = Vec::new();
     for &state in &states[1..] {
@@ -299,7 +286,17 @@ pub fn states_to_readable(states: &[States]) -> Result<Vec<(String, u64)>> {
         }
     }
     acc.push(curr);
+    acc
+}
 
+/// Converts a slice of States into a more readable format, to make it easier
+/// for downstream parsing in python
+pub fn states_to_readable(states: &[States]) -> Result<Vec<(String, u64)>> {
+    if states.is_empty() {
+        return Err(anyhow::anyhow!("Empty list of states"));
+    }
+
+    let acc = states_to_rle(states);
     let readable = acc
         .into_iter()
         .map(|(x, y)| match x {
@@ -330,11 +327,77 @@ pub fn backtrace(matrix: DMatrix<f64>) -> Vec<States> {
     acc
 }
 
+struct SmaOutput<'a> {
+    metadata: &'a Metadata,
+    states_rle: Vec<(States, u64)>,
+}
+
+impl<'a> MetadataExt for SmaOutput<'a> {
+    fn metadata(&self) -> &Metadata {
+        self.metadata
+    }
+}
+
+impl<'a> SmaOutput<'a> {
+    fn new(metadata: &'a Metadata, states_rle: Vec<(States, u64)>) -> Self {
+        Self {
+            metadata,
+            states_rle,
+        }
+    }
+
+    // Count number of runs of States::Nucleosomes
+    fn num_nuc(&self) -> usize {
+        self.states_rle
+            .iter()
+            .filter(|x| x.0 == States::Nucleosome)
+            .count()
+    }
+
+    // Converts the RLE States list into two vectors, one containing the starts of
+    // the nucleosome positions, the other of their lengths
+    fn nuc_starts_lens(&self) -> (Vec<u64>, Vec<u64>) {
+        let mut acc = Vec::new();
+        let mut curr = self.start_0b();
+
+        for (state, length) in self.states_rle.iter() {
+            if *state == States::Nucleosome {
+                acc.push((curr, *length));
+            }
+            curr += length;
+        }
+
+        acc.into_iter().unzip()
+    }
+}
+
+impl<'a> Display for SmaOutput<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let (starts, lengths) = self.nuc_starts_lens();
+        let starts = starts.iter().map(|x| x.to_string()).join(",");
+        let lengths = lengths.iter().map(|x| x.to_string()).join(",");
+        write!(
+            f,
+            "{}\t{}\t{}\t{}\t0\t.\t{}\t{}\t0,0,0\t{}\t{}\t{}",
+            self.chrom(),
+            self.start_0b(),
+            self.end_1b_excl(),
+            self.name(),
+            self.start_0b(),
+            self.end_1b_excl(),
+            self.num_nuc(),
+            starts,
+            lengths,
+        )
+    }
+}
+
 #[cfg(test)]
 mod test {
     use nalgebra::dmatrix;
 
     use super::*;
+    use crate::arrow::Strand;
 
     #[test]
     fn test_backtrace() {
@@ -371,5 +434,25 @@ mod test {
             ("nucleosome".to_string(), 7),
         ];
         assert_eq!(states_to_readable(&states).unwrap(), answer);
+    }
+
+    #[test]
+    fn test_sma_output() {
+        use States::*;
+        let metadata = Metadata::new(
+            "test".to_string(),
+            "chrI".to_string(),
+            100,
+            50,
+            Strand::plus(),
+            "".to_string(),
+        );
+
+        let states_rle = vec![(Linker, 5), (Nucleosome, 20), (Linker, 5), (Nucleosome, 10)];
+
+        let sma_output = SmaOutput::new(&metadata, states_rle);
+        let formatted = format!("{}", sma_output);
+        let answer = "chrI\t100\t150\ttest\t0\t.\t100\t150\t0,0,0\t2\t105,130\t20,10";
+        assert_eq!(formatted, answer);
     }
 }

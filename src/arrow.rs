@@ -105,7 +105,7 @@ pub struct Metadata {
 }
 
 impl Metadata {
-    fn new(
+    pub(crate) fn new(
         name: String,
         chrom: String,
         start: u64,
