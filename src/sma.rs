@@ -241,7 +241,8 @@ impl SmaMatrix {
     }
 
     pub fn from_read(read: &ScoredRead) -> Self {
-        let val_dm = init_dmatrix(read);
+        let mut val_dm = DMatrix::from_element(147usize, read.length() as usize + 1, f64::MIN);
+        val_dm.column_mut(0).fill((1. / 147.0f64).ln());
 
         let ptr_dm = DMatrix::from_element(147, read.length() as usize + 1, None);
         Self::new(val_dm, ptr_dm)
@@ -285,6 +286,8 @@ impl SmaMatrix {
             } else {
                 break;
             }
+
+            pos -= 1;
         }
         acc
     }
@@ -437,6 +440,23 @@ mod test {
 
         let answer = vec![States::Linker, States::Linker];
         assert_eq!(backtrace(matrix), answer);
+    }
+
+    #[test]
+    fn test_backtrack() {
+        use States::*;
+
+        let val_matrix = dmatrix![0.5, 0.1, 0.9, 0.9;
+                                                                    0.5, 0.2, 0.3, 0.4;
+                                                                    0.5, 0.9, 0.0, 0.0];
+        let ptr_matrix = dmatrix![None, Some(0), Some(0), Some(1);
+                                                                     None, Some(0), Some(0), Some(1);
+                                                                     None, Some(0), Some(0), Some(1)];
+        let sma_matrix = SmaMatrix::new(val_matrix, ptr_matrix);
+        assert_eq!(sma_matrix.val_matrix[(0, 0)], 0.5);
+
+        let answer: VecDeque<States> = VecDeque::from([Linker, Nucleosome, Linker]);
+        assert_eq!(sma_matrix.backtrack(), answer);
     }
 
     #[test]
