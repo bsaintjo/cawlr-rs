@@ -133,7 +133,8 @@ impl SmaOptions {
         load_apply(scores_file, |reads| {
             for read in reads {
                 let matrix = self.run_read(&read)?;
-                let states = matrix.backtrace().into_iter().collect::<Vec<_>>();
+                // TODO Use VecDeque and avoid unnnecessary reallocation
+                let states = matrix.backtrack().into_iter().collect::<Vec<_>>();
                 let states_rle = states_to_rle(&states);
                 let sma_output = SmaOutput::new(read.metadata(), states_rle);
                 writeln!(&mut self.writer, "{}", sma_output)?;
