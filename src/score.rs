@@ -193,7 +193,7 @@ impl ScoreOptions {
             &self.rank,
             self.pos_ctrl.gmms(),
             self.neg_ctrl.gmms(),
-            self.p_value_threshold
+            self.p_value_threshold,
         );
 
         log::debug!("Best signal: {best_signal:.3?}");
@@ -394,19 +394,19 @@ fn score_signal(
     let neg_proba = neg_mix.f(&signal);
     let score = pos_proba / (pos_proba + neg_proba);
     log::debug!("Score: {score:.3}");
-    
+
     let pos_log_proba = pos_mix.ln_f(&signal);
     let neg_log_proba = neg_mix.ln_f(&signal);
 
     log::debug!("+ Gaussian log proba: {pos_log_proba}");
     log::debug!("- Gaussian log proba: {neg_log_proba}");
 
-    if (pos_log_proba> -cutoff) || (neg_log_proba> -cutoff) {
-        log::debug!("Below cutoff, not scoring.");
-        None
-    } else {
+    if (pos_log_proba > -cutoff) || (neg_log_proba > -cutoff) {
         log::debug!("Valid score");
         Some(score)
+    } else {
+        log::debug!("Below cutoff, not scoring.");
+        None
     }
 }
 
