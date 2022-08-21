@@ -174,7 +174,10 @@ OPTIONS:
     -h, --help                 Print help information
     -i, --input <INPUT>        Positive or negative control output from cawlr collapse
     -o, --output <OUTPUT>      Path to resulting pickle file
+    -q, --quiet                Less output per occurrence
     -s, --samples <SAMPLES>    Number of samples per kmer to allow [default: 50000]
+    -v, --verbose              More output per occurrence
+
 ```
 
 ### `cawlr rank`
@@ -192,16 +195,19 @@ OPTIONS:
         --neg-ctrl <NEG_CTRL>    Negative control output from cawlr train
     -o, --output <OUTPUT>        Path to output file
         --pos-ctrl <POS_CTRL>    Positive control output from cawlr train
+    -q, --quiet                  Less output per occurrence
         --samples <SAMPLES>      Ranks are estimated via sampling, higher value for samples means it
                                  takes longer for cawlr rank to run but the ranks will be more
                                  accurate [default: 100000]
         --seed <SEED>            Ranks are estimated via sampling, so to keep values consistent
                                  between subsequent runs a seed value is used [default: 2456]
+    -v, --verbose                More output per occurrence
+
 ```
 
 ### `cawlr score`
 
-```text
+```bash
 $ cawlr help score
 cawlr-score 
 Score each kmer with likelihood based on positive and negative controls
@@ -210,19 +216,86 @@ USAGE:
     cawlr score [OPTIONS] --input <INPUT> --output <OUTPUT> --pos-ctrl <POS_CTRL> --neg-ctrl <NEG_CTRL> --ranks <RANKS> --genome <GENOME>
 
 OPTIONS:
-        --cutoff <CUTOFF>        [default: 10]
-    -g, --genome <GENOME>        Path to fasta file for organisms genome, must have a .fai file from
-                                 samtools faidx
-    -h, --help                   Print help information
-    -i, --input <INPUT>          Path to Apache Arrow file from cawlr collapse
-    -m, --motif <MOTIF>          
-        --neg-ctrl <NEG_CTRL>    Negative control file from cawlr train
-    -o, --output <OUTPUT>        Path to output file
-        --pos-ctrl <POS_CTRL>    Positive control file from cawlr train
-    -r, --ranks <RANKS>          Path to rank file from cawlr rank
+        --cutoff <CUTOFF>
+            Threshold for current value to be considered reasonable [default: 10]
+
+    -g, --genome <GENOME>
+            Path to fasta file for organisms genome, must have a .fai file from samtools faidx
+
+    -h, --help
+            Print help information
+
+    -i, --input <INPUT>
+            Path to Apache Arrow file from cawlr collapse
+
+    -m, --motif <MOTIF>
+            Only score in kmers that contain this motif, by default will score all kmers
+
+        --neg-ctrl <NEG_CTRL>
+            Negative control file from cawlr train
+
+    -o, --output <OUTPUT>
+            Path to output file
+
+        --p-value-threshold <P_VALUE_THRESHOLD>
+            Threshold for kmer model to be used [default: 0.05]
+
+        --pos-ctrl <POS_CTRL>
+            Positive control file from cawlr train
+
+    -q, --quiet
+            Less output per occurrence
+
+    -r, --ranks <RANKS>
+            Path to rank file from cawlr rank
+
+    -v, --verbose
+            More output per occurrence
+
 ```
 
 ### `cawlr sma`
+
+```bash
+$ cawlr help sma
+cawlr-sma 
+
+USAGE:
+    cawlr sma [OPTIONS] --input <INPUT> --pos-ctrl-scores <POS_CTRL_SCORES> --neg-ctrl-scores <NEG_CTRL_SCORES>
+
+OPTIONS:
+    -h, --help
+            Print help information
+
+    -i, --input <INPUT>
+            Path to scored data from cawlr score
+
+        --kde-samples <KDE_SAMPLES>
+            Number of scores sampled to create kernel density estimate [default: 10000]
+
+    -m, --motif <MOTIF>
+            Only that contain this motif will be used to perform single molecule analysis, by
+            default will use all kmers
+
+        --neg-ctrl-scores <NEG_CTRL_SCORES>
+            Path to score from negative control dataset
+
+    -o, --output <OUTPUT>
+            Path to output file
+
+        --pos-ctrl-scores <POS_CTRL_SCORES>
+            Path to score from positive control dataset
+
+    -q, --quiet
+            Less output per occurrence
+
+        --seed <SEED>
+            Set seed to have reproducible sampling [default: 2456]
+
+    -v, --verbose
+            More output per occurrence
+
+```
 
 ## Models
 
