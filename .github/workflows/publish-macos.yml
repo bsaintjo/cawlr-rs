@@ -1,0 +1,56 @@
+name: Publish MacOS binary
+
+on:
+  push:
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+"
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+  RELEASE_BINARY: target/x86_64-apple-darwin/release/cawlr
+  DIST_DIR: cawlr-${{ github.ref_name }}/
+  COMPRESSED: cawlr-${{ github.ref_name }}-x86_64-apple-darwin.tar.gz
+
+jobs:
+  compile:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v3
+
+      - name: rust-toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          override: true
+          profile: minimal
+
+      - name: Run cargo test
+        env:
+          RUST_LOG: warn
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --bin cawlr --locked -- --nocapture
+
+      - name: Run cargo build
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --release --bin cawlr --all-features --target x86_64-apple-darwin --locked
+
+      - name: Strip binary and create archive
+        run: |
+          strip ${{ env.RELEASE_BINARY }}
+          mkdir ${{ env.DIST_DIR }}
+          cp README.md LICENSE ${{ env.RELEASE_BINARY }} ${{ env.DIST_DIR }}
+          tar -cvzf ${{ env.COMPRESSED }} ${{ env.DIST_DIR }}
+
+      - name: Upload binaries to release
+        if: ${{ github.ref != 'refs/heads/main'}}
+        uses: svenstaro/upload-release-action@v2
+        with:
+          file: ${{ env.COMPRESSED }}
+          overwrite: true
