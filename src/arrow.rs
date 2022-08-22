@@ -301,21 +301,21 @@ impl Eventalign {
 }
 
 #[derive(Default)]
-pub(crate) struct ScoreBuilder {
+pub struct ScoreBuilder {
     score: Score,
 }
 
 impl ScoreBuilder {
-    fn new(score: Score) -> Self {
+    pub fn new(score: Score) -> Self {
         Self { score }
     }
 
-    pub(crate) fn score(mut self, score: f64) -> Self {
+    pub fn score(mut self, score: f64) -> Self {
         self.score.score = score;
         self
     }
 
-    pub(crate) fn build(self) -> Score {
+    pub fn build(self) -> Score {
         self.score
     }
 }

@@ -477,10 +477,11 @@ mod test {
     fn test_single_read() -> Result<()> {
         let temp_dir = TempDir::new()?;
         let filepath = "extra/single_read.eventalign.txt";
+        let input = File::open(filepath)?;
         let bam_file = "extra/single_read.bam";
         let output = temp_dir.path().join("test");
-        let collapse = CollapseOptions::try_new(filepath, bam_file, &output)?;
-        collapse.run()?;
+        let collapse = CollapseOptions::try_new(bam_file, &output)?;
+        collapse.run(input)?;
 
         let output = File::open(output)?;
         let reads = load_iter(output).next().unwrap().unwrap();
