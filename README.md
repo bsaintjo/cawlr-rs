@@ -12,6 +12,7 @@
 
 - [cawlr 𓅨](#cawlr-𓅨)
   - [Table of Contents](#table-of-contents)
+  - [Quick Start](#quick-start)
   - [Installation](#installation)
     - [Installing rust via rustup](#installing-rust-via-rustup)
     - [Installing system dependencies](#installing-system-dependencies)
@@ -37,6 +38,24 @@
     - [`plot_read_length_vs_mod_rate.py`](#plot_read_length_vs_mod_ratepy)
     - [`plot_scores_with_inference.py`](#plot_scores_with_inferencepy)
   - [Citations](#citations)
+
+## Quick Start
+
+```bash
+# Follow preparing data from Nanopore Data Preparation
+$ nanopolish eventalign --read sample.fastq \
+    --bam sample.bam \
+    --genome ref.fa \
+    --scale-events \
+    --samples \
+    --print-read-names \
+    --progress \
+    -t 4 \
+    | cawlr collapse \
+    --bam sample.bam \
+    --output sample.collapse.arrow
+# TODO The rest of the commands
+```
 
 ## Installation
 

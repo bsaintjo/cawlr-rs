@@ -102,7 +102,6 @@ fn spin_iter<I: Read>(iter: I, show_progress: bool) -> ProgressBarIter<I> {
 }
 
 pub struct CollapseOptions<W: Write> {
-    input: PathBuf,
     writer: FileWriter<W>,
     strand_db: PlusStrandMap,
     capacity: usize,
@@ -110,15 +109,14 @@ pub struct CollapseOptions<W: Write> {
 }
 
 impl CollapseOptions<BufWriter<File>> {
-    pub fn try_new<P, Q, R>(input: P, bam_file: Q, output: R) -> Result<Self>
+    pub fn try_new<Q, R>(bam_file: Q, output: R) -> Result<Self>
     where
-        P: AsRef<Path>,
         Q: AsRef<Path>,
         R: AsRef<Path>,
     {
         let writer = File::create(output)?;
         let writer = BufWriter::new(writer);
-        CollapseOptions::from_writer(input.as_ref(), writer, bam_file)
+        CollapseOptions::from_writer(writer, bam_file)
     }
 }
 
@@ -133,17 +131,14 @@ impl<W: Write> CollapseOptions<W> {
         self
     }
 
-    pub(crate) fn from_writer<P, R>(input: P, writer: W, bam_file: R) -> Result<Self>
+    pub(crate) fn from_writer<R>(writer: W, bam_file: R) -> Result<Self>
     where
-        P: AsRef<Path>,
         R: AsRef<Path>,
     {
-        let input = input.as_ref().to_owned();
         let strand_db = PlusStrandMap::from_bam_file(bam_file)?;
         let schema = arrow::Eventalign::schema();
         let writer = arrow::wrap_writer(writer, &schema)?;
         Ok(CollapseOptions {
-            input,
             writer,
             capacity: 2048,
             progress: false,
@@ -160,9 +155,11 @@ impl<W: Write> CollapseOptions<W> {
         Ok(())
     }
 
-    pub fn run(mut self) -> Result<()> {
-        let file = File::open(&self.input)?;
-        let file = spin_iter(file, self.progress);
+    pub fn run<R>(mut self, input: R) -> Result<()>
+    where
+        R: Read,
+    {
+        let file = spin_iter(input, self.progress);
         let mut builder = csv::ReaderBuilder::new().delimiter(b'\t').from_reader(file);
         let mut npr_iter = builder.deserialize().peekable();
 
@@ -286,10 +283,11 @@ mod test {
     fn test_collapse() -> Result<()> {
         let temp_dir = TempDir::new()?;
         let filepath = "extra/single_read.eventalign.txt";
+        let input = File::open(filepath)?;
         let bam_file = "extra/single_read.bam";
         let output = temp_dir.path().join("test");
-        let collapse = CollapseOptions::try_new(filepath, bam_file, &output)?;
-        collapse.run()?;
+        let collapse = CollapseOptions::try_new(bam_file, &output)?;
+        collapse.run(input)?;
 
         let output = File::open(output)?;
         let x = load_iter(output).next().unwrap().unwrap();
@@ -310,10 +308,11 @@ mod test {
     fn test_collapse_big() -> Result<()> {
         let temp_dir = TempDir::new()?;
         let filepath = "extra/neg_control.eventalign.txt";
+        let input = File::open(filepath)?;
         let bam_file = "extra/neg_control.bam";
         let output = temp_dir.path().join("test");
-        let collapse = CollapseOptions::try_new(filepath, bam_file, &output)?;
-        collapse.run()?;
+        let collapse = CollapseOptions::try_new(bam_file, &output)?;
+        collapse.run(input)?;
 
         let output = File::open(output)?;
         let mut loads = 0;

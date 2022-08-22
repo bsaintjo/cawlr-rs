@@ -1,4 +1,8 @@
-use std::path::{Path, PathBuf};
+use std::{
+    fs::File,
+    io::{self, Read, Write},
+    path::{Path, PathBuf},
+};
 
 use anyhow::Result;
 use clap::{IntoApp, Parser, Subcommand};
@@ -45,9 +49,10 @@ struct Args {
 #[derive(Subcommand, Debug)]
 enum Commands {
     Collapse {
+        /// Path to nanopolish eventalign output with samples column, or stdin
+        /// if not provided.
         #[clap(short, long)]
-        /// Path to nanopolish eventalign output with samples column
-        input: String,
+        input: Option<PathBuf>,
 
         /// Path to BAM alignment file used in nanopolish eventalign
         #[clap(short, long)]
@@ -208,10 +213,18 @@ fn main() -> Result<()> {
                 )
                 .exit();
             }
+            let final_input: Box<dyn Read> = {
+                if let Some(path) = input {
+                    Box::new(File::open(path)?)
+                } else {
+                    let stdin = io::stdin().lock();
+                    Box::new(stdin)
+                }
+            };
 
-            let mut collapse = collapse::CollapseOptions::try_new(&input, &bam, &output)?;
+            let mut collapse = collapse::CollapseOptions::try_new(&bam, &output)?;
             collapse.capacity(capacity).progress(true);
-            collapse.run()?;
+            collapse.run(final_input)?;
         }
         Commands::Index { input } => {
             index::index(input)?;

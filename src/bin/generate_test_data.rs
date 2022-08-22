@@ -1,4 +1,7 @@
-use std::path::{Path, PathBuf};
+use std::{
+    fs::File,
+    path::{Path, PathBuf},
+};
 
 use anyhow::Result;
 use cawlr::{
@@ -47,9 +50,13 @@ fn main() -> Result<()> {
     let neg_output = output_dir.join("neg_collapse");
     let read_output = output_dir.join("read_collapse");
 
-    CollapseOptions::try_new(NEG_CTRL, NEG_CTRL_BAM, &neg_output)?.run()?;
-    CollapseOptions::try_new(POS_CTRL, POS_CTRL_BAM, &pos_output)?.run()?;
-    CollapseOptions::try_new(READ, READ_BAM, &read_output)?.run()?;
+    let neg_ctrl = File::open(NEG_CTRL)?;
+    let pos_ctrl = File::open(POS_CTRL)?;
+    let read = File::open(READ)?;
+
+    CollapseOptions::try_new(NEG_CTRL_BAM, &neg_output)?.run(neg_ctrl)?;
+    CollapseOptions::try_new(POS_CTRL_BAM, &pos_output)?.run(pos_ctrl)?;
+    CollapseOptions::try_new(READ_BAM, &read_output)?.run(read)?;
 
     let pos_model_path = output_dir.join("pos_model");
     let neg_model_path = output_dir.join("neg_model");
