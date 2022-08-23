@@ -10,7 +10,7 @@ env:
   CARGO_TERM_COLOR: always
   RELEASE_BINARY: target/x86_64-unknown-linux-gnu/release/cawlr
   DIST_DIR: cawlr-${{ github.ref_name }}/
-  COMPRESSED: cawlr-${{ github.ref_name }}-linux-ubuntu-latest-x86_64.tar.gz
+  COMPRESSED: cawlr-${{ github.ref_name }}-x86_64-unknown-linux-gnu.tar.gz
 
 jobs:
   compile:
@@ -26,14 +26,6 @@ jobs:
           toolchain: nightly
           override: true
           profile: minimal
-
-      - name: Run cargo test
-        env:
-          RUST_LOG: warn
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
-          args: --bin cawlr --locked -- --nocapture
 
       - name: Run cargo build
         uses: actions-rs/cargo@v1
