@@ -15,7 +15,11 @@ env:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, self-hosted]
+    runs-on: ${{ matrix.os }}
 
     steps:
       - name: Checkout main
