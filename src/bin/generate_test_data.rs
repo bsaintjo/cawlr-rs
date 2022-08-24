@@ -65,9 +65,9 @@ fn main() -> Result<()> {
     let neg_model = train(&neg_output, &neg_model_path)?;
 
     let rank_path = output_dir.join("ranks");
-    let ranks = rank(&pos_model, &neg_model, &rank_path)?;
+    let _ranks = rank(&pos_model, &neg_model, &rank_path)?;
 
-    let read_score_path = output_dir.join("read_scores");
+    let _read_score_path = output_dir.join("read_scores");
 
     Ok(())
 }

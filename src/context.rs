@@ -126,13 +126,13 @@ impl Context {
 
 #[cfg(test)]
 mod test {
-    use std::io::Cursor;
+    // use std::io::Cursor;
 
-    use super::*;
-    use crate::{
-        arrow::{MetadataExt, Strand},
-        utils::chrom_lens,
-    };
+    // use super::*;
+    // use crate::{
+    //     arrow::{MetadataExt, Strand},
+    //     utils::chrom_lens,
+    // };
 
     // #[test]
     // fn test_context() -> Result<(), anyhow::Error> {
