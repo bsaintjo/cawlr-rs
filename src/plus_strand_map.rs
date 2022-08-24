@@ -11,6 +11,10 @@ impl PlusStrandMap {
         Self(db)
     }
 
+    pub(crate) fn empty() -> Self {
+        Self::new(FnvHashMap::default())
+    }
+
     pub(crate) fn from_bam_file<P: AsRef<Path>>(bam_file: P) -> Result<Self> {
         let mut acc = FnvHashMap::default();
         let reader = BamReader::from_path(bam_file, 1u16)?;
@@ -42,6 +46,10 @@ impl PlusStrandMap {
     {
         let read_id = read_id.as_ref();
         self.0.get(read_id).cloned()
+    }
+
+    pub(crate) fn insert<K: Into<Vec<u8>>>(&mut self, k: K, v: bool) -> Option<bool> {
+        self.0.insert(k.into(), v)
     }
 }
 

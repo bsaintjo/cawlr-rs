@@ -1,39 +1,51 @@
 use std::{
     fs::File,
     io::{BufWriter, Read, Write},
-    path::{Path, PathBuf},
+    path::Path,
 };
 
 use anyhow::Result;
 use arrow2::io::ipc::write::FileWriter;
 use bio::alphabets::dna::revcomp;
+use csv::DeserializeRecordsIter;
 use indicatif::{ProgressBar, ProgressBarIter, ProgressFinish, ProgressStyle};
 use serde::Deserialize;
 use serde_with::{serde_as, CommaSeparator, StringWithSeparator};
 use statrs::statistics::Statistics;
 
 use crate::{
-    arrow::{self, save, Eventalign, Signal},
+    arrow::{self, save, Eventalign, Metadata, Signal, Strand},
     plus_strand_map::PlusStrandMap,
 };
 
-fn empty_from_npr(npr: &Npr) -> Eventalign {
-    let name = npr.read_name.clone();
-    let chrom = npr.contig.clone();
+fn empty_from_npr(npr: Npr) -> Eventalign {
+    let name = npr.read_name;
+    let chrom = npr.contig;
     let start = npr.position;
-    let length = 0;
+    let length = 1;
     let seq = String::new();
-    Eventalign::empty(name, chrom, start, length, seq)
+    let metadata = Metadata::new(name, chrom, start, length, Strand::unknown(), seq);
+    let signal_data = vec![Signal::new(
+        npr.position,
+        npr.reference_kmer,
+        npr.samples.mean(),
+        npr.event_length,
+    )];
+
+    Eventalign::new(metadata, signal_data)
 }
 
 /// Takes a vector of nanpolish records and converts them into a Eventalign.
-fn nprs_to_eventalign(nprs: &[Npr], strand_map: &PlusStrandMap) -> Result<Option<Eventalign>> {
+fn nprs_to_eventalign(
+    mut nprs: impl Iterator<Item = Npr>,
+    strand_map: &PlusStrandMap,
+) -> Result<Option<Eventalign>> {
     let mut eventalign = nprs
-        .get(0)
+        .next()
         .ok_or(anyhow::anyhow!("Empty nprs"))
         .map(empty_from_npr)?;
     let mut stop = eventalign.start_0b();
-    for npr in nprs.iter() {
+    for npr in nprs {
         stop = npr.position;
         let position = npr.position;
         let ref_kmer = npr.reference_kmer().to_string();
@@ -121,6 +133,19 @@ impl CollapseOptions<BufWriter<File>> {
 }
 
 impl<W: Write> CollapseOptions<W> {
+    fn new(writer: FileWriter<W>, strand_db: PlusStrandMap) -> Self {
+        Self {
+            writer,
+            strand_db,
+            capacity: 2048,
+            progress: false,
+        }
+    }
+
+    fn into_inner(self) -> W {
+        self.writer.into_inner()
+    }
+
     pub fn capacity(&mut self, capacity: usize) -> &mut Self {
         self.capacity = capacity;
         self
@@ -150,87 +175,12 @@ impl<W: Write> CollapseOptions<W> {
         save(&mut self.writer, eventaligns)
     }
 
-    fn close(mut self) -> Result<()> {
+    fn close(&mut self) -> Result<()> {
         self.writer.finish()?;
         Ok(())
     }
 
-    pub fn run<R>(mut self, input: R) -> Result<()>
-    where
-        R: Read,
-    {
-        let file = spin_iter(input, self.progress);
-        let mut builder = csv::ReaderBuilder::new().delimiter(b'\t').from_reader(file);
-        let mut npr_iter = builder.deserialize().peekable();
-
-        let mut flats = Vec::with_capacity(self.capacity);
-
-        // First get a single line to intialize with, if None we have reached the end of
-        // the iterator
-        while let Some(line) = npr_iter.next() {
-            let mut acc: Vec<Npr> = Vec::new();
-            let mut line: Npr = line?;
-            log::debug!("line: {:?}", line);
-
-            // Peek at next lines and advance the iterator only if they belong to the same
-            // read
-            // Since multiple mapping reads can potentially be next to each other, we need
-            // to use the event index to differentiate between the reads. This can
-            // potentially cause subtle bugs when the event index of the first multi-mapped
-            // read is one minus the event index of the next read.
-            // eg. chrom position read_name event_index
-            // chr1 100 .. ABC .. 82
-            // chr1 10 .. ABC .. 83  <-- New alignment of same read but event_index happens
-            // to show the read as being contiguous
-            // In order to handle this last
-            // case if the length calculation fails in creating the Eventalign,
-            // the read will get thrown out.
-            while let Some(read_line) = npr_iter.next_if(|new_npr: &Result<Npr, _>| {
-                let new_npr = new_npr.as_ref().expect("Parsing failed");
-                (new_npr.read_name == line.read_name)
-                    && (new_npr.event_index.abs_diff(line.event_index) == 1)
-            }) {
-                let mut read_line = read_line?;
-                log::debug!("same read: {:?}", read_line);
-                // Data from same position, split across two lines
-                if read_line.position == line.position {
-                    log::debug!("Same position");
-                    line.samples.append(&mut read_line.samples);
-                    line.event_length += read_line.event_length;
-                    line.event_index = read_line.event_index
-                } else {
-                    log::debug!("New position, same read, pushing");
-                    // Data from next position in read
-                    acc.push(line);
-                    // Update line to look for possible repeating lines after it
-                    line = read_line;
-                }
-            }
-
-            // End of the iterator, handle the last value
-            if npr_iter.peek().is_none() {
-                log::debug!("Iterator finished");
-                acc.push(line)
-            }
-            // Add converted reads to buffer and if buffer is full
-            // write to disc and clear buffer
-            if let Some(eventalign) = nprs_to_eventalign(&acc, &self.strand_db)? {
-                flats.push(eventalign);
-            }
-            if flats.len() >= self.capacity {
-                self.save_eventalign(&flats)?;
-                flats.clear();
-            }
-        }
-
-        // If reads are left in the buffer, save those
-        if !flats.is_empty() {
-            self.save_eventalign(&flats)?;
-        }
-        self.close()
-    }
-
-    fn run_nopeek<R>(mut self, input: R) -> Result<()>
+    pub fn run<R>(&mut self, input: R) -> Result<()>
     where
         R: Read,
     {
@@ -238,21 +188,22 @@ impl<W: Write> CollapseOptions<W> {
         let mut builder = csv::ReaderBuilder::new().delimiter(b'\t').from_reader(file);
         let mut npr_iter = builder.deserialize();
 
-        // let mut flats = Vec::with_capacity(self.capacity);
-
         let mut idx_diff = 1;
-        let npr: Npr = npr_iter
-            .next()
-            .expect("No data; nanopolish eventalign may have failed")?;
+        let npr: Npr = npr_iter.next().expect(
+            "No data, check if eventalign has data; nanopolish eventalign may have failed",
+        )?;
         let mut position = npr.position;
+
         let mut acc = vec![npr];
+        let mut flats = Vec::with_capacity(self.capacity);
 
         for line in npr_iter {
             if let Ok(mut next_npr) = line {
-                let read_name = acc.last().unwrap().read_name();
-                let event_idx = acc.last().unwrap().event_index();
-                if (next_npr.read_name == read_name)
-                    && (next_npr.event_index.abs_diff(event_idx) == idx_diff)
+                let last = acc.last().unwrap();
+                let read_name = last.read_name();
+                let event_idx = last.event_index();
+                if (next_npr.read_name() == read_name)
+                    && (next_npr.event_index().abs_diff(event_idx) == idx_diff)
                 {
                     // Same read, possibly new kmer or same
                     if next_npr.position == position {
@@ -268,85 +219,52 @@ impl<W: Write> CollapseOptions<W> {
                     }
                 } else {
                     // New read, write data and move forward
-                    if let Some(eventalign) = nprs_to_eventalign(&acc, &self.strand_db)? {
-                        self.save_eventalign(&[eventalign])?;
+                    if let Some(eventalign) = nprs_to_eventalign(acc.drain(..), &self.strand_db)? {
+                        flats.push(eventalign);
                     }
-                    acc.clear();
+
+                    if flats.len() >= self.capacity {
+                        self.save_eventalign(&flats)?;
+                        flats.clear();
+                    }
+                    acc.push(next_npr);
                 }
+                idx_diff = 1;
             } else {
                 log::warn!("Parsing failed: {line:?}");
                 idx_diff += 1;
             }
         }
 
-        // // First get a single line to intialize with, if None we have reached the end
-        // of // the iterator
-        // while let Some(line) = npr_iter.next() {
-        //     let mut acc: Vec<Npr> = Vec::new();
-        //     let mut line: Npr = line?;
-        //     log::debug!("line: {:?}", line);
-
-        //     // Peek at next lines and advance the iterator only if they belong to the
-        // same     // read
-        //     // Since multiple mapping reads can potentially be next to each other, we
-        // need     // to use the event index to differentiate between the
-        // reads. This can     // potentially cause subtle bugs when the event
-        // index of the first multi-mapped     // read is one minus the event
-        // index of the next read.     // eg. chrom position read_name
-        // event_index     // chr1 100 .. ABC .. 82
-        //     // chr1 10 .. ABC .. 83  <-- New alignment of same read but event_index
-        // happens     // to show the read as being contiguous
-        //     // In order to handle this last
-        //     // case if the length calculation fails in creating the Eventalign,
-        //     // the read will get thrown out.
-        //     while let Some(read_line) = npr_iter.next_if(|new_npr: &Result<Npr, _>| {
-        //         let new_npr = new_npr.as_ref().expect("Parsing failed");
-        //         (new_npr.read_name == line.read_name)
-        //             && (new_npr.event_index.abs_diff(line.event_index) == 1)
-        //     }) {
-        //         let mut read_line = read_line?;
-        //         log::debug!("same read: {:?}", read_line);
-        //         // Data from same position, split across two lines
-        //         if read_line.position == line.position {
-        //             log::debug!("Same position");
-        //             line.samples.append(&mut read_line.samples);
-        //             line.event_length += read_line.event_length;
-        //             line.event_index = read_line.event_index
-        //         } else {
-        //             log::debug!("New position, same read, pushing");
-        //             // Data from next position in read
-        //             acc.push(line);
-        //             // Update line to look for possible repeating lines after it
-        //             line = read_line;
-        //         }
-        //     }
-
-        //     // End of the iterator, handle the last value
-        //     if npr_iter.peek().is_none() {
-        //         log::debug!("Iterator finished");
-        //         acc.push(line)
-        //     }
-        //     // Add converted reads to buffer and if buffer is full
-        //     // write to disc and clear buffer
-        //     if let Some(eventalign) = nprs_to_eventalign(acc, &self.strand_db)? {
-        //         flats.push(eventalign);
-        //     }
-        //     if flats.len() >= self.capacity {
-        //         self.save_eventalign(&flats)?;
-        //         flats.clear();
-        //     }
-        // }
-
-        // // If reads are left in the buffer, save those
-        // if !flats.is_empty() {
-        //     self.save_eventalign(&flats)?;
-        // }
+        if !acc.is_empty() {
+            if let Some(eventalign) = nprs_to_eventalign(acc.drain(..), &self.strand_db)? {
+                flats.push(eventalign);
+            }
+        }
+        // If reads are left in the buffer, save those
+        if !flats.is_empty() {
+            self.save_eventalign(&flats)?;
+        }
         self.close()
     }
 }
 
+struct Parser<'a, R> {
+    idx_diff: u64,
+    position: usize,
+    npr_iter: DeserializeRecordsIter<'a, ProgressBarIter<R>, Npr>,
+    acc: Vec<Npr>,
+}
+
+enum ParseResult {
+    Complete,
+    Failed,
+}
+
+impl<'a, R> Parser<'a, R> {}
+
 #[serde_as]
-#[derive(Default, Clone, Debug, Deserialize)]
+#[derive(Default, Clone, Debug, Deserialize, PartialEq)]
 struct Npr {
     contig: String,
 
@@ -406,10 +324,12 @@ impl Npr {
 #[cfg(test)]
 mod test {
 
+    use std::io::Cursor;
+
     use assert_fs::TempDir;
 
     use super::*;
-    use crate::arrow::{load_apply, load_iter, MetadataExt};
+    use crate::arrow::{load_apply, load_iter, Metadata, MetadataExt, Strand};
 
     #[test]
     fn test_collapse() -> Result<()> {
@@ -418,7 +338,7 @@ mod test {
         let input = File::open(filepath)?;
         let bam_file = "extra/single_read.bam";
         let output = temp_dir.path().join("test");
-        let collapse = CollapseOptions::try_new(bam_file, &output)?;
+        let mut collapse = CollapseOptions::try_new(bam_file, &output)?;
         collapse.run(input)?;
 
         let output = File::open(output)?;
@@ -443,7 +363,7 @@ mod test {
         let input = File::open(filepath)?;
         let bam_file = "extra/neg_control.bam";
         let output = temp_dir.path().join("test");
-        let collapse = CollapseOptions::try_new(bam_file, &output)?;
+        let mut collapse = CollapseOptions::try_new(bam_file, &output)?;
         collapse.run(input)?;
 
         let output = File::open(output)?;
@@ -459,5 +379,113 @@ mod test {
         assert_eq!(loads, 1);
         assert_eq!(acc.len(), 98);
         Ok(())
+    }
+
+    #[test]
+    fn test_malformed() {
+        let lines: &[u8] = b"contig	position	reference_kmer	read_name	strand	event_index	event_level_mean	event_stdv	event_length	model_kmer	model_mean	model_stdv	standardized_level	samples
+chr1	199403040	ATATAA	c25d27a8-0eec-4e7d-96f9-b8e730a25832	t	3919	86.81	0.500	0.00100	TTATAT	87.94	1.88	-0.59	87.1186,87.4749,86.406,86.2279
+chr1	199403040	ATATAA	c25d27a8-0eec-4e7d-96f9-b8e730a25832	t	3918	87.01		72.4013,75.9601,78.395,77.6458
+";
+        // let file = File::open("extra/malformed.eventalign.txt").unwrap();
+        let mut builder = csv::ReaderBuilder::new()
+            .has_headers(true)
+            .delimiter(b'\t')
+            .from_reader(lines);
+        let mut iter = builder.deserialize::<Npr>();
+
+        let npr = Npr {
+            contig: "chr1".to_string(),
+            position: 199403040,
+            reference_kmer: "ATATAA".to_string(),
+            read_name: "c25d27a8-0eec-4e7d-96f9-b8e730a25832".to_string(),
+            samples: vec![87.1186, 87.4749, 86.406, 86.2279],
+            event_index: 3919,
+            event_length: 0.00100,
+            ..Default::default()
+        };
+
+        let next = iter.next().unwrap();
+        assert!(next.is_ok());
+
+        assert_eq!(next.unwrap(), npr);
+        assert!(iter.next().unwrap().is_err());
+
+        let mut strand_db = PlusStrandMap::empty();
+        strand_db.insert(b"c25d27a8-0eec-4e7d-96f9-b8e730a25832" as &[u8], true);
+
+        let schema = arrow::Eventalign::schema();
+        let writer = arrow::wrap_writer(Vec::new(), &schema).unwrap();
+        let mut opts = CollapseOptions::new(writer, strand_db);
+        let res = opts.run(lines);
+        assert!(res.is_ok());
+
+        let reader = Cursor::new(opts.into_inner());
+        let x = load_iter(reader).next().unwrap().unwrap();
+
+        let target = Eventalign::new(
+            Metadata::new(
+                "c25d27a8-0eec-4e7d-96f9-b8e730a25832".to_string(),
+                "chr1".to_string(),
+                199403040,
+                1,
+                Strand::plus(),
+                String::new(),
+            ),
+            vec![Signal::new(
+                199403040,
+                "ATATAA".to_string(),
+                npr.samples().mean(),
+                0.00100,
+            )],
+        );
+
+        assert_eq!(x[0], target);
+    }
+
+    #[test]
+    fn test_diff_idx() {
+        let lines: &[u8] = b"contig	position	reference_kmer	read_name	strand	event_index	event_level_mean	event_stdv	event_length	model_kmer	model_mean	model_stdv	standardized_level	samples
+chr1	199403040	ATATAA	c25d27a8-0eec-4e7d-96f9-b8e730a25832	t	3919	86.81	0.500	0.00100	TTATAT	87.94	1.88	-0.59	87.1186,87.4749,86.406,86.2279
+chr1	199403040	ATATAA	c25d27a8-0eec-4e7d-96f9-b8e730a25832	t	3918	87.01		72.4013,75.9601,78.395,77.6458
+chr1	199403041	GATATA	c25d27a8-0eec-4e7d-96f9-b8e730a25832	t	3917	106.85	4.255	0.00100	TATATC	107.52	3.75	-0.18	99.4103,108.674,110.277,109.03
+";
+        let mut strand_db = PlusStrandMap::empty();
+        strand_db.insert(b"c25d27a8-0eec-4e7d-96f9-b8e730a25832" as &[u8], true);
+
+        let schema = arrow::Eventalign::schema();
+        let writer = arrow::wrap_writer(Vec::new(), &schema).unwrap();
+        let mut opts = CollapseOptions::new(writer, strand_db);
+        let res = opts.run(lines);
+        assert!(res.is_ok());
+
+        let reader = Cursor::new(opts.into_inner());
+        let x = load_iter(reader).next().unwrap().unwrap();
+
+        let target = Eventalign::new(
+            Metadata::new(
+                "c25d27a8-0eec-4e7d-96f9-b8e730a25832".to_string(),
+                "chr1".to_string(),
+                199403040,
+                2,
+                Strand::plus(),
+                String::new(),
+            ),
+            vec![
+                Signal::new(
+                    199403040,
+                    "ATATAA".to_string(),
+                    [87.1186, 87.4749, 86.406, 86.2279].mean(),
+                    0.00100,
+                ),
+                Signal::new(
+                    199403041,
+                    "GATATA".to_string(),
+                    [99.4103, 108.674, 110.277, 109.03].mean(),
+                    0.00100,
+                ),
+            ],
+        );
+        pretty_assertions::assert_eq!(x[0], target);
     }
 }

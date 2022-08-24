@@ -8,7 +8,7 @@ use rv::{
     prelude::{Gaussian, Mixture},
     traits::{Cdf, KlDivergence, Rv},
 };
-use statrs::statistics::{Data, OrderStatistics, Statistics};
+use statrs::statistics::Statistics;
 
 use crate::{
     arrow::{load_apply, save, wrap_writer, Eventalign, MetadataExt, Score, ScoredRead, Signal},
@@ -23,9 +23,11 @@ fn median(xs: Vec<f64>) -> Option<f64> {
     xs.sort_by(|a, b| a.partial_cmp(b).unwrap());
     if xs.is_empty() {
         None
-    } else if xs.len() % 2 == 0 {  // Even
+    } else if xs.len() % 2 == 0 {
+        // Even
         todo!()
-    } else {  // Odd
+    } else {
+        // Odd
         todo!()
     }
 }
@@ -480,7 +482,7 @@ mod test {
         let input = File::open(filepath)?;
         let bam_file = "extra/single_read.bam";
         let output = temp_dir.path().join("test");
-        let collapse = CollapseOptions::try_new(bam_file, &output)?;
+        let mut collapse = CollapseOptions::try_new(bam_file, &output)?;
         collapse.run(input)?;
 
         let output = File::open(output)?;

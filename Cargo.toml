@@ -84,6 +84,7 @@ escargot = "0.5.7"
 tempfile = "3.3.0"
 float_eq = "1.0.0"
 predicates = "2.1.1"
+pretty_assertions = "1.2.1"
 
 [features]
 default = []

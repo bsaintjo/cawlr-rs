@@ -94,7 +94,7 @@ impl MetadataExt for Eventalign {
 ///
 /// Note: All coordinate data will be zero-based for the start and one based
 /// (zero-based not inclusive) for the end
-#[derive(Debug, Clone, ArrowField, Default)]
+#[derive(Debug, Clone, ArrowField, Default, PartialEq, Eq)]
 pub struct Metadata {
     name: String,
     chrom: String,
@@ -149,7 +149,7 @@ impl Metadata {
     }
 }
 
-#[derive(Debug, Clone, ArrowField)]
+#[derive(Debug, Clone, ArrowField, Default, PartialEq)]
 pub(crate) struct Signal {
     pos: u64,
     kmer: String,
@@ -230,7 +230,7 @@ impl Strand {
     }
 }
 
-#[derive(Debug, Clone, ArrowField)]
+#[derive(Debug, Clone, ArrowField, Default, PartialEq)]
 pub struct Eventalign {
     metadata: Metadata,
     signal_data: Vec<Signal>,
@@ -664,6 +664,7 @@ mod test {
         assert!(expanded.0[9].is_none());
     }
 
+    #[allow(clippy::read_zero_byte_vec)]
     #[test]
     fn test_fasta_reader_start() {
         let genome = "extra/sacCer3.fa";
