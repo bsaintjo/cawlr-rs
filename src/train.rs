@@ -299,44 +299,4 @@ mod test {
         let n = 40;
         assert!(insufficient(&dict, n))
     }
-
-    #[test]
-    fn test_linfa_to_rv() {
-        let mut rng = SmallRng::seed_from_u64(2456);
-        let g1 = rv::dist::Gaussian::new(80., 5.).unwrap();
-        let g2 = rv::dist::Gaussian::new(105., 5.).unwrap();
-        let mut means: Vec<f64> = g1.sample(100, &mut rng);
-        let mut g2_samples: Vec<f64> = g2.sample(100, &mut rng);
-        means.append(&mut g2_samples);
-
-        let len = means.len();
-        let shape = (len, 1);
-        let means = Array::from_shape_vec(shape, means).unwrap();
-        let data = DatasetBase::from(means);
-
-        let n_clusters = 2;
-        let n_runs = 10;
-        let tolerance = 1e-4f64;
-        let gmm = GaussianMixtureModel::params(n_clusters)
-            .n_runs(n_runs)
-            .tolerance(tolerance)
-            .check()
-            .unwrap()
-            .fit(&data)
-            .unwrap();
-
-        let weights = gmm.weights().iter().cloned().collect::<Vec<f64>>();
-        let means = gmm.means().iter().collect::<Vec<_>>();
-        let sigmas = gmm
-            .covariances()
-            .iter()
-            .map(|x| x.sqrt())
-            .collect::<Vec<_>>();
-        eprintln!("Original weights: 0.5");
-        eprintln!("weights: {weights:?}");
-        eprintln!("Original means: 80, 105");
-        eprintln!("means: {means:?}");
-        eprintln!("Original sigma: 0.5");
-        eprintln!("sigmas: {sigmas:?}");
-    }
 }
