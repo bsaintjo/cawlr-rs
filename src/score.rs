@@ -1,4 +1,4 @@
-use std::{collections::HashMap, fs::File, hash::BuildHasher, ops::RangeInclusive, path::Path};
+use std::{collections::HashMap, fs::File, hash::BuildHasher, ops::RangeInclusive, path::Path, fmt::Debug};
 
 use anyhow::Result;
 use arrow2::io::ipc::write::FileWriter;
@@ -46,17 +46,14 @@ pub struct ScoreOptions {
 
 impl ScoreOptions {
     pub fn try_new<P>(
-        pos_ctrl_filepath: &str,
-        neg_ctrl_filepath: &str,
-        genome_filepath: &str,
-        rank_filepath: &str,
+        pos_ctrl_filepath: P,
+        neg_ctrl_filepath: P,
+        genome_filepath: P,
+        rank_filepath: P,
         output: P,
-        cutoff: f64,
-        p_value_threshold: f64,
-        motifs: Option<Vec<Motif>>,
     ) -> Result<Self>
     where
-        P: AsRef<Path>,
+        P: AsRef<Path> + Debug,
     {
         let schema = ScoredRead::schema();
         let writer = File::create(output)?;
@@ -66,7 +63,6 @@ impl ScoreOptions {
         let chrom_lens = chrom_lens(&genome);
         let pos_ctrl_db = Model::load(&pos_ctrl_filepath)?;
         let neg_ctrl_db = Model::load(&neg_ctrl_filepath)?;
-        let motifs = motifs.unwrap_or_else(all_bases);
         Ok(ScoreOptions {
             pos_ctrl: pos_ctrl_db,
             neg_ctrl: neg_ctrl_db,
@@ -74,10 +70,25 @@ impl ScoreOptions {
             chrom_lens,
             rank: kmer_ranks,
             writer,
-            cutoff,
-            p_value_threshold,
-            motifs,
+            cutoff: 10.0,
+            p_value_threshold: 0.05,
+            motifs: all_bases(),
         })
+    }
+
+    pub fn cutoff(&mut self, cutoff: f64) -> &mut Self {
+        self.cutoff = cutoff;
+        self
+    }
+
+    pub fn p_value_threshold(&mut self, p_value_threshold: f64) -> &mut Self {
+        self.p_value_threshold = p_value_threshold;
+        self
+    }
+
+    pub fn motifs<V: Into<Vec<Motif>>>(&mut self, motifs: V) -> &mut Self {
+        self.motifs = motifs.into();
+        self
     }
 
     fn close(mut self) -> Result<()> {

@@ -281,9 +281,6 @@ fn insufficient<K, V, S>(dict: &HashMap<K, Vec<V>, S>, n: usize) -> bool {
 
 #[cfg(test)]
 mod test {
-    use rand::{prelude::SmallRng, SeedableRng};
-    use rv::traits::Rv;
-
     use super::*;
 
     #[test]

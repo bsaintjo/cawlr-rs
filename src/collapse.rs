@@ -142,10 +142,6 @@ impl<W: Write> CollapseOptions<W> {
         }
     }
 
-    fn into_inner(self) -> W {
-        self.writer.into_inner()
-    }
-
     pub fn capacity(&mut self, capacity: usize) -> &mut Self {
         self.capacity = capacity;
         self
@@ -163,12 +159,7 @@ impl<W: Write> CollapseOptions<W> {
         let strand_db = PlusStrandMap::from_bam_file(bam_file)?;
         let schema = arrow::Eventalign::schema();
         let writer = arrow::wrap_writer(writer, &schema)?;
-        Ok(CollapseOptions {
-            writer,
-            capacity: 2048,
-            progress: false,
-            strand_db,
-        })
+        Ok(CollapseOptions::new(writer, strand_db))
     }
 
     fn save_eventalign(&mut self, eventaligns: &[Eventalign]) -> Result<()> {
@@ -420,7 +411,7 @@ chr1	199403040	ATATAA	c25d27a8-0eec-4e7d-96f9-b8e730a25832	t	3918	87.01		72.4013
         let res = opts.run(lines);
         assert!(res.is_ok());
 
-        let reader = Cursor::new(opts.into_inner());
+        let reader = Cursor::new(opts.writer.into_inner());
         let x = load_iter(reader).next().unwrap().unwrap();
 
         let target = Eventalign::new(
@@ -459,7 +450,7 @@ chr1	199403041	GATATA	c25d27a8-0eec-4e7d-96f9-b8e730a25832	t	3917	106.85	4.255	0
         let res = opts.run(lines);
         assert!(res.is_ok());
 
-        let reader = Cursor::new(opts.into_inner());
+        let reader = Cursor::new(opts.writer.into_inner());
         let x = load_iter(reader).next().unwrap().unwrap();
 
         let target = Eventalign::new(

@@ -290,16 +290,14 @@ fn main() -> Result<()> {
             });
 
             log::debug!("Motifs parsed: {motif:?}");
-            let scoring = score::ScoreOptions::try_new(
-                &pos_ctrl,
-                &neg_ctrl,
-                &genome,
-                &ranks,
+            let mut scoring = score::ScoreOptions::try_new(
+                &pos_ctrl, &neg_ctrl, &genome, &ranks,
                 &output,
-                cutoff,
-                p_value_threshold,
-                motif,
             )?;
+            scoring.cutoff(cutoff).p_value_threshold(p_value_threshold);
+            if let Some(motifs) = motif {
+                scoring.motifs(motifs);
+            }
             scoring.run(input)?;
         }
 

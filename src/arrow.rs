@@ -28,7 +28,7 @@ pub trait MetadataExt {
     fn metadata(&self) -> &Metadata;
 
     fn name(&self) -> &str {
-        self.metadata().name()
+        self.metadata().name.as_ref()
     }
 
     /// Get a reference to the metadata's chrom.
@@ -123,30 +123,30 @@ impl Metadata {
         }
     }
 
-    /// Get a reference to the metadata's name.
-    pub(crate) fn name(&self) -> &str {
-        self.name.as_ref()
-    }
+    // /// Get a reference to the metadata's name.
+    // pub(crate) fn name(&self) -> &str {
+    //     self.name.as_ref()
+    // }
 
-    /// Get a reference to the metadata's chrom.
-    pub(crate) fn chrom(&self) -> &str {
-        self.chrom.as_ref()
-    }
+    // /// Get a reference to the metadata's chrom.
+    // pub(crate) fn chrom(&self) -> &str {
+    //     self.chrom.as_ref()
+    // }
 
-    /// Get the metadata's start.
-    pub(crate) fn start(&self) -> u64 {
-        self.start
-    }
+    // /// Get the metadata's start.
+    // pub(crate) fn start(&self) -> u64 {
+    //     self.start
+    // }
 
-    /// Get the metadata's length.
-    pub(crate) fn length(&self) -> u64 {
-        self.length
-    }
+    // /// Get the metadata's length.
+    // pub(crate) fn length(&self) -> u64 {
+    //     self.length
+    // }
 
-    /// Get the metadata's strand.
-    pub(crate) fn strand(&self) -> Strand {
-        self.strand
-    }
+    // /// Get the metadata's strand.
+    // pub(crate) fn strand(&self) -> Strand {
+    //     self.strand
+    // }
 }
 
 #[derive(Debug, Clone, ArrowField, Default, PartialEq)]

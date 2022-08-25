@@ -55,20 +55,15 @@ where
         self
     }
 
-    pub fn motifs(&mut self, motifs: Vec<Motif>) -> &mut Self {
+    fn motifs(&mut self, motifs: Vec<Motif>) -> &mut Self {
         self.motifs = motifs;
         self
     }
 
     pub fn try_motifs(&mut self, motifs: Option<Vec<Motif>>) -> &mut Self {
         if let Some(motifs) = motifs {
-            self.motifs = motifs;
+            self.motifs(motifs);
         }
-        self
-    }
-
-    pub fn output_file(&mut self, output_file: P) -> &mut Self {
-        self.output_file = Some(output_file);
         self
     }
 
