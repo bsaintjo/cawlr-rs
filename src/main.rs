@@ -156,7 +156,8 @@ enum Commands {
         p_value_threshold: f64,
 
         /// Only score in kmers that contain this motif, by default will score
-        /// all kmers
+        /// all kmers. Format = "{position of modified base}:{motif}", ie "2:GC"
+        /// if the C in GC is the modified base.
         #[clap(short, long)]
         motif: Option<Vec<Motif>>,
     },
@@ -290,10 +291,8 @@ fn main() -> Result<()> {
             });
 
             log::debug!("Motifs parsed: {motif:?}");
-            let mut scoring = score::ScoreOptions::try_new(
-                &pos_ctrl, &neg_ctrl, &genome, &ranks,
-                &output,
-            )?;
+            let mut scoring =
+                score::ScoreOptions::try_new(&pos_ctrl, &neg_ctrl, &genome, &ranks, &output)?;
             scoring.cutoff(cutoff).p_value_threshold(p_value_threshold);
             if let Some(motifs) = motif {
                 scoring.motifs(motifs);
