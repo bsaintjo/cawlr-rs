@@ -5,6 +5,7 @@
 # User Guide
 
 - [Installation](./installation.md)
+  - [Docker](./docker.md)
 
 - [Analysis]()
   - [Nanopore Data Preparation]()
