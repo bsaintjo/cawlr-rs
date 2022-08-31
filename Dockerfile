@@ -33,12 +33,20 @@ RUN ./configure
 RUN make
 RUN make install
 
+WORKDIR /
+CMD ["/bin/bash"]
+
 FROM base
 WORKDIR /cawlr
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain 1.63.0 --profile minimal
 ENV PATH="/root/.cargo/bin:${PATH}"
 COPY . .
 RUN cargo install --path . --locked
+
+WORKDIR /
+RUN git clone https://github.com/bsaintjo/bsb.git
+WORKDIR /bsb
+RUN cargo install --path .
 
 WORKDIR /
 CMD ["/bin/bash"]
