@@ -44,9 +44,4 @@ COPY . .
 RUN cargo install --path . --locked
 
 WORKDIR /
-RUN git clone https://github.com/bsaintjo/bsb.git
-WORKDIR /bsb
-RUN cargo install --path .
-
-WORKDIR /
 CMD ["/bin/bash"]
