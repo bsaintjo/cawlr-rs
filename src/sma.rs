@@ -373,8 +373,12 @@ impl<'a> SmaOutput<'a> {
 
 impl<'a> Display for SmaOutput<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let chrom_start = self.start_0b();
         let (starts, lengths) = self.nuc_starts_lens();
-        let starts = starts.iter().map(|x| x.to_string()).join(",");
+        let starts = starts
+            .iter()
+            .map(|x| (x - chrom_start).to_string())
+            .join(",");
         let lengths = lengths.iter().map(|x| x.to_string()).join(",");
         write!(
             f,
