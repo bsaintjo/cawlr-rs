@@ -373,25 +373,25 @@ impl<'a> SmaOutput<'a> {
 
 impl<'a> Display for SmaOutput<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let chrom_start = self.start_0b();
+        let (strand_punc, rgb) = if self.strand().is_plus_strand() {
+            ("+", "0,255,0")
+        } else {
+            ("-", "255,0,0")
+        };
+        // let chrom_start = self.start_0b();
         let (starts, lengths) = self.nuc_starts_lens();
-        let starts = starts
-            .iter()
-            .map(|x| (x - chrom_start).to_string())
-            .join(",");
+        let bed_start = starts[0];
+        let block_count = starts.len();
+        let bed_end = starts[block_count - 1] + lengths[block_count - 1];
+        let starts = starts.iter().map(|x| (x - bed_start).to_string()).join(",");
         let lengths = lengths.iter().map(|x| x.to_string()).join(",");
         write!(
             f,
-            "{}\t{}\t{}\t{}\t0\t.\t{}\t{}\t0,0,0\t{}\t{}\t{}",
+            "{0}\t{bed_start}\t{bed_end}\t{1}\t0\t{strand_punc}\t{bed_start}\t{bed_end}\t{rgb}\t{2}\t{lengths}\t{starts}",
             self.chrom(),
-            self.start_0b(),
-            self.end_1b_excl(),
+            // self.start_0b(),
             self.name(),
-            self.start_0b(),
-            self.end_1b_excl(),
             self.num_nuc(),
-            starts,
-            lengths,
         )
     }
 }
@@ -432,11 +432,11 @@ mod test {
             "".to_string(),
         );
 
-        let states_rle = vec![(Linker, 5), (Nucleosome, 20), (Linker, 5), (Nucleosome, 10)];
+        let states_rle = vec![(Linker, 5), (Nucleosome, 20), (Linker, 5), (Nucleosome, 10), (Linker, 100)];
 
         let sma_output = SmaOutput::new(&metadata, states_rle);
         let formatted = format!("{}", sma_output);
-        let answer = "chrI\t100\t150\ttest\t0\t.\t100\t150\t0,0,0\t2\t105,130\t20,10";
+        let answer = "chrI\t105\t140\ttest\t0\t+\t105\t140\t0,255,0\t2\t20,10\t0,25";
         assert_eq!(formatted, answer);
     }
 
