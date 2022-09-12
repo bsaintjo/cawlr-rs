@@ -132,7 +132,7 @@ impl SmaOptions {
                 let matrix = self.run_read(&read)?;
                 let states = matrix.backtrack();
                 let states_rle = states_to_rle(&states);
-                let sma_output = SmaOutput::new(read.metadata(), states_rle);
+                let sma_output = SmaOutput::new(&read, states_rle);
                 writeln!(&mut self.writer, "{}", sma_output)?;
             }
             Ok(())
@@ -341,9 +341,9 @@ impl<'a> MetadataExt for SmaOutput<'a> {
 }
 
 impl<'a> SmaOutput<'a> {
-    fn new(metadata: &'a Metadata, states_rle: Vec<(States, u64)>) -> Self {
+    fn new<M: MetadataExt>(metadata: &'a M, states_rle: Vec<(States, u64)>) -> Self {
         Self {
-            metadata,
+            metadata: metadata.metadata(),
             states_rle,
         }
     }
@@ -434,7 +434,13 @@ mod test {
             "".to_string(),
         );
 
-        let states_rle = vec![(Linker, 5), (Nucleosome, 20), (Linker, 5), (Nucleosome, 10), (Linker, 100)];
+        let states_rle = vec![
+            (Linker, 5),
+            (Nucleosome, 20),
+            (Linker, 5),
+            (Nucleosome, 10),
+            (Linker, 100),
+        ];
 
         let sma_output = SmaOutput::new(&metadata, states_rle);
         let formatted = format!("{}", sma_output);
