@@ -124,6 +124,8 @@ impl SmaOptions {
     where
         P: AsRef<Path>,
     {
+        writeln!(&mut self.writer, "track name=\"cawlr_sma\" itemRgb=\"on\"")?;
+
         let scores_file = File::open(scores_filepath)?;
         load_apply(scores_file, |reads| {
             for read in reads {
