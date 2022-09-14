@@ -73,6 +73,14 @@ enum Commands {
         input: String,
     },
 
+    Filter {
+        #[clap(short, long)]
+        input: String,
+
+        #[clap(short, long)]
+        output: String,
+    },
+
     /// For each kmer, train a two-component gaussian mixture model and save
     /// models to a file
     Train {
@@ -229,6 +237,9 @@ fn main() -> Result<()> {
         }
         Commands::Index { input } => {
             index::index(input)?;
+        }
+        Commands::Filter { input, output } => {
+            todo!()
         }
         Commands::Train {
             input,
