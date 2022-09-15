@@ -23,7 +23,7 @@ where
     P: AsRef<Path>,
 {
     if let Some(fp) = filename {
-        let handle = File::open(fp)?;
+        let handle = File::create(fp)?;
         let handle = BufWriter::new(handle);
         Ok(Box::new(handle))
     } else {
