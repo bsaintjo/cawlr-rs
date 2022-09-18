@@ -25,12 +25,6 @@
       - [(Optional) Run tests](#optional-run-tests)
     - [Python dependencies](#python-dependencies)
   - [Nanopore data preparation](#nanopore-data-preparation)
-  - [Usage](#usage)
-    - [`cawlr collapse`](#cawlr-collapse)
-    - [`cawlr train`](#cawlr-train)
-    - [`cawlr rank`](#cawlr-rank)
-    - [`cawlr score`](#cawlr-score)
-    - [`cawlr sma`](#cawlr-sma)
   - [Models](#models)
   - [Example `cawlr` vignette](#example-cawlr-vignette)
   - [QC Scripts](#qc-scripts)
@@ -44,16 +38,15 @@
 ```bash
 # Follow preparing data from Nanopore Data Preparation
 $ nanopolish eventalign --read sample.fastq \
-    --bam sample.bam \
-    --genome ref.fa \
-    --scale-events \
-    --samples \
-    --print-read-names \
-    --progress \
-    -t 4 \
-    | cawlr collapse \
-    --bam sample.bam \
-    --output sample.collapse.arrow
+    --bam sample.bam --genome ref.fa \
+    --scale-events --samples \
+    --print-read-names --progress \
+    -t 4 | cawlr collapse \
+    --bam sample.bam --output sample.collapse.arrow
+$ cawlr score -g ref.fa --pos-ctrl pos.model.pickle --neg-ctrl neg.model.pickle \
+    -i sample.collapse.arrow -o sample.score.arrow
+$ cawlr sma --pos-ctrl-scores pos.scores.pickle --neg-ctrl-scores neg.scores.pickle \
+    -i sample.score.arrow -o sample.sma.bed
 # TODO The rest of the commands
 ```
 
@@ -155,165 +148,6 @@ Once completed you can confirm that alignments have been filtered correctly with
 
 ```bash
 samtools flagstats filtered.aln.sorted.bam
-```
-
-## Usage
-
-### `cawlr collapse`
-
-```bash
-cawlr-collapse 
-
-USAGE:
-    cawlr collapse [OPTIONS] --input <INPUT> --bam <BAM> --output <OUTPUT>
-
-OPTIONS:
-    -b, --bam <BAM>              Path to BAM alignment file used in nanopolish eventalign
-    -c, --capacity <CAPACITY>    Number of eventalign records to hold in memory [default: 2048]
-    -h, --help                   Print help information
-    -i, --input <INPUT>          Path to nanopolish eventalign output with samples column
-    -o, --output <OUTPUT>        Path to output file in Apache Arrow format, defaults to stdout if
-                                 no argument provided
-    -q, --quiet                  Less output per occurrence
-    -v, --verbose                More output per occurrence
-```
-
-### `cawlr train`
-
-```bash
-$ cawlr help train
-cawlr-train 
-For each kmer, train a two-component gaussian mixture model and save models to a file
-
-USAGE:
-    cawlr train [OPTIONS] --input <INPUT> --output <OUTPUT> --genome <GENOME>
-
-OPTIONS:
-    -g, --genome <GENOME>      Path to genome fasta file
-    -h, --help                 Print help information
-    -i, --input <INPUT>        Positive or negative control output from cawlr collapse
-    -o, --output <OUTPUT>      Path to resulting pickle file
-    -q, --quiet                Less output per occurrence
-    -s, --samples <SAMPLES>    Number of samples per kmer to allow [default: 50000]
-    -v, --verbose              More output per occurrence
-
-```
-
-### `cawlr rank`
-
-```bash
-$ cawlr help rank
-cawlr-rank 
-Rank each kmer by the Kulback-Leibler Divergence and between the trained models
-
-USAGE:
-    cawlr rank [OPTIONS] --pos-ctrl <POS_CTRL> --neg-ctrl <NEG_CTRL> --output <OUTPUT>
-
-OPTIONS:
-    -h, --help                   Print help information
-        --neg-ctrl <NEG_CTRL>    Negative control output from cawlr train
-    -o, --output <OUTPUT>        Path to output file
-        --pos-ctrl <POS_CTRL>    Positive control output from cawlr train
-    -q, --quiet                  Less output per occurrence
-        --samples <SAMPLES>      Ranks are estimated via sampling, higher value for samples means it
-                                 takes longer for cawlr rank to run but the ranks will be more
-                                 accurate [default: 100000]
-        --seed <SEED>            Ranks are estimated via sampling, so to keep values consistent
-                                 between subsequent runs a seed value is used [default: 2456]
-    -v, --verbose                More output per occurrence
-
-```
-
-### `cawlr score`
-
-```bash
-$ cawlr help score
-cawlr-score 
-Score each kmer with likelihood based on positive and negative controls
-
-USAGE:
-    cawlr score [OPTIONS] --input <INPUT> --output <OUTPUT> --pos-ctrl <POS_CTRL> --neg-ctrl <NEG_CTRL> --ranks <RANKS> --genome <GENOME>
-
-OPTIONS:
-        --cutoff <CUTOFF>
-            Threshold for current value to be considered reasonable [default: 10]
-
-    -g, --genome <GENOME>
-            Path to fasta file for organisms genome, must have a .fai file from samtools faidx
-
-    -h, --help
-            Print help information
-
-    -i, --input <INPUT>
-            Path to Apache Arrow file from cawlr collapse
-
-    -m, --motif <MOTIF>
-            Only score in kmers that contain this motif, by default will score all kmers
-
-        --neg-ctrl <NEG_CTRL>
-            Negative control file from cawlr train
-
-    -o, --output <OUTPUT>
-            Path to output file
-
-        --p-value-threshold <P_VALUE_THRESHOLD>
-            Threshold for kmer model to be used [default: 0.05]
-
-        --pos-ctrl <POS_CTRL>
-            Positive control file from cawlr train
-
-    -q, --quiet
-            Less output per occurrence
-
-    -r, --ranks <RANKS>
-            Path to rank file from cawlr rank
-
-    -v, --verbose
-            More output per occurrence
-
-```
-
-### `cawlr sma`
-
-```bash
-$ cawlr help sma
-cawlr-sma 
-
-USAGE:
-    cawlr sma [OPTIONS] --input <INPUT> --pos-ctrl-scores <POS_CTRL_SCORES> --neg-ctrl-scores <NEG_CTRL_SCORES>
-
-OPTIONS:
-    -h, --help
-            Print help information
-
-    -i, --input <INPUT>
-            Path to scored data from cawlr score
-
-        --kde-samples <KDE_SAMPLES>
-            Number of scores sampled to create kernel density estimate [default: 10000]
-
-    -m, --motif <MOTIF>
-            Only that contain this motif will be used to perform single molecule analysis, by
-            default will use all kmers
-
-        --neg-ctrl-scores <NEG_CTRL_SCORES>
-            Path to score from negative control dataset
-
-    -o, --output <OUTPUT>
-            Path to output file
-
-        --pos-ctrl-scores <POS_CTRL_SCORES>
-            Path to score from positive control dataset
-
-    -q, --quiet
-            Less output per occurrence
-
-        --seed <SEED>
-            Set seed to have reproducible sampling [default: 2456]
-
-    -v, --verbose
-            More output per occurrence
-
 ```
 
 ## Models

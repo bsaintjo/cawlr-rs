@@ -10,3 +10,4 @@ pub mod sma;
 pub mod train;
 pub mod utils;
 mod filter;
+pub mod score_model;

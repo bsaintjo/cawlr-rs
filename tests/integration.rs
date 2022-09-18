@@ -76,7 +76,7 @@ fn integration() -> Result<(), Box<dyn Error>> {
     Command::new(cawlr)
         .arg("train")
         .arg("-g")
-        .arg(&genome)
+        .arg(genome)
         .arg("-i")
         .arg(&pos_output)
         .arg("-o")
@@ -90,7 +90,7 @@ fn integration() -> Result<(), Box<dyn Error>> {
     Command::new(cawlr)
         .arg("train")
         .arg("-g")
-        .arg(&genome)
+        .arg(genome)
         .arg("-i")
         .arg(&neg_output)
         .arg("-o")
@@ -126,11 +126,9 @@ fn integration() -> Result<(), Box<dyn Error>> {
         .arg("-r")
         .arg(&ranks)
         .arg("-g")
-        .arg(&genome)
+        .arg(genome)
         .arg("-o")
         .arg(&scores)
-        .arg("--cutoff")
-        .arg("0.0")
         .env("RUST_BACKTRACE", "1")
         .assert()
         .success();
@@ -148,11 +146,9 @@ fn integration() -> Result<(), Box<dyn Error>> {
         .arg("-r")
         .arg(&ranks)
         .arg("-g")
-        .arg(&genome)
+        .arg(genome)
         .arg("-o")
         .arg(&pos_scores)
-        .arg("--cutoff")
-        .arg("0.0")
         .env("RUST_BACKTRACE", "1")
         .assert()
         .success();
@@ -170,14 +166,36 @@ fn integration() -> Result<(), Box<dyn Error>> {
         .arg("-r")
         .arg(&ranks)
         .arg("-g")
-        .arg(&genome)
+        .arg(genome)
         .arg("-o")
         .arg(&neg_scores)
-        .arg("--cutoff")
-        .arg("0.0")
         .env("RUST_BACKTRACE", "1")
         .assert()
         .success();
+
+    eprintln!("Compute pos ctrl kernel density estimate");
+    let pos_bkde_model = temp_dir.path().join("pos_bkde_model");
+    Command::new(cawlr)
+        .arg("model-scores")
+        .arg("-i")
+        .arg(&pos_scores)
+        .arg("-o")
+        .arg(&pos_bkde_model)
+        .env("RUST_BACKTRACE", "1")
+        .assert()
+        .success();
+
+    // eprintln!("Compute neg ctrl kernel density estimate");
+    // let neg_bkde_model = temp_dir.path().join("neg_bkde_model");
+    // Command::new(cawlr)
+    //     .arg("model-scores")
+    //     .arg("-i")
+    //     .arg(&neg_scores)
+    //     .arg("-o")
+    //     .arg(&neg_bkde_model)
+    //     .env("RUST_BACKTRACE", "1")
+    //     .assert()
+    //     .success();
 
     temp_dir.close()?;
     Ok(())

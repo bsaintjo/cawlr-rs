@@ -1,102 +1,14 @@
 use std::{collections::VecDeque, fmt::Display, fs::File, io::Write, path::Path};
 
 use anyhow::{Context, Result};
-use criterion_stats::univariate::{
-    kde::{kernel::Gaussian, Bandwidth, Kde},
-    Sample,
-};
 use itertools::Itertools;
 use nalgebra::DMatrix;
-use rand::{
-    prelude::{SliceRandom, SmallRng},
-    SeedableRng,
-};
 
 use crate::{
     arrow::{load_apply, Metadata, MetadataExt, ScoredRead},
     bkde::BinnedKde,
-    motif,
     motif::Motif,
-    utils,
 };
-
-pub struct Builder<P> {
-    pos_score_file: P,
-    neg_score_file: P,
-    output_file: Option<P>,
-    motifs: Vec<Motif>,
-    seed: u64,
-    kde_samples: usize,
-}
-
-impl<P> Builder<P>
-where
-    P: AsRef<Path>,
-{
-    pub fn new(pos_ctrl_file: P, neg_ctrl_file: P) -> Self {
-        let motifs = motif::all_bases();
-        Builder {
-            pos_score_file: pos_ctrl_file,
-            neg_score_file: neg_ctrl_file,
-            output_file: None,
-            motifs,
-            seed: 2456,
-            kde_samples: 50_000_usize,
-        }
-    }
-
-    pub fn seed(&mut self, seed: u64) -> &mut Self {
-        self.seed = seed;
-        self
-    }
-
-    pub fn kde_samples(&mut self, kde_samples: usize) -> &mut Self {
-        self.kde_samples = kde_samples;
-        self
-    }
-
-    fn motifs(&mut self, motifs: Vec<Motif>) -> &mut Self {
-        self.motifs = motifs;
-        self
-    }
-
-    pub fn try_motifs(&mut self, motifs: Option<Vec<Motif>>) -> &mut Self {
-        if let Some(motifs) = motifs {
-            self.motifs(motifs);
-        }
-        self
-    }
-
-    pub fn try_output_file(&mut self, output_file: Option<P>) -> &mut Self {
-        self.output_file = output_file;
-        self
-    }
-
-    pub fn build(self) -> Result<SmaOptions> {
-        let mut rng = SmallRng::seed_from_u64(self.seed);
-        let pos_bkde = score_file_to_bkde(self.kde_samples, &mut rng, self.pos_score_file)?;
-        let neg_bkde = score_file_to_bkde(self.kde_samples, &mut rng, self.neg_score_file)?;
-        let writer = utils::stdout_or_file(self.output_file)?;
-
-        Ok(SmaOptions::new(pos_bkde, neg_bkde, self.motifs, writer))
-    }
-}
-
-pub fn score_file_to_bkde<P>(
-    kde_samples: usize,
-    rng: &mut SmallRng,
-    filepath: P,
-) -> Result<BinnedKde>
-where
-    P: AsRef<Path>,
-{
-    let scores_file = File::open(filepath)?;
-    let scores = extract_samples_from_file(scores_file)?;
-    let scores: Vec<f64> = scores.choose_multiple(rng, kde_samples).cloned().collect();
-    let kde = sample_kde(&scores)?;
-    let bkde = BinnedKde::from_kde(1000, kde);
-    Ok(bkde)
-}
 
 pub struct SmaOptions {
     pos_bkde: BinnedKde,
@@ -106,7 +18,7 @@ pub struct SmaOptions {
 }
 
 impl SmaOptions {
-    fn new(
+    pub fn new(
         pos_bkde: BinnedKde,
         neg_bkde: BinnedKde,
         motifs: Vec<Motif>,
@@ -199,24 +111,6 @@ pub fn extract_samples(reads: &[ScoredRead]) -> Vec<f64> {
                 .collect::<Vec<_>>()
         })
         .collect()
-}
-
-pub fn extract_samples_from_file(file: File) -> Result<Vec<f64>> {
-    let mut scores = Vec::new();
-    load_apply(file, |reads: Vec<ScoredRead>| {
-        let mut samples = extract_samples(&reads);
-        scores.append(&mut samples);
-        Ok(())
-    })?;
-    Ok(scores)
-}
-
-fn sample_kde(samples: &[f64]) -> Result<Kde<f64, Gaussian>> {
-    if samples.is_empty() {
-        return Err(anyhow::anyhow!("Score file does not contain any values."));
-    }
-    let samples = Sample::new(samples);
-    Ok(Kde::new(samples, Gaussian, Bandwidth::Silverman))
 }
 
 pub struct SmaMatrix {

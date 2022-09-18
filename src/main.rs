@@ -20,11 +20,14 @@ mod motif;
 mod plus_strand_map;
 mod rank;
 mod score;
+mod score_model;
 mod sma;
 mod train;
 mod utils;
 
-use motif::Motif;
+use bkde::BinnedKde;
+use motif::{all_bases, Motif};
+use sma::SmaOptions;
 use train::Model;
 use utils::CawlrIO;
 
@@ -169,6 +172,25 @@ enum Commands {
         #[clap(short, long)]
         motif: Option<Vec<Motif>>,
     },
+    /// Compute kernel density estimate of control score data
+    ModelScores {
+        /// Arrow output from cawlr score
+        #[clap(short, long)]
+        input: String,
+
+        /// Pickle file containing estimated kernel density estimate values
+        #[clap(short, long)]
+        output: String,
+
+        /// Number of bins used to estimate the kernel density estimate
+        #[clap(short, long, default_value_t = 10_000)]
+        bins: u32,
+
+        /// Number of scores sampled from the input to compute the kernel
+        /// density estimate
+        #[clap(short, long, default_value_t = 10_000)]
+        samples: usize,
+    },
     Sma {
         /// Path to scored data from cawlr score
         #[clap(short, long)]
@@ -178,11 +200,11 @@ enum Commands {
         #[clap(short, long)]
         output: Option<String>,
 
-        /// Path to score from positive control dataset
+        /// Output from cawlr model-scores for treated control sample
         #[clap(long)]
         pos_ctrl_scores: String,
 
-        /// Path to score from negative control dataset
+        /// Output from cawlr model-scores for untreated control sample
         #[clap(long)]
         neg_ctrl_scores: String,
 
@@ -190,14 +212,6 @@ enum Commands {
         /// analysis, by default will use all kmers
         #[clap(short, long)]
         motif: Option<Vec<Motif>>,
-
-        /// Number of scores sampled to create kernel density estimate
-        #[clap(long, default_value_t = 10_000_usize)]
-        kde_samples: usize,
-
-        /// Set seed to have reproducible sampling
-        #[clap(long, default_value_t = 2456_u64)]
-        seed: u64,
     },
 }
 
@@ -311,23 +325,38 @@ fn main() -> Result<()> {
             scoring.run(input)?;
         }
 
+        Commands::ModelScores {
+            input,
+            output,
+            bins,
+            samples,
+        } => {
+            let file = File::open(input)?;
+            let bkde = score_model::Options::default()
+                .bins(bins)
+                .samples(samples)
+                .run(file)?;
+            bkde.save(output)?;
+        }
+
         Commands::Sma {
             input,
             output,
-            pos_ctrl_scores: pos_control_scores,
-            neg_ctrl_scores: neg_control_scores,
+            pos_ctrl_scores,
+            neg_ctrl_scores,
             motif,
-            kde_samples,
-            seed,
         } => {
-            let mut builder = sma::Builder::new(pos_control_scores, neg_control_scores);
-            builder
-                .kde_samples(kde_samples)
-                .seed(seed)
-                .try_motifs(motif)
-                .try_output_file(output);
-            let sma = builder.build()?;
-            sma.run(input)?;
+            let pos_bkde = BinnedKde::load(pos_ctrl_scores)?;
+            let neg_bkde = BinnedKde::load(neg_ctrl_scores)?;
+            let output = utils::stdout_or_file(output)?;
+            let motifs = {
+                if let Some(motif) = motif {
+                    motif
+                } else {
+                    all_bases()
+                }
+            };
+            SmaOptions::new(pos_bkde, neg_bkde, motifs, output).run(input)?;
         }
     }
     Ok(())
