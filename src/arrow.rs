@@ -13,7 +13,7 @@ use arrow2::{
     error::Error,
     io::ipc::{
         read::{read_file_metadata, FileReader},
-        write::{FileWriter, WriteOptions},
+        write::{Compression, FileWriter, WriteOptions},
     },
 };
 use arrow2_convert::{
@@ -22,6 +22,7 @@ use arrow2_convert::{
     serialize::{ArrowSerialize, TryIntoArrow},
     ArrowField,
 };
+use csv::Position;
 use itertools::Itertools;
 
 pub trait MetadataExt {
@@ -230,9 +231,41 @@ impl Strand {
     }
 }
 
+/// Records the position in the nanopolish eventalign file that corresponds to
+/// the current eventalign. Used to restart cawlr collapse without having to
+/// start at the very beginning.
+#[derive(ArrowField, Debug, Clone, Default, PartialEq)]
+pub(crate) struct FilePos {
+    byte: u64,
+    line: u64,
+    record: u64,
+}
+
+impl From<&Position> for FilePos {
+    fn from(pos: &Position) -> Self {
+        FilePos {
+            byte: pos.byte(),
+            line: pos.line(),
+            record: pos.record(),
+        }
+    }
+}
+
+impl From<&FilePos> for Position {
+    fn from(fp: &FilePos) -> Self {
+        let mut position = Position::new();
+        position
+            .set_byte(fp.byte)
+            .set_line(fp.line)
+            .set_record(fp.record);
+        position
+    }
+}
+
 #[derive(Debug, Clone, ArrowField, Default, PartialEq)]
 pub struct Eventalign {
     metadata: Metadata,
+    position: FilePos,
     signal_data: Vec<Signal>,
 }
 
@@ -240,8 +273,21 @@ impl Eventalign {
     pub(crate) fn new(metadata: Metadata, signal_data: Vec<Signal>) -> Self {
         Self {
             metadata,
+            position: FilePos::default(),
             signal_data,
         }
+    }
+
+    pub(crate) fn set_position<P>(&mut self, position: P) -> &mut Self
+    where
+        P: Into<FilePos>,
+    {
+        self.position = position.into();
+        self
+    }
+
+    pub(crate) fn position(&self) -> &FilePos {
+        &self.position
     }
 
     pub fn name(&self) -> &str {
@@ -272,12 +318,6 @@ impl Eventalign {
 
     pub(crate) fn strand_mut(&mut self) -> &mut Strand {
         &mut self.metadata.strand
-    }
-
-    pub(crate) fn empty(name: String, chrom: String, start: u64, length: u64, seq: String) -> Self {
-        let strand = Strand::unknown();
-        let metadata = Metadata::new(name, chrom, start, length, strand, seq);
-        Eventalign::new(metadata, Vec::new())
     }
 
     pub(crate) fn schema() -> Schema {
@@ -433,7 +473,9 @@ pub fn wrap_writer<W>(writer: W, schema: &Schema) -> Result<FileWriter<W>>
 where
     W: Write,
 {
-    let options = WriteOptions { compression: None };
+    let options = WriteOptions {
+        compression: Some(Compression::LZ4),
+    };
     let fw = FileWriter::try_new(writer, schema, None, options)?;
     Ok(fw)
 }

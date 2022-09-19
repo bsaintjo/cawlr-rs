@@ -1,13 +1,17 @@
 use std::{
     fs::File,
-    io::{BufWriter, Read, Write},
+    io::{BufWriter, Read, Seek, Write},
     path::Path,
 };
 
 use anyhow::Result;
-use arrow2::io::ipc::write::FileWriter;
+use arrow2::io::ipc::{
+    read::{read_file_metadata, FileReader},
+    write::FileWriter,
+};
+use arrow2_convert::deserialize::TryIntoCollection;
 use bio::alphabets::dna::revcomp;
-use csv::DeserializeRecordsIter;
+use csv::{DeserializeRecordsIter, Position};
 use indicatif::{ProgressBar, ProgressBarIter, ProgressFinish, ProgressStyle};
 use serde::Deserialize;
 use serde_with::{serde_as, CommaSeparator, StringWithSeparator};
@@ -132,6 +136,35 @@ impl CollapseOptions<BufWriter<File>> {
     }
 }
 
+impl<R> CollapseOptions<R>
+where
+    R: Read + Seek + Write,
+{
+    fn get_last_position<P: AsRef<Path>>(input: P) -> Result<Position> {
+        let mut reader = File::open(input)?;
+        let metadata = read_file_metadata(&mut reader)?;
+        let reader = FileReader::new(reader, metadata, None);
+        let chunk = reader.last().unwrap()?;
+        let varr = chunk.into_arrays();
+        let arr = varr[varr.len() - 1].clone();
+        let es: Vec<Eventalign> = arr.try_into_collection()?;
+        let e = &es[es.len() - 1];
+        Ok(e.position().into())
+    }
+
+    fn continue_from<I>(
+        &mut self,
+        position: Position,
+        input: &mut DeserializeRecordsIter<I, Npr>,
+    ) -> Result<()>
+    where
+        I: Read + Seek,
+    {
+        input.reader_mut().seek(position)?;
+        Ok(())
+    }
+}
+
 impl<W: Write> CollapseOptions<W> {
     fn new(writer: FileWriter<W>, strand_db: PlusStrandMap) -> Self {
         Self {
@@ -188,7 +221,7 @@ impl<W: Write> CollapseOptions<W> {
         let mut acc = vec![npr];
         let mut flats = Vec::with_capacity(self.capacity);
 
-        for line in npr_iter {
+        while let Some(line) = npr_iter.next() {
             if let Ok(mut next_npr) = line {
                 let last = acc.last().unwrap();
                 let read_name = last.read_name();
@@ -209,8 +242,12 @@ impl<W: Write> CollapseOptions<W> {
                         acc.push(next_npr);
                     }
                 } else {
+                    let fp = npr_iter.reader().position();
                     // New read, write data and move forward
-                    if let Some(eventalign) = nprs_to_eventalign(acc.drain(..), &self.strand_db)? {
+                    if let Some(mut eventalign) =
+                        nprs_to_eventalign(acc.drain(..), &self.strand_db)?
+                    {
+                        eventalign.set_position(fp);
                         flats.push(eventalign);
                     }
 

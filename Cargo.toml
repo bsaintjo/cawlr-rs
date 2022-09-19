@@ -17,7 +17,7 @@ categories = ["science", "command-line-utilities"]
 anyhow = "1.0.48"
 
 # Output format for intensive data results
-arrow2 = { version = "0.12.0", features = ["io_ipc"] }
+arrow2 = { version = "0.12.0", features = ["io_ipc", "io_ipc_compression"] }
 arrow2_convert = { version = "0.2.0", features = [
     "derive",
     "arrow2_convert_derive",

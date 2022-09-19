@@ -69,6 +69,12 @@ enum Commands {
         #[clap(short, long, default_value_t = 2048)]
         /// Number of eventalign records to hold in memory.
         capacity: usize,
+
+        /// Resume running cawlr collapse on nanopolish output. Useful if
+        /// something happened and command failed, must pass input as file
+        /// (maybe?).
+        #[clap(short, long, default_value_t = false)]
+        resume: bool,
     },
 
     Index {
@@ -227,6 +233,7 @@ fn main() -> Result<()> {
             bam,
             output,
             capacity,
+            ..
         } => {
             if capacity == 0 {
                 let mut cmd = Args::command();
