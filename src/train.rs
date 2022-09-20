@@ -212,49 +212,7 @@ fn train_gmm(means: Vec<f64>) -> Result<Option<Mixture<Gaussian>>> {
     let len = means.len();
     let shape = (len, 1);
     let means = Array::from_shape_vec(shape, means)?;
-    let data = DatasetBase::from(means);
-    let min_points = 3;
-    let data = Dbscan::params(min_points)
-        .tolerance(1e-3)
-        .check()?
-        .transform(data);
-
-    // Filter the noise from the Dbscan output
-    // TODO: Should be a faster way to do this but for now convert to vec and back
-    // before training
-
-    let recs = data
-        .records()
-        .as_slice()
-        .expect("Getting records failed after DBSCAN");
-    let targets = data
-        .targets()
-        .as_slice()
-        .expect("Getting targets failed after DBSCAN");
-
-    let obs: Vec<f64> = recs
-        .iter()
-        .zip(targets.iter())
-        .filter_map(
-            |(&x, cluster)| {
-                if cluster.is_some() {
-                    Some(x)
-                } else {
-                    None
-                }
-            },
-        )
-        .collect();
-    if obs.len() < 2 {
-        log::warn!("Not enough values left in observations");
-        return Ok(None);
-    }
-
-    let len = obs.len();
-    let shape = (len, 1);
-    let means = Array::from_shape_vec(shape, obs)?;
-    let data = DatasetBase::from(means);
-
+    let obs = DatasetBase::from(means);
     let n_clusters = 2;
     let n_runs = 10;
     let tolerance = 1e-4f64;
@@ -262,7 +220,7 @@ fn train_gmm(means: Vec<f64>) -> Result<Option<Mixture<Gaussian>>> {
         .n_runs(n_runs)
         .tolerance(tolerance)
         .check()?
-        .fit(&data)?;
+        .fit(&obs)?;
     let weights = gmm.weights().iter().cloned().collect::<Vec<f64>>();
     let means = gmm.means().iter();
     let covs = gmm.covariances().iter();
