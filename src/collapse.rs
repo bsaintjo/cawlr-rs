@@ -10,7 +10,8 @@ use bio::alphabets::dna::revcomp;
 use csv::DeserializeRecordsIter;
 use indicatif::{ProgressBar, ProgressBarIter, ProgressFinish, ProgressStyle};
 use serde::Deserialize;
-use serde_with::{serde_as, CommaSeparator, StringWithSeparator};
+use serde_with::{serde_as, StringWithSeparator};
+use serde_with::formats::CommaSeparator;
 use statrs::statistics::Statistics;
 
 use crate::{
@@ -108,9 +109,10 @@ fn spin_iter<I: Read>(iter: I, show_progress: bool) -> ProgressBarIter<I> {
     };
     let style = ProgressStyle::default_spinner()
         .template("{spinner} [{elapsed_precise}] {binary_bytes_per_sec} {msg}")
-        .on_finish(ProgressFinish::AndLeave);
+        .unwrap();
     pb.with_message("Processing eventalign data")
         .with_style(style)
+        .with_finish(ProgressFinish::AndLeave)
         .wrap_read(iter)
 }
 

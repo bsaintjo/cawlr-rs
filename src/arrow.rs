@@ -2,7 +2,7 @@ use std::{
     io::{Read, Seek, Write},
     ops::Index,
     slice::SliceIndex,
-    sync::Arc,
+    borrow::Borrow,
 };
 
 use anyhow::Result;
@@ -13,11 +13,11 @@ use arrow2::{
     error::Error,
     io::ipc::{
         read::{read_file_metadata, FileReader},
-        write::{FileWriter, WriteOptions},
+        write::{FileWriter, WriteOptions, Compression},
     },
 };
 use arrow2_convert::{
-    deserialize::{ArrowDeserialize, TryIntoCollection},
+    deserialize::{ArrowDeserialize, TryIntoCollection, arrow_array_deserialize_iterator},
     field::ArrowField,
     serialize::{ArrowSerialize, TryIntoArrow},
     ArrowField,
@@ -441,7 +441,7 @@ pub fn wrap_writer<W>(writer: W, schema: &Schema) -> Result<FileWriter<W>>
 where
     W: Write,
 {
-    let options = WriteOptions { compression: None };
+    let options = WriteOptions { compression: Some(Compression::LZ4) };
     let fw = FileWriter::try_new(writer, schema, None, options)?;
     Ok(fw)
 }
@@ -451,9 +451,8 @@ where
     T: ArrowField<Type = T> + ArrowSerialize + 'static,
     W: Write,
 {
-    let arrow_array: Arc<dyn Array> = x.try_into_arrow()?;
-    let chunks = Chunk::new(vec![arrow_array]);
-    writer.write(&chunks, None)?;
+    let arrow_array: Chunk<Box<dyn Array>> = x.try_into_arrow()?;
+    writer.write(&arrow_array, None)?;
     Ok(())
 }
 
@@ -462,7 +461,7 @@ where
     R: Read + Seek,
 {
     let metadata = read_file_metadata(&mut reader)?;
-    let reader = FileReader::new(reader, metadata, None);
+    let reader = FileReader::new(reader, metadata, None, None);
     Ok(reader)
 }
 
@@ -496,6 +495,29 @@ where
             for arr in chunk.into_arrays().into_iter() {
                 let eventaligns: Vec<T> = arr.try_into_collection()?;
                 func(eventaligns)?;
+            }
+        } else {
+            log::warn!("Failed to load arrow chunk")
+        }
+    }
+    Ok(())
+}
+
+pub fn load_apply_indy<R, F, T>(reader: R, mut func: F) -> Result<()>
+where
+    R: Read + Seek,
+    F: FnMut(T) -> anyhow::Result<()>,
+    T: ArrowField<Type = T> + ArrowDeserialize + 'static,
+    for<'a> &'a <T as ArrowDeserialize>::ArrayType: IntoIterator,
+{
+    let feather = load(reader)?;
+    for read in feather {
+        if let Ok(chunk) = read {
+            for arr in chunk.into_arrays().into_iter() {
+                let iter = arrow_array_deserialize_iterator(arr.borrow())?;
+                for x in iter {
+                    func(x)?;
+                }
             }
         } else {
             log::warn!("Failed to load arrow chunk")
@@ -543,7 +565,7 @@ where
     R: Read + Seek,
 {
     let metadata = read_file_metadata(&mut reader).unwrap();
-    let reader = FileReader::new(reader, metadata, None);
+    let reader = FileReader::new(reader, metadata, None, None);
     reader
         .map(|x| x.map(|c| c.into_arrays().into_iter()))
         .map(|q| {
@@ -564,7 +586,7 @@ where
     R: Read + Seek,
 {
     let metadata = read_file_metadata(&mut reader).unwrap();
-    let reader = FileReader::new(reader, metadata, None);
+    let reader = FileReader::new(reader, metadata, None, None);
     reader.map_ok(|c| {
         c.into_arrays().into_iter().map(|a| {
             let x: Vec<Eventalign> = a.try_into_collection_as_type::<Eventalign>()?;
