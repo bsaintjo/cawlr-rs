@@ -194,6 +194,10 @@ impl Signal {
     pub(crate) fn set_kmer(&mut self, kmer: String) {
         self.kmer = kmer;
     }
+    
+    pub(crate) fn samples(&self) -> &[f64] {
+        &self.samples
+    }
 }
 
 #[derive(Debug, Copy, Clone, ArrowField, PartialEq, Eq)]

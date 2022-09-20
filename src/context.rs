@@ -46,7 +46,7 @@ impl Context {
     pub(crate) fn from_read<R>(
         genome: &mut IndexedReader<R>,
         chrom_lens: &FnvHashMap<String, u64>,
-        read: &Eventalign,
+        read: &impl MetadataExt,
     ) -> Result<Self>
     where
         R: Read + Seek,

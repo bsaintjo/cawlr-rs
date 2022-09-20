@@ -159,12 +159,13 @@ impl Train {
 
     fn read_to_kmer_means(&mut self, read: &Eventalign) {
         for signal in read.signal_iter() {
-            if let Some(true) = self.acc.get(signal.kmer()).map(|v| v.len() > self.samples) {
-                continue;
-            }
-            let mean = signal.mean();
             let kmer = signal.kmer().to_owned();
-            self.acc.entry(kmer).or_default().push(mean);
+            let entry = self.acc.entry(kmer).or_default();
+            if entry.len() > self.samples {
+                continue
+            }
+            let samples = signal.samples();
+            entry.extend_from_slice(samples);
         }
     }
 
