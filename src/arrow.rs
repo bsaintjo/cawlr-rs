@@ -2,7 +2,7 @@ use std::{
     io::{Read, Seek, Write},
     ops::Index,
     slice::SliceIndex,
-    borrow::Borrow,
+    borrow::Borrow, fmt::Display,
 };
 
 use anyhow::Result;
@@ -196,23 +196,39 @@ impl Signal {
     }
 }
 
-#[derive(Default, Debug, Copy, Clone, ArrowField, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, ArrowField, PartialEq, Eq)]
 // Currently arrow2 doesn't support newtypes or enums so for now it is a struct
-pub struct Strand {
-    strand: i8,
+#[arrow_field(type = "dense")]
+pub enum Strand {
+    Plus,
+    Minus,
+    Unknown,
+}
+
+impl Default for Strand {
+    fn default() -> Self {
+        Strand::Unknown
+    }
+}
+
+impl Display for Strand {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.as_str())
+    }
 }
 
 impl Strand {
     pub(crate) fn plus() -> Self {
-        Strand { strand: 1i8 }
+        // Strand { strand: 1i8 }
+        Strand::Plus
     }
 
     pub(crate) fn minus() -> Self {
-        Strand { strand: -1i8 }
+        Strand::Minus
     }
 
     pub(crate) fn unknown() -> Self {
-        Strand { strand: 0i8 }
+        Strand::Unknown
     }
 
     pub(crate) fn is_plus_strand(&self) -> bool {
@@ -228,12 +244,10 @@ impl Strand {
     }
 
     pub(crate) fn as_str(&self) -> &'static str {
-        if self.is_plus_strand() {
-            "+"
-        } else if self.is_minus_strand() {
-            "-"
-        } else {
-            "."
+        match self {
+            Self::Plus => "+",
+            Self::Minus => "-",
+            Self::Unknown => "."
         }
     }
 }
