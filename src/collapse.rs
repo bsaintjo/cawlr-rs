@@ -19,17 +19,18 @@ use crate::{
 };
 
 fn empty_from_npr(npr: Npr) -> Eventalign {
-    let name = npr.read_name;
-    let chrom = npr.contig;
+    let name = npr.read_name().to_string();
+    let chrom = npr.contig().to_string();
     let start = npr.position;
     let length = 1;
     let seq = String::new();
     let metadata = Metadata::new(name, chrom, start, length, Strand::unknown(), seq);
     let signal_data = vec![Signal::new(
         npr.position,
-        npr.reference_kmer,
-        npr.samples.mean(),
+        npr.reference_kmer().to_string(),
+        npr.samples().mean(),
         npr.event_length,
+        npr.samples,
     )];
 
     Eventalign::new(metadata, signal_data)
@@ -56,7 +57,7 @@ fn nprs_to_eventalign(
         }
 
         let time = npr.event_length;
-        let signal = Signal::new(position, ref_kmer, mean, time);
+        let signal = Signal::new(position, ref_kmer, mean, time, npr.samples);
         eventalign.signal_data_mut().push(signal);
     }
 
@@ -295,6 +296,10 @@ struct Npr {
 }
 
 impl Npr {
+    fn contig(&self) -> &str {
+        &self.contig
+    }
+
     fn read_name(&self) -> &str {
         &self.read_name
     }
@@ -428,10 +433,11 @@ chr1	199403040	ATATAA	c25d27a8-0eec-4e7d-96f9-b8e730a25832	t	3918	87.01		72.4013
                 "ATATAA".to_string(),
                 npr.samples().mean(),
                 0.00100,
+                vec![87.1186, 87.4749, 86.406, 86.2279],
             )],
         );
 
-        assert_eq!(x[0], target);
+        pretty_assertions::assert_eq!(x[0], target);
     }
 
     #[test]
@@ -468,12 +474,14 @@ chr1	199403041	GATATA	c25d27a8-0eec-4e7d-96f9-b8e730a25832	t	3917	106.85	4.255	0
                     "ATATAA".to_string(),
                     [87.1186, 87.4749, 86.406, 86.2279].mean(),
                     0.00100,
+                    vec![87.1186, 87.4749, 86.406, 86.2279],
                 ),
                 Signal::new(
                     199403041,
                     "GATATA".to_string(),
                     [99.4103, 108.674, 110.277, 109.03].mean(),
                     0.00100,
+                    vec![99.4103, 108.674, 110.277, 109.03],
                 ),
             ],
         );

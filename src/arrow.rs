@@ -155,15 +155,23 @@ pub(crate) struct Signal {
     kmer: String,
     signal_mean: f64,
     signal_time: f64,
+    samples: Vec<f64>,
 }
 
 impl Signal {
-    pub(crate) fn new(pos: u64, kmer: String, signal_mean: f64, signal_time: f64) -> Self {
+    pub(crate) fn new(
+        pos: u64,
+        kmer: String,
+        signal_mean: f64,
+        signal_time: f64,
+        samples: Vec<f64>,
+    ) -> Self {
         Self {
             pos,
             kmer,
             signal_mean,
             signal_time,
+            samples,
         }
     }
 
@@ -588,7 +596,7 @@ mod test {
             String::new(),
         );
 
-        let signal = Signal::new(1u64, "AAAAAA".to_string(), 80.0f64, 0.01f64);
+        let signal = Signal::new(1u64, "AAAAAA".to_string(), 80.0f64, 0.01f64, Vec::new());
 
         let eventalign = Eventalign::new(metadata, vec![signal]);
         let x = [eventalign.clone(), eventalign];
