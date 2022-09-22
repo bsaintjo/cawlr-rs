@@ -10,7 +10,6 @@ use arrow2::{
     array::Array,
     chunk::Chunk,
     datatypes::{Field, Schema},
-    error::Error,
     io::ipc::{
         read::{read_file_metadata, FileReader},
         write::{FileWriter, WriteOptions, Compression},
@@ -105,7 +104,7 @@ pub struct Metadata {
 }
 
 impl Metadata {
-    pub(crate) fn new(
+    pub fn new(
         name: String,
         chrom: String,
         start: u64,
@@ -235,16 +234,12 @@ impl Strand {
         Strand::Unknown
     }
 
-    pub(crate) fn is_plus_strand(&self) -> bool {
-        self == &Strand::plus()
-    }
-
     pub(crate) fn is_minus_strand(&self) -> bool {
-        self == &Strand::minus()
+        matches!(self, Strand::Minus)
     }
 
     pub(crate) fn is_unknown_strand(&self) -> bool {
-        self == &Strand::unknown()
+        matches!(self, Strand::Unknown)
     }
 
     pub(crate) fn as_str(&self) -> &'static str {
@@ -300,11 +295,11 @@ impl Eventalign {
         &mut self.metadata.strand
     }
 
-    pub(crate) fn empty(name: String, chrom: String, start: u64, length: u64, seq: String) -> Self {
-        let strand = Strand::unknown();
-        let metadata = Metadata::new(name, chrom, start, length, strand, seq);
-        Eventalign::new(metadata, Vec::new())
-    }
+    // pub(crate) fn empty(name: String, chrom: String, start: u64, length: u64, seq: String) -> Self {
+    //     let strand = Strand::unknown();
+    //     let metadata = Metadata::new(name, chrom, start, length, strand, seq);
+    //     Eventalign::new(metadata, Vec::new())
+    // }
 
     pub(crate) fn schema() -> Schema {
         let data_type = Self::data_type();
@@ -331,21 +326,6 @@ pub struct ScoreBuilder {
     score: Score,
 }
 
-impl ScoreBuilder {
-    pub fn new(score: Score) -> Self {
-        Self { score }
-    }
-
-    pub fn score(mut self, score: f64) -> Self {
-        self.score.score = score;
-        self
-    }
-
-    pub fn build(self) -> Score {
-        self.score
-    }
-}
-
 #[derive(Default, Debug, Clone, ArrowField)]
 pub struct Score {
     pos: u64,
@@ -357,7 +337,7 @@ pub struct Score {
 }
 
 impl Score {
-    pub(crate) fn new(
+    pub fn new(
         pos: u64,
         kmer: String,
         skipped: bool,
@@ -380,6 +360,11 @@ impl Score {
         self.score
     }
 
+    pub fn with_score(mut self, score: f64) -> Self {
+        self.score = score;
+        self
+    }
+
     pub(crate) fn signal_score(&self) -> &Option<f64> {
         &self.signal_score
     }
@@ -397,16 +382,8 @@ pub struct ScoredRead {
 }
 
 impl ScoredRead {
-    fn new(metadata: Metadata, scores: Vec<Score>) -> Self {
+    pub fn new(metadata: Metadata, scores: Vec<Score>) -> Self {
         ScoredRead { metadata, scores }
-    }
-
-    pub(crate) fn metadata(&self) -> &Metadata {
-        &self.metadata
-    }
-
-    pub(crate) fn length(&self) -> u64 {
-        self.metadata.length
     }
 
     pub(crate) fn from_read_with_scores(eventalign: Eventalign, scores: Vec<Score>) -> Self {
@@ -424,11 +401,11 @@ impl ScoredRead {
     }
 
     pub(crate) fn to_expanded_scores(&self) -> ExpandedScores {
-        let n = self.length() as usize;
+        let n = self.np_length() as usize;
         let mut acc = vec![None; n];
         for score in self.scores.iter() {
             let rel_pos = score.pos - self.metadata.start;
-            if rel_pos >= self.length() {
+            if rel_pos >= self.np_length() {
                 log::warn!(
                     "Read contains data outside length, {}, start+length is {}+{} but score at {}",
                     self.metadata.name,
@@ -521,6 +498,8 @@ where
     Ok(())
 }
 
+/// Trying different ways if iterating over files, can be deleted safely
+#[allow(dead_code)]
 pub fn load_apply_indy<R, F, T>(reader: R, mut func: F) -> Result<()>
 where
     R: Read + Seek,
@@ -578,7 +557,8 @@ where
 }
 
 // TODO Refactor multiple maps
-pub(crate) fn load_iter<R>(mut reader: R) -> impl Iterator<Item = Result<Vec<Eventalign>, Error>>
+#[cfg(test)]
+pub(crate) fn load_iter<R>(mut reader: R) -> impl Iterator<Item = Result<Vec<Eventalign>, arrow2::error::Error>>
 where
     R: Read + Seek,
 {
@@ -597,6 +577,8 @@ where
         })
 }
 
+/// Trying different ways if iterating over files, can be deleted safely
+#[allow(dead_code)]
 pub(crate) fn load_iter2<R>(
     mut reader: R,
 ) -> impl Iterator<Item = Result<impl Iterator<Item = Result<Vec<Eventalign>>>, arrow2::error::Error>>

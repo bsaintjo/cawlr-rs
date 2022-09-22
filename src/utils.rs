@@ -18,17 +18,15 @@ use crate::train::Model;
 ///
 /// TODO: Maybe return with the BufWriter wrapping the trait object, like
 /// BufWriter<Box<dyn Write>> instead of the how we have now.
-pub(crate) fn stdout_or_file<P>(filename: Option<P>) -> Result<Box<dyn Write>>
+pub fn stdout_or_file<P>(filename: Option<P>) -> Result<Box<dyn Write>>
 where
     P: AsRef<Path>,
 {
     if let Some(fp) = filename {
         let handle = File::create(fp)?;
-        let handle = BufWriter::new(handle);
         Ok(Box::new(handle))
     } else {
         let handle = stdout().lock();
-        let handle = BufWriter::new(handle);
         Ok(Box::new(handle))
     }
 }

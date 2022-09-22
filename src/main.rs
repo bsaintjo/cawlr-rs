@@ -1,10 +1,11 @@
 use std::{
     fs::File,
-    io::{self, Read},
+    io::{self, Read, BufWriter},
     path::{Path, PathBuf},
 };
 
 use anyhow::Result;
+use cawlr::utils::stdout_or_file;
 use clap::{IntoApp, Parser, Subcommand};
 use clap_verbosity_flag::Verbosity;
 use human_panic::setup_panic;
@@ -64,7 +65,7 @@ enum Commands {
         #[clap(short, long)]
         /// Path to output file in Apache Arrow format, defaults to stdout if no
         /// argument provided.
-        output: String,
+        output: Option<PathBuf>,
 
         #[clap(short, long, default_value_t = 2048)]
         /// Number of eventalign records to hold in memory.
@@ -102,6 +103,10 @@ enum Commands {
         #[clap(short, long, default_value_t = 50_000)]
         /// Number of samples per kmer to allow
         samples: usize,
+
+        // Number of threads to use for training, by default num cpus
+        #[clap(short = 'j', long)]
+        num_threads: Option<usize>,
     },
 
     /// Rank each kmer by the Kulback-Leibler Divergence and between the trained
@@ -245,7 +250,10 @@ fn main() -> Result<()> {
                 }
             };
 
-            let mut collapse = collapse::CollapseOptions::try_new(&bam, &output)?;
+            let final_output = stdout_or_file(output)?;
+            let final_output = BufWriter::new(final_output);
+
+            let mut collapse = collapse::CollapseOptions::from_writer(final_output, &bam)?;
             collapse.capacity(capacity).progress(true);
             collapse.run(final_input)?;
         }
@@ -260,8 +268,15 @@ fn main() -> Result<()> {
             output,
             genome,
             samples,
+            num_threads,
         } => {
             log::info!("Train command");
+            if let Some(n) = num_threads {
+                rayon::ThreadPoolBuilder::new()
+                    .num_threads(n)
+                    .build_global()?;
+            } else {
+            }
             let train = train::Train::try_new(&input, &genome, samples)?;
             let model = train.run()?;
             model.save(output)?;

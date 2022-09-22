@@ -5,7 +5,7 @@ use itertools::Itertools;
 use nalgebra::DMatrix;
 
 use crate::{
-    arrow::{load_apply, Metadata, MetadataExt, ScoredRead},
+    arrow::{load_apply, Metadata, MetadataExt, ScoredRead, Strand},
     bkde::BinnedKde,
     motif::Motif,
 };
@@ -36,7 +36,10 @@ impl SmaOptions {
     where
         P: AsRef<Path>,
     {
-        writeln!(&mut self.writer, "track name=\"cawlr_sma\" itemRgb=\"on\"")?;
+        writeln!(
+            &mut self.writer,
+            "track name=\"cawlr_sma\" itemRgb=\"on\" visibility=2"
+        )?;
 
         let scores_file = File::open(scores_filepath)?;
         load_apply(scores_file, |reads| {
@@ -45,6 +48,10 @@ impl SmaOptions {
                 let states = matrix.backtrack();
                 let states_rle = states_to_rle(&states);
                 let sma_output = SmaOutput::new(&read, states_rle);
+                if sma_output.nuc_starts_lens().0.is_empty() {
+                    log::warn!("Empty nuc starts: {:?}", sma_output);
+                    continue;
+                }
                 writeln!(&mut self.writer, "{}", sma_output)?;
             }
             Ok(())
@@ -54,7 +61,7 @@ impl SmaOptions {
     pub fn run_read(&self, read: &ScoredRead) -> Result<SmaMatrix> {
         let mut matrix = SmaMatrix::from_read(read);
         let scores = read.to_expanded_scores();
-        for col_idx in 1..=read.length() {
+        for col_idx in 1..=read.np_length() {
             let col_idx = col_idx as usize;
             // Score will be None if a) No data at that position, or b) Position kmer didn't
             // contain motif of interest
@@ -65,7 +72,7 @@ impl SmaOptions {
             let linker_val = matrix.probs().column(col_idx - 1)[0];
             let nuc_val = matrix.probs().column(col_idx - 1)[146];
             let (prev_max, prev_max_idx) = {
-                if linker_val > nuc_val {
+                if linker_val >= nuc_val {
                     (linker_val, 0usize)
                 } else {
                     (nuc_val, 146usize)
@@ -98,21 +105,6 @@ impl SmaOptions {
     }
 }
 
-// TODO Use full score instead of signal score
-pub fn extract_samples(reads: &[ScoredRead]) -> Vec<f64> {
-    reads
-        .iter()
-        .flat_map(|lr| {
-            lr.scores()
-                .iter()
-                .flat_map(|score| score.signal_score())
-                .filter(|x| !x.is_nan())
-                .copied()
-                .collect::<Vec<_>>()
-        })
-        .collect()
-}
-
 pub struct SmaMatrix {
     val_matrix: DMatrix<f64>,
     ptr_matrix: DMatrix<Option<usize>>,
@@ -132,10 +124,10 @@ impl SmaMatrix {
 
     // TODO Make initial value 10/157 for linker, 1/157 for nucleosome positions
     pub fn from_read(read: &ScoredRead) -> Self {
-        let mut val_dm = DMatrix::from_element(147usize, read.length() as usize + 1, f64::MIN);
+        let mut val_dm = DMatrix::from_element(147usize, read.np_length() as usize + 1, f64::MIN);
         val_dm.column_mut(0).fill((1. / 147.0f64).ln());
 
-        let ptr_dm = DMatrix::from_element(147, read.length() as usize + 1, None);
+        let ptr_dm = DMatrix::from_element(147, read.np_length() as usize + 1, None);
         Self::new(val_dm, ptr_dm)
     }
 
@@ -223,6 +215,7 @@ fn states_to_rle(states: &VecDeque<States>) -> Vec<(States, u64)> {
     acc
 }
 
+#[derive(Debug)]
 struct SmaOutput<'a> {
     metadata: &'a Metadata,
     states_rle: Vec<(States, u64)>,
@@ -269,10 +262,10 @@ impl<'a> SmaOutput<'a> {
 
 impl<'a> Display for SmaOutput<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let (strand_punc, rgb) = if self.strand().is_plus_strand() {
-            ("+", "0,255,0")
-        } else {
-            ("-", "255,0,0")
+        let (strand_punc, rgb) = match self.strand() {
+            Strand::Plus => ("+", "255,0,0"),
+            Strand::Minus => ("-", "0,0,255"),
+            Strand::Unknown => (".", "0,0,0"),
         };
         // let chrom_start = self.start_0b();
         let (starts, lengths) = self.nuc_starts_lens();
@@ -303,14 +296,18 @@ mod test {
     fn test_backtrack() {
         use States::*;
 
-        let val_matrix = dmatrix![0.5, 0.1, 0.9, 0.9;
-                                                                    0.5, 0.2, 0.3, 0.4;
-                                                                    0.5, 0.9, 0.0, 0.0];
-        let ptr_matrix = dmatrix![None, Some(0), Some(0), Some(1);
-                                                                     None, Some(0), Some(0), Some(1);
-                                                                     None, Some(0), Some(0), Some(1)];
+        let val_matrix = dmatrix![
+            -0.5, -0.1, -0.9, -0.9;
+            -0.5, -0.2, -0.3, -0.4;
+            -0.5, -0.9, -0.0, -0.0;
+        ];
+        let ptr_matrix = dmatrix![
+            None, Some(0), Some(0), Some(1);
+            None, Some(0), Some(0), Some(1);
+            None, Some(0), Some(0), Some(1);
+        ];
         let sma_matrix = SmaMatrix::new(val_matrix, ptr_matrix);
-        assert_eq!(sma_matrix.val_matrix[(0, 0)], 0.5);
+        assert_eq!(sma_matrix.val_matrix[(0, 0)], -0.5);
 
         let answer: VecDeque<States> = VecDeque::from([Linker, Nucleosome, Linker]);
         assert_eq!(sma_matrix.backtrack(), answer);
@@ -338,7 +335,7 @@ mod test {
 
         let sma_output = SmaOutput::new(&metadata, states_rle);
         let formatted = format!("{}", sma_output);
-        let answer = "chrI\t105\t140\ttest\t0\t+\t105\t140\t0,255,0\t2\t20,10\t0,25";
+        let answer = "chrI\t105\t140\ttest\t0\t+\t105\t140\t255,0,0\t2\t20,10\t0,25";
         assert_eq!(formatted, answer);
     }
 

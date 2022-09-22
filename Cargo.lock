@@ -410,6 +410,7 @@ dependencies = [
  "predicates",
  "pretty_assertions",
  "rand 0.8.5",
+ "rayon",
  "rv",
  "serde",
  "serde-pickle",

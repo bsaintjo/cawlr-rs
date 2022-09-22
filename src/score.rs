@@ -1,4 +1,6 @@
-use std::{collections::HashMap, fs::File, hash::BuildHasher, ops::RangeInclusive, path::Path, fmt::Debug};
+use std::{
+    collections::HashMap, fmt::Debug, fs::File, hash::BuildHasher, ops::RangeInclusive, path::Path,
+};
 
 use anyhow::Result;
 use arrow2::io::ipc::write::FileWriter;
@@ -17,20 +19,6 @@ use crate::{
     train::{Model, ModelDB},
     utils::{chrom_lens, CawlrIO},
 };
-
-fn median(xs: Vec<f64>) -> Option<f64> {
-    let mut xs: Vec<f64> = xs.into_iter().filter(|x| !x.is_nan()).collect();
-    xs.sort_by(|a, b| a.partial_cmp(b).unwrap());
-    if xs.is_empty() {
-        None
-    } else if xs.len() % 2 == 0 {
-        // Even
-        todo!()
-    } else {
-        // Odd
-        todo!()
-    }
-}
 
 pub struct ScoreOptions {
     pos_ctrl: Model,
@@ -229,7 +217,11 @@ impl ScoreOptions {
             let pos_mix = self.pos_ctrl.gmms().get(kmer);
             let neg_mix = self.neg_ctrl.gmms().get(kmer);
             match (pos_mix, neg_mix) {
-                (Some(pos_gmm), Some(neg_gmm)) => score_signal(mean, pos_gmm, neg_gmm, self.cutoff),
+                (Some(pos_gmm), Some(neg_gmm)) => {
+                    let neg_mix = neg_gmm.mixture();
+                    let pos_mix = pos_gmm.mixture();
+                    score_signal(mean, &pos_mix, &neg_mix, self.cutoff)
+                }
                 _ => {
                     log::debug!("Missing kmer, unable to score signal.");
                     None
@@ -329,8 +321,10 @@ where
                 if !neg_gmms.contains_key(kmer) || !pos_gmms.contains_key(kmer) {
                     false
                 } else {
-                    let neg_model = choose_model(&neg_gmms[kmer]);
-                    let pos_model = choose_pos_model(neg_model, &pos_gmms[kmer]);
+                    let neg_mix = neg_gmms[kmer].mixture();
+                    let pos_mix = pos_gmms[kmer].mixture();
+                    let neg_model = choose_model(&neg_mix);
+                    let pos_model = choose_pos_model(neg_model, &pos_mix);
                     let pvalue = gauss_to_pvalue(pos_model, neg_model);
                     log::debug!("p-value: {pvalue:.3?}");
                     pvalue < p_value_threshold
@@ -422,6 +416,36 @@ fn score_signal(
 
     let pos_log_proba = pos_mix.ln_f(&signal);
     let neg_log_proba = neg_mix.ln_f(&signal);
+
+    log::debug!("+ Gaussian log proba: {pos_log_proba}");
+    log::debug!("- Gaussian log proba: {neg_log_proba}");
+
+    if (pos_log_proba > -cutoff) || (neg_log_proba > -cutoff) {
+        log::debug!("Valid score");
+        Some(score)
+    } else {
+        log::debug!("Below cutoff, not scoring.");
+        None
+    }
+}
+
+fn score_signals(
+    signals: &[f64],
+    pos_mix: &Mixture<Gaussian>,
+    neg_mix: &Mixture<Gaussian>,
+    cutoff: f64,
+) -> Option<f64> {
+    log::debug!("Scoring signal: {signals:?}");
+    let neg_mix = choose_model(neg_mix);
+    let pos_mix = choose_pos_model(neg_mix, pos_mix);
+    let pos_proba: f64 = signals.iter().map(|x| pos_mix.f(x)).product();
+    let neg_proba: f64 = signals.iter().map(|x| neg_mix.f(x)).product();
+    let score = pos_proba / (pos_proba + neg_proba);
+    log::debug!("Score: {score:.3}");
+
+    let mean = signals.mean();
+    let pos_log_proba: f64 = pos_mix.ln_f(&mean);
+    let neg_log_proba: f64 = neg_mix.ln_f(&mean);
 
     log::debug!("+ Gaussian log proba: {pos_log_proba}");
     log::debug!("- Gaussian log proba: {neg_log_proba}");

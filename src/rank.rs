@@ -99,8 +99,8 @@ impl RankOptions {
         let neg_ctrl_kmers = neg_ctrl.gmms().keys().collect::<FnvHashSet<&String>>();
         let kmers = pos_ctrl_kmers.intersection(&neg_ctrl_kmers);
         for &kmer in kmers {
-            let pos_ctrl_model = &pos_ctrl.gmms()[kmer];
-            let neg_ctrl_model = &neg_ctrl.gmms()[kmer];
+            let pos_ctrl_model = &pos_ctrl.gmms()[kmer].mixture();
+            let neg_ctrl_model = &neg_ctrl.gmms()[kmer].mixture();
             let kl = self.kl_approx(pos_ctrl_model, neg_ctrl_model);
             kmer_ranks.insert(kmer.clone(), kl);
         }

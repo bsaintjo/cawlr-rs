@@ -7,7 +7,6 @@ use std::{
 use anyhow::Result;
 use arrow2::io::ipc::write::FileWriter;
 use bio::alphabets::dna::revcomp;
-use csv::DeserializeRecordsIter;
 use indicatif::{ProgressBar, ProgressBarIter, ProgressFinish, ProgressStyle};
 use serde::Deserialize;
 use serde_with::{serde_as, StringWithSeparator};
@@ -243,20 +242,6 @@ impl<W: Write> CollapseOptions<W> {
     }
 }
 
-struct Parser<'a, R> {
-    idx_diff: u64,
-    position: usize,
-    npr_iter: DeserializeRecordsIter<'a, ProgressBarIter<R>, Npr>,
-    acc: Vec<Npr>,
-}
-
-enum ParseResult {
-    Complete,
-    Failed,
-}
-
-impl<'a, R> Parser<'a, R> {}
-
 #[serde_as]
 #[derive(Default, Clone, Debug, Deserialize, PartialEq)]
 struct Npr {
@@ -409,7 +394,7 @@ chr1	199403040	ATATAA	c25d27a8-0eec-4e7d-96f9-b8e730a25832	t	3918	87.01		72.4013
         assert_eq!(next.unwrap(), npr);
         assert!(iter.next().unwrap().is_err());
 
-        let mut strand_db = PlusStrandMap::empty();
+        let mut strand_db = PlusStrandMap::default();
         strand_db.insert(b"c25d27a8-0eec-4e7d-96f9-b8e730a25832" as &[u8], true);
 
         let schema = arrow::Eventalign::schema();
@@ -449,7 +434,7 @@ chr1	199403040	ATATAA	c25d27a8-0eec-4e7d-96f9-b8e730a25832	t	3919	86.81	0.500	0.
 chr1	199403040	ATATAA	c25d27a8-0eec-4e7d-96f9-b8e730a25832	t	3918	87.01		72.4013,75.9601,78.395,77.6458
 chr1	199403041	GATATA	c25d27a8-0eec-4e7d-96f9-b8e730a25832	t	3917	106.85	4.255	0.00100	TATATC	107.52	3.75	-0.18	99.4103,108.674,110.277,109.03
 ";
-        let mut strand_db = PlusStrandMap::empty();
+        let mut strand_db = PlusStrandMap::default();
         strand_db.insert(b"c25d27a8-0eec-4e7d-96f9-b8e730a25832" as &[u8], true);
 
         let schema = arrow::Eventalign::schema();

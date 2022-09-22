@@ -99,8 +99,6 @@ fn main() -> Result<()> {
 
 #[cfg(test)]
 mod test {
-    use cawlr::arrow::ScoreBuilder;
-
     use super::*;
 
     #[test]
@@ -114,7 +112,7 @@ mod test {
     fn test_percent_mod() {
         let scores = [10.0, 20.0, 30.0]
             .into_iter()
-            .map(|s| ScoreBuilder::default().score(s).build())
+            .map(|s| Score::default().with_score(s))
             .collect::<Vec<_>>();
         let pmod = percent_mod(&scores, 25.0);
         assert_eq!(pmod, (1. / 3.));
@@ -129,7 +127,7 @@ mod test {
 
         let scores = [0.0, 100.0]
             .into_iter()
-            .map(|s| ScoreBuilder::default().score(s).build())
+            .map(|s| Score::default().with_score(s))
             .collect::<Vec<_>>();
 
         let pmod = percent_mod(&scores, 0.0);

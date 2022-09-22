@@ -4,6 +4,7 @@ use anyhow::Result;
 use bam::BamReader;
 use fnv::FnvHashMap;
 
+#[derive(Default)]
 pub(crate) struct PlusStrandMap(FnvHashMap<Vec<u8>, bool>);
 
 impl PlusStrandMap {
@@ -11,13 +12,9 @@ impl PlusStrandMap {
         Self(db)
     }
 
-    pub(crate) fn empty() -> Self {
-        Self::new(FnvHashMap::default())
-    }
-
     pub(crate) fn from_bam_file<P: AsRef<Path>>(bam_file: P) -> Result<Self> {
         let mut acc = FnvHashMap::default();
-        let reader = BamReader::from_path(bam_file, 1u16)?;
+        let reader = BamReader::from_path(bam_file, 2u16)?;
         for record in reader {
             let record = record?;
             let read_name = record.name();
@@ -52,6 +49,7 @@ impl PlusStrandMap {
         self.0.insert(k.into(), v)
     }
 }
+
 
 #[cfg(test)]
 mod test {

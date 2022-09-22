@@ -5,10 +5,7 @@ use anyhow::Result;
 use bio::{alphabets::dna, io::fasta::IndexedReader};
 use fnv::FnvHashMap;
 
-use crate::{
-    arrow::{Eventalign, MetadataExt},
-    motif::Motif,
-};
+use crate::{arrow::MetadataExt, motif::Motif};
 
 /// Contains the genomic bases for a given position including additional
 /// metadata to handle positions near the end of the genome.
@@ -52,9 +49,9 @@ impl Context {
         R: Read + Seek,
     {
         let chrom = read.chrom();
-        let chrom_len = *chrom_lens
-            .get(chrom)
-            .expect("chromosome missing in chrom_lens, different genome used?");
+        // let chrom_len = *chrom_lens
+        //     .get(chrom)
+        //     .expect("chromosome missing in chrom_lens, different genome used?");
         let start_slop = read.start_0b().min(5);
 
         let start = if read.start_0b() < 5 {
@@ -90,11 +87,7 @@ impl Context {
     pub(crate) fn surrounding(&self, pos: u64, motif: &Motif) -> Vec<&[u8]> {
         let true_pos = (pos - self.read_start) + self.start_slop + motif.position_0b() as u64;
 
-        let true_start = if true_pos < 5 {
-            0
-        } else {
-            true_pos - 5
-        };
+        let true_start = if true_pos < 5 { 0 } else { true_pos - 5 };
 
         let mut acc = Vec::new();
         let ctxt_len = self.context.len() as u64;

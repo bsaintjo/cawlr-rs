@@ -51,7 +51,7 @@ impl FromStr for Region {
     }
 }
 
-fn overlaps(a_start: u64, a_end: u64, b_start: u64, b_end: u64) -> bool {
+fn overlaps(a_start: u64, a_end: u64, b_start: u64) -> bool {
     (a_start <= b_start) && (a_end >= b_start)
 }
 
@@ -63,9 +63,9 @@ mod test {
     fn test_overlap() {
         let a = (10, 15);
         let b = (12, 20);
-        assert!(overlaps(a.0, a.1, b.0, b.1));
+        assert!(overlaps(a.0, a.1, b.0));
 
         let c = (20, 30);
-        assert!(!overlaps(a.0, a.1, c.0, c.1));
+        assert!(!overlaps(a.0, a.1, c.0));
     }
 }
