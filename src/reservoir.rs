@@ -6,7 +6,7 @@
 //! Arrow file.
 //!
 //! This crate aims to implement both the L and R implementations based
-//! on https://en.wikipedia.org/wiki/Reservoir_sampling.
+//! on <https://en.wikipedia.org/wiki/Reservoir_sampling>.
 
 use std::collections::HashMap;
 

@@ -1,8 +1,9 @@
 use std::{
+    borrow::Borrow,
+    fmt::Display,
     io::{Read, Seek, Write},
     ops::Index,
     slice::SliceIndex,
-    borrow::Borrow, fmt::Display,
 };
 
 use anyhow::Result;
@@ -12,17 +13,18 @@ use arrow2::{
     datatypes::{Field, Schema},
     io::ipc::{
         read::{read_file_metadata, FileReader},
-        write::{FileWriter, WriteOptions, Compression},
+        write::{Compression, FileWriter, WriteOptions},
     },
 };
 use arrow2_convert::{
-    deserialize::{ArrowDeserialize, TryIntoCollection, arrow_array_deserialize_iterator},
+    deserialize::{arrow_array_deserialize_iterator, ArrowDeserialize, TryIntoCollection},
     field::ArrowField,
     serialize::{ArrowSerialize, TryIntoArrow},
     ArrowField,
 };
 use itertools::Itertools;
 
+/// Trait for getting read information
 pub trait MetadataExt {
     fn metadata(&self) -> &Metadata;
 
@@ -30,43 +32,52 @@ pub trait MetadataExt {
         self.metadata().name.as_ref()
     }
 
-    /// Get a reference to the metadata's chrom.
+    /// Chromosome read aligned to
     fn chrom(&self) -> &str {
         self.metadata().chrom.as_ref()
     }
 
-    /// Get the metadata's start.
+    /// Zero-based start of read alignment (bed-like compatible)
     fn start_0b(&self) -> u64 {
         self.metadata().start
     }
 
-    /// Get the metadata's start.
+    /// One-based start of read alignment (just start_0b + 1)
     fn start_1b(&self) -> u64 {
         self.metadata().start + 1
     }
 
-    /// Get the metadata's length.
+    /// Read length where nanopolish output ends
+    ///
+    /// See [MetadataExt::seq_length] for more detail.
     fn np_length(&self) -> u64 {
         self.metadata().length
     }
 
-    /// Get the metadata's strand.
+    /// Read strand
     fn strand(&self) -> Strand {
         self.metadata().strand
     }
 
-    /// stop)
     fn seq_stop_1b_excl(&self) -> u64 {
         self.metadata().start + self.seq_length()
     }
 
-    /// stop]
-    fn seq_length(&self) -> u64 {
-        self.metadata().length + 5
-    }
-
+    /// One-based exclusive position, useful for bed-like outputs
+    /// stop)
     fn end_1b_excl(&self) -> u64 {
         self.seq_stop_1b_excl() - 5
+    }
+
+    /// Length of the entire read
+    ///
+    /// nanopolish outputs data in 6-mers only, and positions for only the
+    /// beginning of the kmer.
+    ///
+    /// This means the true length of the sequence of the read is 5 + the end of
+    /// this output, which this method provides.
+    fn seq_length(&self) -> u64 {
+        self.metadata().length + 5
     }
 }
 
@@ -193,18 +204,21 @@ impl Signal {
     pub(crate) fn set_kmer(&mut self, kmer: String) {
         self.kmer = kmer;
     }
-    
+
     pub(crate) fn samples(&self) -> &[f64] {
         &self.samples
     }
 }
 
+/// Read orientation relative to a genome
 #[derive(Debug, Copy, Clone, ArrowField, PartialEq, Eq)]
-// Currently arrow2 doesn't support newtypes or enums so for now it is a struct
 #[arrow_field(type = "dense")]
 pub enum Strand {
+    /// (+) strand
     Plus,
+    /// (-) strand
     Minus,
+    /// Unable to determine strand
     Unknown,
 }
 
@@ -246,11 +260,12 @@ impl Strand {
         match self {
             Self::Plus => "+",
             Self::Minus => "-",
-            Self::Unknown => "."
+            Self::Unknown => ".",
         }
     }
 }
 
+/// Output representing a single read from nanopolish eventalign
 #[derive(Debug, Clone, ArrowField, Default, PartialEq)]
 pub struct Eventalign {
     metadata: Metadata,
@@ -295,23 +310,17 @@ impl Eventalign {
         &mut self.metadata.strand
     }
 
-    // pub(crate) fn empty(name: String, chrom: String, start: u64, length: u64, seq: String) -> Self {
-    //     let strand = Strand::unknown();
-    //     let metadata = Metadata::new(name, chrom, start, length, strand, seq);
-    //     Eventalign::new(metadata, Vec::new())
-    // }
-
-    pub(crate) fn schema() -> Schema {
+    pub fn schema() -> Schema {
         let data_type = Self::data_type();
         Schema::from(vec![Field::new("eventalign", data_type, false)])
     }
 
     /// Get a mutable reference to the eventalign's signal data.
-    #[must_use]
     pub(crate) fn signal_data_mut(&mut self) -> &mut Vec<Signal> {
         &mut self.signal_data
     }
 
+    /// Iterate over Signal data
     pub(crate) fn signal_iter(&self) -> impl Iterator<Item = &Signal> {
         self.signal_data.iter()
     }
@@ -319,11 +328,6 @@ impl Eventalign {
     pub(crate) fn metadata(&self) -> &Metadata {
         &self.metadata
     }
-}
-
-#[derive(Default)]
-pub struct ScoreBuilder {
-    score: Score,
 }
 
 #[derive(Default, Debug, Clone, ArrowField)]
@@ -375,6 +379,7 @@ impl Score {
     }
 }
 
+/// Represents a single read scored by cawlr score
 #[derive(Debug, Clone, ArrowField, Default)]
 pub struct ScoredRead {
     metadata: Metadata,
@@ -386,11 +391,13 @@ impl ScoredRead {
         ScoredRead { metadata, scores }
     }
 
+    /// Creates new ScoredRead using metadata from Eventalign output
     pub(crate) fn from_read_with_scores(eventalign: Eventalign, scores: Vec<Score>) -> Self {
         let metadata = eventalign.metadata;
         ScoredRead::new(metadata, scores)
     }
 
+    /// Schema used for outputing into Arrow file
     pub fn schema() -> Schema {
         let data_type = Self::data_type();
         Schema::from(vec![Field::new("scored", data_type, false)])
@@ -432,15 +439,19 @@ impl<'a, I: SliceIndex<[Option<&'a Score>]>> Index<I> for ExpandedScores<'a> {
     }
 }
 
+/// Wraps writer for use later with [save].
 pub fn wrap_writer<W>(writer: W, schema: &Schema) -> Result<FileWriter<W>>
 where
     W: Write,
 {
-    let options = WriteOptions { compression: Some(Compression::LZ4) };
+    let options = WriteOptions {
+        compression: Some(Compression::LZ4),
+    };
     let fw = FileWriter::try_new(writer, schema, None, options)?;
     Ok(fw)
 }
 
+/// Writes data to Arrow file
 pub fn save<W, T>(writer: &mut FileWriter<W>, x: &[T]) -> Result<()>
 where
     T: ArrowField<Type = T> + ArrowSerialize + 'static,
@@ -463,20 +474,30 @@ where
 /// Apply a function to chunks of data loaded from an Arrow Feather File.
 ///
 /// # Example
-/// ```rust, ignore
+/// ```rust
 /// # use std::fs::File;
 /// # use std::error::Error;
-/// # use cawlr::arrow::Eventalign;
-/// # use cawlr::arrow::load_apply;
+/// # use std::io::Cursor;
+/// # use cawlr::Eventalign;
+/// # use cawlr::load_apply;
+/// # use cawlr::wrap_writer;
+/// # use cawlr::save;
 /// # fn main() -> Result<(), Box<dyn Error>> {
+/// # 
+/// # let e = Eventalign::default();
+/// # let file = Vec::new();
+/// # let mut writer = wrap_writer(file, &Eventalign::schema())?;
+/// # save(&mut writer, &[e])?;
+/// # writer.finish()?;
+/// # let file = Cursor::new(writer.into_inner());
+/// // Need to specify the type, can be Vec<ScoredRead> as well
 /// load_apply(file, |eventalign: Vec<Eventalign>| {
 ///     // Do stuff with each chunk
 /// # Ok(())
-/// })
+/// })?;
+/// # Ok(())
 /// # }
 /// ```
-///
-/// TODO Fix example with correct file
 pub fn load_apply<R, F, T>(reader: R, mut func: F) -> Result<()>
 where
     R: Read + Seek,
@@ -558,7 +579,9 @@ where
 
 // TODO Refactor multiple maps
 #[cfg(test)]
-pub(crate) fn load_iter<R>(mut reader: R) -> impl Iterator<Item = Result<Vec<Eventalign>, arrow2::error::Error>>
+pub(crate) fn load_iter<R>(
+    mut reader: R,
+) -> impl Iterator<Item = Result<Vec<Eventalign>, arrow2::error::Error>>
 where
     R: Read + Seek,
 {
