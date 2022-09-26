@@ -70,6 +70,8 @@ bam = "0.1.4"
 # Calculate mean of signal data, median of data
 statrs = "0.15.0"
 rayon = "1.5.3"
+typed-sled = "0.2.0"
+sled = "0.34.7"
 
 [profile.release]
 lto = "fat"

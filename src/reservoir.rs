@@ -8,40 +8,49 @@
 //! This crate aims to implement both the L and R implementations based
 //! on <https://en.wikipedia.org/wiki/Reservoir_sampling>.
 
-use std::collections::HashMap;
-
+use anyhow::Result;
 use rand::{rngs::SmallRng, Rng};
+use serde::{Deserialize, Serialize};
+use typed_sled::Tree;
 
-use crate::arrow::Score;
+use crate::arrow::Signal;
 
+#[derive(Serialize, Deserialize)]
 struct ScoreReservoir {
     count: usize,
-    scores: Vec<Score>,
+    len: usize,
+    scores: Vec<f64>,
 }
 
 struct Reservoir {
     samples: usize,
     rng: SmallRng,
-    kmers: HashMap<String, ScoreReservoir>,
+    tree: Tree<String, ScoreReservoir>,
 }
 
 impl Reservoir {
-    fn is_full(&self, kmer: &str) -> bool {
-        self.kmers[kmer].count >= self.samples
+    fn add_samples_r(&mut self, score: &Signal) -> Result<()> {
+        let kmer = score.kmer().to_string();
+        if let Some(mut s) = self.tree.get(&kmer)? {
+            let mut scores = score.samples().to_owned();
+            if s.count >= self.samples {
+                for x in scores {
+                    let chance = self.rng.gen_range(0..s.count);
+                    if chance <= s.len {
+                        s.scores[chance] = x;
+                    }
+                    s.count += 1;
+                }
+            } else {
+                s.count += scores.len();
+                s.scores.append(&mut scores);
+            }
+            self.tree.insert(&kmer, &s)?;
+        }
+        Ok(())
     }
 
-    fn add_sample(&mut self, score: &Score) {
-        let kmer = score.kmer();
-        if !self.is_full(kmer) {
-            let sr = self.kmers.get_mut(kmer).unwrap();
-            sr.scores.push(score.clone());
-            sr.count += 1;
-        } else {
-            let count = self.kmers[kmer].count;
-            let j = self.rng.gen_range(1..count);
-            if j < self.samples {
-                self.kmers.get_mut(kmer).unwrap().scores[j] = score.clone();
-            }
-        }
+    fn add_samples_l(&mut self, signal: &Signal) -> Result<()> {
+        todo!()
     }
 }
