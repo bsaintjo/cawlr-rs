@@ -15,10 +15,10 @@ use typed_sled::Tree;
 
 use crate::arrow::Signal;
 
+// TOTRY: move count into separate Hashmap on the Reservoir so it 
 #[derive(Serialize, Deserialize)]
 struct ScoreReservoir {
     count: usize,
-    len: usize,
     scores: Vec<f64>,
 }
 
@@ -36,7 +36,7 @@ impl Reservoir {
             if s.count >= self.samples {
                 for x in scores {
                     let chance = self.rng.gen_range(0..s.count);
-                    if chance <= s.len {
+                    if chance <= self.samples {
                         s.scores[chance] = x;
                     }
                     s.count += 1;
@@ -51,6 +51,27 @@ impl Reservoir {
     }
 
     fn add_samples_l(&mut self, signal: &Signal) -> Result<()> {
-        todo!()
+        let kmer = signal.kmer().to_string();
+        let mut w: f64 = (self.rng.gen::<f64>() / self.samples as f64).ln().exp();
+        if let Some(mut s) = self.tree.get(&kmer)? {
+            let mut scores = signal.samples().to_owned();
+            if s.count >= self.samples {
+                for x in scores {
+                    s.count += 1; // Essentially an index of the number of times seen
+                    let chance =
+                        s.count + ((self.rng.gen::<f64>().ln()) / (1. - w).ln()).floor() as usize;
+                    if chance <= self.samples {
+                        let rand_idx = self.rng.gen_range(0..self.samples);
+                        s.scores[rand_idx] = x;
+                        w *= (self.rng.gen::<f64>() / self.samples as f64).ln().exp();
+                    }
+                }
+            } else {
+                s.count += scores.len();
+                s.scores.append(&mut scores);
+            }
+            self.tree.insert(&kmer, &s)?;
+        }
+        Ok(())
     }
 }
