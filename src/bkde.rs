@@ -20,10 +20,13 @@ impl BinnedKde {
     pub(crate) fn from_kde(n_bins: i32, kde: &Kde<f64, Gaussian>) -> Self {
         // TODO explore using a different linspace implementation, only want positive
         // values
-        let bins = linspace(0., 1., n_bins)
+        let mut bins: Vec<f64> = linspace(0., 1., n_bins)
             .into_iter()
             .map(|x| kde.estimate(x))
             .collect();
+        let total: f64 = bins.iter().sum();
+        // Normalize so area approximately sums to 1
+        bins.iter_mut().for_each(|x| *x /= total);
         BinnedKde::new(bins)
     }
 
