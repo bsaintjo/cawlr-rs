@@ -24,8 +24,8 @@ arrow2_convert = { version = "0.3.0", features = [
 ] }
 
 # Read genomic sequences from FASTA file
-bio = "0.41.0"
-bio-types = "0.12.1"
+bio = "1.0.0"
+bio-types = "0.13.0"
 
 clap = { version = "4.0.1", features = ["derive"] }
 clap-verbosity-flag = "2.0.0"
@@ -68,7 +68,7 @@ thiserror = "1.0.31"
 bam = "0.1.4"
 
 # Calculate mean of signal data, median of data
-statrs = "0.15.0"
+statrs = "0.16.0"
 rayon = "1.5.3"
 
 [profile.release]
