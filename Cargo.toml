@@ -27,8 +27,8 @@ arrow2_convert = { version = "0.3.0", features = [
 bio = "0.41.0"
 bio-types = "0.12.1"
 
-clap = { version = "3.2.8", features = ["derive"] }
-clap-verbosity-flag = "1.0.1"
+clap = { version = "4.0.1", features = ["derive"] }
+clap-verbosity-flag = "2.0.0"
 
 # Provides kernel density estimate calculations
 criterion-stats = "0.3.0"

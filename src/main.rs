@@ -4,9 +4,11 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use clap::{CommandFactory, error::ErrorKind};
+
 use anyhow::Result;
 use cawlr::utils::stdout_or_file;
-use clap::{IntoApp, Parser, Subcommand};
+use clap::{Parser, Subcommand};
 use clap_verbosity_flag::Verbosity;
 use human_panic::setup_panic;
 #[cfg(feature = "mimalloc")]
@@ -52,6 +54,7 @@ struct Args {
 
 #[derive(Subcommand, Debug)]
 enum Commands {
+    /// Preprocess nanopolish eventalign output
     Collapse {
         /// Path to nanopolish eventalign output with samples column, or stdin
         /// if not provided.
@@ -196,6 +199,7 @@ enum Commands {
         #[clap(short, long, default_value_t = 10_000)]
         samples: usize,
     },
+    /// Infer nucleosome positions on single molecules
     Sma {
         /// Path to scored data from cawlr score
         #[clap(short, long)]
@@ -236,7 +240,7 @@ fn main() -> Result<()> {
             if capacity == 0 {
                 let mut cmd = Args::command();
                 cmd.error(
-                    clap::ErrorKind::InvalidValue,
+                    ErrorKind::InvalidValue,
                     "Capacity must be greater than 0",
                 )
                 .exit();
@@ -311,7 +315,7 @@ fn main() -> Result<()> {
             if !fai_file_exists {
                 let mut cmd = Args::command();
                 cmd.error(
-                    clap::ErrorKind::MissingRequiredArgument,
+                    ErrorKind::MissingRequiredArgument,
                     "Missing .fai index file, run samtools faidx on genome file.",
                 )
                 .exit();
@@ -322,7 +326,7 @@ fn main() -> Result<()> {
                     if m.len_motif() > 6 {
                         let mut cmd = Args::command();
                         cmd.error(
-                            clap::ErrorKind::InvalidValue,
+                            ErrorKind::InvalidValue,
                             "Length of motif must be less than 6 (size of kmer)",
                         )
                         .exit();

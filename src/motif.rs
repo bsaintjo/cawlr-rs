@@ -23,7 +23,7 @@ fn valid_motif_bases(motif: &str) -> bool {
     !motif.is_empty() && motif.chars().all(|b| bases.contains(&b))
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Motif {
     motif: String,
     position: usize,
