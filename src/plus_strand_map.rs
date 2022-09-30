@@ -5,14 +5,15 @@ use bam::BamReader;
 use fnv::FnvHashMap;
 
 #[derive(Default)]
-pub(crate) struct PlusStrandMap(FnvHashMap<Vec<u8>, bool>);
+pub struct PlusStrandMap(FnvHashMap<Vec<u8>, bool>);
 
 impl PlusStrandMap {
     fn new(db: FnvHashMap<Vec<u8>, bool>) -> Self {
         Self(db)
     }
 
-    pub(crate) fn from_bam_file<P: AsRef<Path>>(bam_file: P) -> Result<Self> {
+
+    pub fn from_bam_file<P: AsRef<Path>>(bam_file: P) -> Result<Self> {
         let mut acc = FnvHashMap::default();
         let reader = BamReader::from_path(bam_file, 2u16)?;
         for record in reader {
@@ -37,7 +38,7 @@ impl PlusStrandMap {
         Ok(PlusStrandMap::new(acc))
     }
 
-    pub(crate) fn get<B>(&self, read_id: B) -> Option<bool>
+    pub fn get<B>(&self, read_id: B) -> Option<bool>
     where
         B: AsRef<[u8]>,
     {

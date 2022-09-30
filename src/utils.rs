@@ -2,7 +2,7 @@ use std::{
     collections::HashMap,
     fs::File,
     hash::{BuildHasher, Hash},
-    io::{stdout, BufWriter, Read, Seek, Write},
+    io::{stdout, Read, Seek, Write},
     path::Path,
 };
 

@@ -1,14 +1,20 @@
 use std::{error::Error, fs::File, io::BufWriter, path::PathBuf};
 
-use cawlr::{save, wrap_writer, Metadata, Score, ScoredRead, Strand};
+use cawlr::{save, wrap_writer, Metadata, Score, ScoredRead, Strand, plus_strand_map::PlusStrandMap, MetadataMutExt, MetadataExt};
 use clap::Parser;
 use serde::Deserialize;
 
 #[derive(Parser)]
 struct Args {
+    /// detection.txt output from NP-SMLR tool
     #[clap(short, long)]
     input: PathBuf,
 
+    /// bam file for adding strand information
+    #[clap(short, long)]
+    bam: Option<PathBuf>,
+
+    /// Arrow file for use in cawlr sma
     #[clap(short, long)]
     output: PathBuf,
 }
@@ -62,6 +68,14 @@ fn convert_to_read(dlines: &[DetectionLine]) -> ScoredRead {
 fn main() -> Result<(), Box<dyn Error>> {
     let args = Args::parse();
 
+    let strand_map = {
+        if let Some(bam_file) = args.bam {
+            PlusStrandMap::from_bam_file(bam_file)?
+        } else {
+            PlusStrandMap::default()
+        }
+    };
+
     let reader = File::open(&args.input)?;
     let writer = File::create(&args.output)?;
     let schema = ScoredRead::schema();
@@ -78,7 +92,14 @@ fn main() -> Result<(), Box<dyn Error>> {
         if dline.read_name() == curr_read {
             acc.push(dline);
         } else {
-            let read = convert_to_read(&acc);
+            let mut read = convert_to_read(&acc);
+            if let Some(plus_stranded) = strand_map.get(read.name()) {
+                if plus_stranded {
+                    *read.strand_mut() = Strand::Plus;
+                } else {
+                    *read.strand_mut() = Strand::Minus;
+                }
+            }
             save(&mut writer, &[read])?;
             curr_read = dline.read_name().to_owned();
             acc = vec![dline];

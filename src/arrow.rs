@@ -59,6 +59,7 @@ pub trait MetadataExt {
         self.metadata().strand
     }
 
+
     fn seq_stop_1b_excl(&self) -> u64 {
         self.metadata().start + self.seq_length()
     }
@@ -85,6 +86,12 @@ impl MetadataExt for Metadata {
     fn metadata(&self) -> &Metadata {
         self
     }
+
+}
+impl MetadataMutExt for Metadata {
+    fn metadata_mut(&mut self) -> &mut Metadata {
+        self
+    }
 }
 
 impl MetadataExt for ScoredRead {
@@ -93,10 +100,25 @@ impl MetadataExt for ScoredRead {
     }
 }
 
+impl MetadataMutExt for ScoredRead {
+    fn metadata_mut(&mut self) -> &mut Metadata {
+        &mut self.metadata
+    }
+}
+
+pub trait MetadataMutExt {
+    fn metadata_mut(&mut self) -> &mut Metadata;
+
+    fn strand_mut(&mut self) -> &mut Strand {
+        &mut self.metadata_mut().strand
+    }
+}
+
 impl MetadataExt for Eventalign {
     fn metadata(&self) -> &Metadata {
         &self.metadata
     }
+
 }
 
 /// Represents the genomic coordinates and other information about a sequencing
