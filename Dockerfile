@@ -41,7 +41,7 @@ WORKDIR /cawlr
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain 1.63.0 --profile minimal
 ENV PATH="/root/.cargo/bin:${PATH}"
 COPY . .
-RUN cargo install --path . --locked
+RUN cargo install --path . --locked --bins
 
 WORKDIR /
 CMD ["/bin/bash"]
