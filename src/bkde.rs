@@ -83,8 +83,10 @@ mod test {
             bkde.pmf_from_score(0.99999);
             bkde.pmf_from_score(0.00001);
 
+            let total: f64 = linspace(0.0, 1.0, 5000).into_iter().sum();
+
             for x in linspace(0.0, 1.0, 5000) {
-                assert_float_eq!(kde.estimate(x), bkde.pmf_from_score(x), abs <= 0.01);
+                assert_float_eq!(kde.estimate(x) / total, bkde.pmf_from_score(x), abs <= 0.01);
             }
         }
     }
