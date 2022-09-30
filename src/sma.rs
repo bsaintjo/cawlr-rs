@@ -268,19 +268,33 @@ impl<'a> Display for SmaOutput<'a> {
             Strand::Unknown => (".", "0,0,0"),
         };
         // let chrom_start = self.start_0b();
-        let (starts, lengths) = self.nuc_starts_lens();
+        let (mut starts, mut lengths) = self.nuc_starts_lens();
         let bed_start = starts[0];
+        let bed_end = starts[starts.len() - 1] + lengths[starts.len() - 1];
+
+        if bed_start != 0 {
+            starts.insert(0, self.start_0b());
+            lengths.insert(0, 1)
+        }
+
+        if bed_end != self.end_1b_excl() {
+            starts.push(self.end_1b_excl() - 1);
+            lengths.push(1);
+        }
+
         let block_count = starts.len();
-        let bed_end = starts[block_count - 1] + lengths[block_count - 1];
-        let starts = starts.iter().map(|x| (x - bed_start).to_string()).join(",");
+        let starts = starts
+            .iter()
+            .map(|x| (x - self.start_0b()).to_string())
+            .join(",");
         let lengths = lengths.iter().map(|x| x.to_string()).join(",");
         write!(
             f,
-            "{0}\t{bed_start}\t{bed_end}\t{1}\t0\t{strand_punc}\t{bed_start}\t{bed_end}\t{rgb}\t{2}\t{lengths}\t{starts}",
+            "{0}\t{1}\t{2}\t{3}\t0\t{strand_punc}\t{bed_start}\t{bed_end}\t{rgb}\t{block_count}\t{lengths}\t{starts}",
             self.chrom(),
-            // self.start_0b(),
+            self.start_0b(),
+            self.end_1b_excl(),
             self.name(),
-            self.num_nuc(),
         )
     }
 }
@@ -309,7 +323,7 @@ mod test {
         let sma_matrix = SmaMatrix::new(val_matrix, ptr_matrix);
         assert_eq!(sma_matrix.val_matrix[(0, 0)], -0.5);
 
-        let answer: VecDeque<States> = VecDeque::from([Linker, Nucleosome, Linker]);
+        let answer: VecDeque<States> = VecDeque::from([Linker, Nucleosome, Nucleosome]);
         assert_eq!(sma_matrix.backtrack(), answer);
     }
 
@@ -335,8 +349,8 @@ mod test {
 
         let sma_output = SmaOutput::new(&metadata, states_rle);
         let formatted = format!("{}", sma_output);
-        let answer = "chrI\t105\t140\ttest\t0\t+\t105\t140\t255,0,0\t2\t20,10\t0,25";
-        assert_eq!(formatted, answer);
+        let answer = "chrI\t100\t150\ttest\t0\t+\t105\t140\t255,0,0\t4\t1,20,10,1\t0,5,30,49";
+        pretty_assertions::assert_eq!(formatted, answer);
     }
 
     #[test]
