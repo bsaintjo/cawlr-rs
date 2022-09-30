@@ -11,6 +11,7 @@ use crate::{
 };
 
 pub struct SmaOptions {
+    track_name: Option<String>,
     pos_bkde: BinnedKde,
     neg_bkde: BinnedKde,
     motifs: Vec<Motif>,
@@ -25,6 +26,7 @@ impl SmaOptions {
         writer: Box<dyn Write>,
     ) -> Self {
         Self {
+            track_name: None,
             pos_bkde,
             neg_bkde,
             motifs,
@@ -32,13 +34,19 @@ impl SmaOptions {
         }
     }
 
+    pub fn track_name<S: Into<String>>(&mut self, track_name: S) -> &mut Self {
+        self.track_name = Some(track_name.into());
+        self
+    }
+
     pub fn run<P>(mut self, scores_filepath: P) -> Result<()>
     where
         P: AsRef<Path>,
     {
+        let track_name = self.track_name.clone().unwrap_or_else(|| "cawlr_sma".to_string());
         writeln!(
             &mut self.writer,
-            "track name=\"cawlr_sma\" itemRgb=\"on\" visibility=2"
+            "track name=\"{track_name}\" itemRgb=\"on\" visibility=2"
         )?;
 
         let scores_file = File::open(scores_filepath)?;

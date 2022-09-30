@@ -367,7 +367,7 @@ fn main() -> Result<()> {
         } => {
             let pos_bkde = BinnedKde::load(pos_ctrl_scores)?;
             let neg_bkde = BinnedKde::load(neg_ctrl_scores)?;
-            let output = utils::stdout_or_file(output)?;
+            let writer = utils::stdout_or_file(output.as_ref())?;
             let motifs = {
                 if let Some(motif) = motif {
                     motif
@@ -375,7 +375,11 @@ fn main() -> Result<()> {
                     all_bases()
                 }
             };
-            SmaOptions::new(pos_bkde, neg_bkde, motifs, output).run(input)?;
+            let mut sma = SmaOptions::new(pos_bkde, neg_bkde, motifs, writer);
+            if let Some(output_filename) = output {
+                sma.track_name(output_filename);
+            }
+            sma.run(input)?;
         }
     }
     Ok(())
