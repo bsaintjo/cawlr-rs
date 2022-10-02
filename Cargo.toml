@@ -14,8 +14,6 @@ categories = ["science", "command-line-utilities"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-anyhow = "1.0.48"
-
 # Output format for intensive data results
 arrow2 = { version = "0.14.1", features = ["io_ipc", "io_ipc_compression"] }
 arrow2_convert = { version = "0.3.2", features = [
@@ -69,7 +67,13 @@ bam = "0.1.4"
 
 # Calculate mean of signal data, median of data
 statrs = "0.16.0"
+
+# Parallelize training and other hot loops
 rayon = "1.5.3"
+
+# Error reporting
+eyre = "0.6.8"
+jane-eyre = "0.3.0"
 
 [profile.release]
 lto = "fat"

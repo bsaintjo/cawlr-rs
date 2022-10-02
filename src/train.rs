@@ -6,8 +6,8 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use anyhow::Result;
 use bio::io::fasta::IndexedReader;
+use eyre::Result;
 use fnv::{FnvHashMap, FnvHashSet};
 use linfa::{
     traits::{Fit, Transformer},
@@ -153,12 +153,13 @@ pub struct Train {
 }
 
 impl Train {
-    pub fn try_new<P, Q>(filename: P, genome: Q, samples: usize) -> Result<Self, anyhow::Error>
+    pub fn try_new<P, Q>(filename: P, genome: Q, samples: usize) -> Result<Self, eyre::Error>
     where
         P: AsRef<Path>,
         Q: AsRef<Path> + Debug,
     {
-        let genome = IndexedReader::from_file(&genome)?;
+        let genome =
+            IndexedReader::from_file(&genome).map_err(|_| eyre::eyre!("Failed to read genome."))?;
         let feather = filename.as_ref().to_owned();
         Ok(Self {
             acc: FnvHashMap::default(),

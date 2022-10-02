@@ -1,8 +1,8 @@
 use core::fmt;
 use std::io::{Read, Seek};
 
-use anyhow::Result;
 use bio::{alphabets::dna, io::fasta::IndexedReader};
+use eyre::Result;
 use fnv::FnvHashMap;
 
 use crate::{arrow::MetadataExt, motif::Motif};
@@ -128,7 +128,7 @@ mod test {
     // };
 
     // #[test]
-    // fn test_context() -> Result<(), anyhow::Error> {
+    // fn test_context() -> Result<(), eyre::Error> {
     //     u
     // }
 }

@@ -1,11 +1,10 @@
 use std::{
-    fmt::Display,
     fs::File,
     io::{BufWriter, Write},
     path::Path,
 };
 
-use anyhow::{Context, Result};
+use eyre::Result;
 
 use crate::arrow::{load_apply, Eventalign, MetadataExt};
 
@@ -21,15 +20,15 @@ fn to_bed_line<M: MetadataExt>(metadata: M, chunk_idx: usize, rec_idx: usize) ->
     )
 }
 
-pub(crate) fn index<P>(filepath: P) -> Result<()>
+pub fn index<P>(filepath: P) -> Result<()>
 where
-    P: AsRef<Path> + Display,
+    P: AsRef<Path>,
 {
     let file = File::open(&filepath)?;
     let output_filepath = filepath
         .as_ref()
         .to_str()
-        .with_context(|| format!("Invalid unicode as path {}", filepath))?;
+        .ok_or_else(|| eyre::eyre!("Invalid unicode in path"))?;
     let idx_filepath = format!("{}.idx.bed", output_filepath);
     let idx_filepath = Path::new(&idx_filepath);
     let writer = File::create(idx_filepath)?;

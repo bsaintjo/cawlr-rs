@@ -4,13 +4,12 @@ use std::{
     path::Path,
 };
 
-use anyhow::Result;
 use arrow2::io::ipc::write::FileWriter;
 use bio::alphabets::dna::revcomp;
+use eyre::Result;
 use indicatif::{ProgressBar, ProgressBarIter, ProgressFinish, ProgressStyle};
 use serde::Deserialize;
-use serde_with::{serde_as, StringWithSeparator};
-use serde_with::formats::CommaSeparator;
+use serde_with::{formats::CommaSeparator, serde_as, StringWithSeparator};
 use statrs::statistics::Statistics;
 
 use crate::{
@@ -43,7 +42,7 @@ fn nprs_to_eventalign(
 ) -> Result<Option<Eventalign>> {
     let mut eventalign = nprs
         .next()
-        .ok_or(anyhow::anyhow!("Empty nprs"))
+        .ok_or_else(|| eyre::eyre!("Empty nprs"))
         .map(empty_from_npr)?;
     let mut stop = eventalign.start_0b();
     for npr in nprs {
@@ -53,7 +52,7 @@ fn nprs_to_eventalign(
         let mean = npr.samples().mean();
 
         if mean.is_nan() {
-            return Err(anyhow::anyhow!("No signal samples values, malformed input"));
+            eyre::bail!("No signal samples values, malformed input");
         }
 
         let time = npr.event_length;
@@ -154,7 +153,7 @@ impl<W: Write> CollapseOptions<W> {
         self
     }
 
-    pub(crate) fn from_writer<R>(writer: W, bam_file: R) -> Result<Self>
+    pub fn from_writer<R>(writer: W, bam_file: R) -> Result<Self>
     where
         R: AsRef<Path>,
     {

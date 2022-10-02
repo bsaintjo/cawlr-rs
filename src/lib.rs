@@ -3,6 +3,7 @@ pub mod bkde;
 pub mod collapse;
 pub mod context;
 mod filter;
+pub mod index;
 pub mod motif;
 pub mod plus_strand_map;
 pub mod rank;

@@ -1,10 +1,10 @@
 use std::io::{Read, Seek};
 
-use anyhow::Result;
 use criterion_stats::univariate::{
     kde::{kernel::Gaussian, Bandwidth, Kde},
     Sample,
 };
+use eyre::Result;
 use rand::{rngs::SmallRng, seq::SliceRandom, SeedableRng};
 
 use crate::{
@@ -63,7 +63,7 @@ impl Options {
 
 fn sample_kde(samples: &[f64]) -> Result<Kde<f64, Gaussian>> {
     if samples.is_empty() {
-        return Err(anyhow::anyhow!("Score file does not contain any values."));
+        eyre::bail!("Score file does not contain any values.");
     }
     let samples = Sample::new(samples);
     Ok(Kde::new(samples, Gaussian, Bandwidth::Silverman))

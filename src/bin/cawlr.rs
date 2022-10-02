@@ -1,38 +1,27 @@
 use std::{
     fs::File,
-    io::{self, Read, BufWriter},
-    path::{Path, PathBuf},
+    io::{self, BufWriter, Read},
+    path::PathBuf,
 };
 
-use clap::{CommandFactory, error::ErrorKind};
-
-use anyhow::Result;
-use cawlr::utils::stdout_or_file;
-use clap::{Parser, Subcommand};
+use cawlr::{
+    bkde::BinnedKde,
+    collapse::CollapseOptions,
+    index,
+    motif::{all_bases, Motif},
+    rank::RankOptions,
+    score::ScoreOptions,
+    score_model,
+    sma::SmaOptions,
+    train::{Model, Train},
+    utils::{self, CawlrIO},
+};
+use clap::{error::ErrorKind, CommandFactory, Parser, Subcommand};
 use clap_verbosity_flag::Verbosity;
+use eyre::Result;
 use human_panic::setup_panic;
 #[cfg(feature = "mimalloc")]
 use mimalloc::MiMalloc;
-
-mod arrow;
-mod bkde;
-mod collapse;
-mod context;
-mod index;
-mod motif;
-mod plus_strand_map;
-mod rank;
-mod score;
-mod score_model;
-mod sma;
-mod train;
-mod utils;
-
-use bkde::BinnedKde;
-use motif::{all_bases, Motif};
-use sma::SmaOptions;
-use train::Model;
-use utils::CawlrIO;
 
 #[cfg(feature = "mimalloc")]
 #[global_allocator]
@@ -42,9 +31,6 @@ static GLOBAL: MiMalloc = MiMalloc;
 #[clap(author, version, about, long_about=None)]
 /// Chromatin accessibility with long reads.
 struct Args {
-    #[clap(short, long)]
-    debug: bool,
-
     #[clap(flatten)]
     verbose: Verbosity,
 
@@ -75,36 +61,44 @@ enum Commands {
         capacity: usize,
     },
 
+    /// Create bed file of the reads in the Arrow file
+    ///
+    /// Output file will be named {input}.idx.bed
     Index {
+        /// Arrow file from collapse or score
         #[clap(short, long)]
-        input: String,
+        input: PathBuf,
     },
 
+    /// Filter Arrow output file based on genomic coordinates
+    // TODO unimplemented
     Filter {
+        /// Arrow file from collapse or score
         #[clap(short, long)]
-        input: String,
+        input: PathBuf,
 
+        /// Arrow file output
         #[clap(short, long)]
-        output: String,
+        output: PathBuf,
     },
 
     /// For each kmer, train a two-component gaussian mixture model and save
     /// models to a file
     Train {
-        #[clap(short, long)]
         /// Positive or negative control output from cawlr collapse
-        input: String,
-
         #[clap(short, long)]
+        input: PathBuf,
+
         /// Path to resulting pickle file
-        output: String,
-
         #[clap(short, long)]
-        /// Path to genome fasta file
-        genome: String,
+        output: PathBuf,
 
-        #[clap(short, long, default_value_t = 50_000)]
+        /// Path to genome fasta file
+        #[clap(short, long)]
+        genome: PathBuf,
+
         /// Number of samples per kmer to allow
+        #[clap(short, long, default_value_t = 50_000)]
         samples: usize,
 
         // Number of threads to use for training, by default num cpus
@@ -115,21 +109,21 @@ enum Commands {
     /// Rank each kmer by the Kulback-Leibler Divergence and between the trained
     /// models
     Rank {
-        #[clap(long)]
         /// Positive control output from cawlr train
-        pos_ctrl: String,
-
         #[clap(long)]
+        pos_ctrl: PathBuf,
+
         /// Negative control output from cawlr train
-        neg_ctrl: String,
+        #[clap(long)]
+        neg_ctrl: PathBuf,
 
-        #[clap(short, long)]
         /// Path to output file
-        output: String,
+        #[clap(short, long)]
+        output: PathBuf,
 
-        #[clap(long, default_value_t = 2456)]
         /// Ranks are estimated via sampling, so to keep values consistent
         /// between subsequent runs a seed value is used
+        #[clap(long, default_value_t = 2456)]
         seed: u64,
 
         /// Ranks are estimated via sampling, higher value for samples means it
@@ -143,28 +137,28 @@ enum Commands {
     Score {
         /// Path to Apache Arrow file from cawlr collapse
         #[clap(short, long)]
-        input: String,
+        input: PathBuf,
 
         /// Path to output file
         #[clap(short, long)]
-        output: String,
+        output: PathBuf,
 
         /// Positive control file from cawlr train
         #[clap(long)]
-        pos_ctrl: String,
+        pos_ctrl: PathBuf,
 
         /// Negative control file from cawlr train
         #[clap(long)]
-        neg_ctrl: String,
+        neg_ctrl: PathBuf,
 
         /// Path to rank file from cawlr rank
         #[clap(short, long)]
-        ranks: String,
+        ranks: PathBuf,
 
         /// Path to fasta file for organisms genome, must have a .fai file from
         /// samtools faidx
         #[clap(short, long)]
-        genome: String,
+        genome: PathBuf,
 
         /// Threshold for current value to be considered reasonable
         #[clap(long, default_value_t = 10.0)]
@@ -184,11 +178,11 @@ enum Commands {
     ModelScores {
         /// Arrow output from cawlr score
         #[clap(short, long)]
-        input: String,
+        input: PathBuf,
 
         /// Pickle file containing estimated kernel density estimate values
         #[clap(short, long)]
-        output: String,
+        output: PathBuf,
 
         /// Number of bins used to estimate the kernel density estimate
         #[clap(short, long, default_value_t = 10_000)]
@@ -203,19 +197,19 @@ enum Commands {
     Sma {
         /// Path to scored data from cawlr score
         #[clap(short, long)]
-        input: String,
+        input: PathBuf,
 
         /// Path to output file
         #[clap(short, long)]
-        output: Option<String>,
+        output: Option<PathBuf>,
 
         /// Output from cawlr model-scores for treated control sample
         #[clap(long)]
-        pos_ctrl_scores: String,
+        pos_ctrl_scores: PathBuf,
 
         /// Output from cawlr model-scores for untreated control sample
         #[clap(long)]
-        neg_ctrl_scores: String,
+        neg_ctrl_scores: PathBuf,
 
         /// Only that contain this motif will be used to perform single molecule
         /// analysis, by default will use all kmers
@@ -239,11 +233,8 @@ fn main() -> Result<()> {
         } => {
             if capacity == 0 {
                 let mut cmd = Args::command();
-                cmd.error(
-                    ErrorKind::InvalidValue,
-                    "Capacity must be greater than 0",
-                )
-                .exit();
+                cmd.error(ErrorKind::InvalidValue, "Capacity must be greater than 0")
+                    .exit();
             }
             let final_input: Box<dyn Read> = {
                 if let Some(path) = input {
@@ -254,10 +245,10 @@ fn main() -> Result<()> {
                 }
             };
 
-            let final_output = stdout_or_file(output)?;
+            let final_output = utils::stdout_or_file(output.as_ref())?;
             let final_output = BufWriter::new(final_output);
 
-            let mut collapse = collapse::CollapseOptions::from_writer(final_output, &bam)?;
+            let mut collapse = CollapseOptions::from_writer(final_output, &bam)?;
             collapse.capacity(capacity).progress(true);
             collapse.run(final_input)?;
         }
@@ -281,7 +272,7 @@ fn main() -> Result<()> {
                     .build_global()?;
             } else {
             }
-            let train = train::Train::try_new(&input, &genome, samples)?;
+            let train = Train::try_new(&input, &genome, samples)?;
             let model = train.run()?;
             model.save(output)?;
         }
@@ -295,7 +286,7 @@ fn main() -> Result<()> {
         } => {
             let pos_ctrl_db = Model::load(pos_ctrl)?;
             let neg_ctrl_db = Model::load(neg_ctrl)?;
-            let kmer_ranks = rank::RankOptions::new(seed, samples).rank(&pos_ctrl_db, &neg_ctrl_db);
+            let kmer_ranks = RankOptions::new(seed, samples).rank(&pos_ctrl_db, &neg_ctrl_db);
             kmer_ranks.save(output)?;
         }
 
@@ -310,9 +301,7 @@ fn main() -> Result<()> {
             p_value_threshold,
             motif,
         } => {
-            let fai_file = format!("{}.fai", genome);
-            let fai_file_exists = Path::new(&fai_file).exists();
-            if !fai_file_exists {
+            if !genome.with_extension("fai").exists() {
                 let mut cmd = Args::command();
                 cmd.error(
                     ErrorKind::MissingRequiredArgument,
@@ -336,7 +325,7 @@ fn main() -> Result<()> {
 
             log::debug!("Motifs parsed: {motif:?}");
             let mut scoring =
-                score::ScoreOptions::try_new(&pos_ctrl, &neg_ctrl, &genome, &ranks, &output)?;
+                ScoreOptions::try_new(&pos_ctrl, &neg_ctrl, &genome, &ranks, &output)?;
             scoring.cutoff(cutoff).p_value_threshold(p_value_threshold);
             if let Some(motifs) = motif {
                 scoring.motifs(motifs);
@@ -377,7 +366,12 @@ fn main() -> Result<()> {
             };
             let mut sma = SmaOptions::new(pos_bkde, neg_bkde, motifs, writer);
             if let Some(output_filename) = output {
-                sma.track_name(output_filename);
+                let track_name = output_filename
+                    .file_name()
+                    .ok_or_else(|| eyre::eyre!("Not a filename"))?
+                    .to_str()
+                    .unwrap();
+                sma.track_name(track_name);
             }
             sma.run(input)?;
         }

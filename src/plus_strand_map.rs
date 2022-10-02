@@ -1,7 +1,7 @@
 use std::{collections::hash_map::Entry, path::Path, str::from_utf8};
 
-use anyhow::Result;
 use bam::BamReader;
+use eyre::Result;
 use fnv::FnvHashMap;
 
 #[derive(Default)]
@@ -11,7 +11,6 @@ impl PlusStrandMap {
     fn new(db: FnvHashMap<Vec<u8>, bool>) -> Self {
         Self(db)
     }
-
 
     pub fn from_bam_file<P: AsRef<Path>>(bam_file: P) -> Result<Self> {
         let mut acc = FnvHashMap::default();
@@ -50,7 +49,6 @@ impl PlusStrandMap {
         self.0.insert(k.into(), v)
     }
 }
-
 
 #[cfg(test)]
 mod test {

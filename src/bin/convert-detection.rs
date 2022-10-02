@@ -1,6 +1,9 @@
 use std::{error::Error, fs::File, io::BufWriter, path::PathBuf};
 
-use cawlr::{save, wrap_writer, Metadata, Score, ScoredRead, Strand, plus_strand_map::PlusStrandMap, MetadataMutExt, MetadataExt};
+use cawlr::{
+    plus_strand_map::PlusStrandMap, save, wrap_writer, Metadata, MetadataExt, MetadataMutExt,
+    Score, ScoredRead, Strand,
+};
 use clap::Parser;
 use serde::Deserialize;
 

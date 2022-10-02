@@ -38,19 +38,21 @@ impl BinnedKde {
 }
 
 impl CawlrIO for BinnedKde {
-    fn save<P>(&self, filename: P) -> anyhow::Result<()>
-        where
-            P: AsRef<std::path::Path>,
-            Self: Sized {
+    fn save<P>(&self, filename: P) -> eyre::Result<()>
+    where
+        P: AsRef<std::path::Path>,
+        Self: Sized,
+    {
         let mut file = File::create(filename)?;
         serde_pickle::to_writer(&mut file, &self, Default::default())?;
         Ok(())
     }
 
-    fn load<P>(filename: P) -> anyhow::Result<Self>
-        where
-            P: AsRef<std::path::Path>,
-            Self: Sized {
+    fn load<P>(filename: P) -> eyre::Result<Self>
+    where
+        P: AsRef<std::path::Path>,
+        Self: Sized,
+    {
         let file = File::open(filename)?;
         let bkde = from_reader(file, Default::default())?;
         Ok(bkde)

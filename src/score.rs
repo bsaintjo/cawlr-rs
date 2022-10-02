@@ -2,9 +2,9 @@ use std::{
     collections::HashMap, fmt::Debug, fs::File, hash::BuildHasher, ops::RangeInclusive, path::Path,
 };
 
-use anyhow::Result;
 use arrow2::io::ipc::write::FileWriter;
 use bio::io::fasta::IndexedReader;
+use eyre::Result;
 use fnv::FnvHashMap;
 use rv::{
     prelude::{Gaussian, Mixture},
@@ -47,7 +47,8 @@ impl ScoreOptions {
         let writer = File::create(output)?;
         let writer = wrap_writer(writer, &schema)?;
         let kmer_ranks = FnvHashMap::load(rank_filepath)?;
-        let genome = IndexedReader::from_file(&genome_filepath)?;
+        let genome = IndexedReader::from_file(&genome_filepath)
+            .map_err(|_| eyre::eyre!("Failed to read genome file"))?;
         let chrom_lens = chrom_lens(&genome);
         let pos_ctrl_db = Model::load(&pos_ctrl_filepath)?;
         let neg_ctrl_db = Model::load(&neg_ctrl_filepath)?;
@@ -188,7 +189,7 @@ impl ScoreOptions {
         // TODO: Switch to median when it can be correctly handled
         let skip_score = skipping_scores.mean();
         if skip_score.is_nan() {
-            Err(anyhow::anyhow!("No data for calculating median"))
+            Err(eyre::eyre!("No data for calculating median"))
         } else {
             Ok(skip_score)
         }
@@ -525,7 +526,8 @@ mod test {
         let read = &reads[0];
 
         let genome_file = "extra/sacCer3.fa";
-        let mut genome = IndexedReader::from_file(&genome_file)?;
+        let mut genome = IndexedReader::from_file(&genome_file)
+            .map_err(|_| eyre::eyre!("Failed to read genome file."))?;
 
         let chrom_lens = chrom_lens(&genome);
 

@@ -1,6 +1,6 @@
 use std::{collections::VecDeque, fmt::Display, fs::File, io::Write, path::Path};
 
-use anyhow::{Context, Result};
+use eyre::Result;
 use itertools::Itertools;
 use nalgebra::DMatrix;
 
@@ -43,7 +43,10 @@ impl SmaOptions {
     where
         P: AsRef<Path>,
     {
-        let track_name = self.track_name.clone().unwrap_or_else(|| "cawlr_sma".to_string());
+        let track_name = self
+            .track_name
+            .clone()
+            .unwrap_or_else(|| "cawlr_sma".to_string());
         writeln!(
             &mut self.writer,
             "track name=\"{track_name}\" itemRgb=\"on\" visibility=2"
@@ -88,7 +91,9 @@ impl SmaOptions {
             };
             matrix.ptrs_mut().column_mut(col_idx)[0] = Some(prev_max_idx);
             let mut col = matrix.probs_mut().column_mut(col_idx);
-            let first: &mut f64 = col.get_mut(0).context("No values in matrix.")?;
+            let first: &mut f64 = col
+                .get_mut(0)
+                .ok_or_else(|| eyre::eyre!("No values in matrix."))?;
             let val: f64 = match score {
                 Some(score) => prev_max + self.pos_bkde.pmf_from_score(score.score()).ln(),
                 None => prev_max,
@@ -101,7 +106,9 @@ impl SmaOptions {
                 matrix.ptrs_mut().column_mut(col_idx)[rest] = Some(prev_idx);
                 let nuc_prev = matrix.probs().column(col_idx - 1)[prev_idx];
                 let mut col = matrix.probs_mut().column_mut(col_idx);
-                let next = col.get_mut(rest).context("Failed to get column value")?;
+                let next = col
+                    .get_mut(rest)
+                    .ok_or_else(|| eyre::eyre!("Failed to get column value"))?;
                 let val = match score {
                     Some(score) => nuc_prev + self.neg_bkde.pmf_from_score(score.score()).ln(),
                     None => prev_max,
@@ -194,7 +201,7 @@ pub enum States {
 ///
 /// # Examples
 /// ```rust, ignore
-/// # fn main() -> anyhow::Result<()> {
+/// # fn main() -> eyre::Result<()> {
 /// use cawlr::sma::States::*;
 /// let states = vec![Linker, Linker, Linker, Nucleosome, Nucleosome, Linker];
 /// let rle = states_to_rle(&states);
@@ -241,14 +248,6 @@ impl<'a> SmaOutput<'a> {
             metadata: metadata.metadata(),
             states_rle,
         }
-    }
-
-    // Count number of runs of States::Nucleosomes
-    fn num_nuc(&self) -> usize {
-        self.states_rle
-            .iter()
-            .filter(|x| x.0 == States::Nucleosome)
-            .count()
     }
 
     // Converts the RLE States list into two vectors, one containing the starts of

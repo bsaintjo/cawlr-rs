@@ -6,7 +6,6 @@ use std::{
     slice::SliceIndex,
 };
 
-use anyhow::Result;
 use arrow2::{
     array::Array,
     chunk::Chunk,
@@ -22,6 +21,7 @@ use arrow2_convert::{
     serialize::{ArrowSerialize, TryIntoArrow},
     ArrowField,
 };
+use eyre::Result;
 use itertools::Itertools;
 
 /// Trait for getting read information
@@ -59,7 +59,6 @@ pub trait MetadataExt {
         self.metadata().strand
     }
 
-
     fn seq_stop_1b_excl(&self) -> u64 {
         self.metadata().start + self.seq_length()
     }
@@ -86,7 +85,6 @@ impl MetadataExt for Metadata {
     fn metadata(&self) -> &Metadata {
         self
     }
-
 }
 impl MetadataMutExt for Metadata {
     fn metadata_mut(&mut self) -> &mut Metadata {
@@ -118,7 +116,6 @@ impl MetadataExt for Eventalign {
     fn metadata(&self) -> &Metadata {
         &self.metadata
     }
-
 }
 
 /// Represents the genomic coordinates and other information about a sequencing
@@ -505,7 +502,7 @@ where
 /// # use cawlr::wrap_writer;
 /// # use cawlr::save;
 /// # fn main() -> Result<(), Box<dyn Error>> {
-/// # 
+/// #
 /// # let e = Eventalign::default();
 /// # let file = Vec::new();
 /// # let mut writer = wrap_writer(file, &Eventalign::schema())?;
@@ -523,7 +520,7 @@ where
 pub fn load_apply<R, F, T>(reader: R, mut func: F) -> Result<()>
 where
     R: Read + Seek,
-    F: FnMut(Vec<T>) -> anyhow::Result<()>,
+    F: FnMut(Vec<T>) -> eyre::Result<()>,
     T: ArrowField<Type = T> + ArrowDeserialize + 'static,
     for<'a> &'a <T as ArrowDeserialize>::ArrayType: IntoIterator,
 {
@@ -546,7 +543,7 @@ where
 pub fn load_apply_indy<R, F, T>(reader: R, mut func: F) -> Result<()>
 where
     R: Read + Seek,
-    F: FnMut(T) -> anyhow::Result<()>,
+    F: FnMut(T) -> eyre::Result<()>,
     T: ArrowField<Type = T> + ArrowDeserialize + 'static,
     for<'a> &'a <T as ArrowDeserialize>::ArrayType: IntoIterator,
 {
@@ -578,7 +575,7 @@ pub fn load_read_write<R, W, F, T, U>(
 where
     R: Read + Seek,
     W: Write,
-    F: FnMut(Vec<T>) -> anyhow::Result<Vec<U>>,
+    F: FnMut(Vec<T>) -> eyre::Result<Vec<U>>,
     T: ArrowField<Type = T> + ArrowDeserialize + 'static,
     U: ArrowField<Type = U> + ArrowSerialize + 'static,
     for<'a> &'a <T as ArrowDeserialize>::ArrayType: IntoIterator,

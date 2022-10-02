@@ -3,13 +3,13 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use anyhow::Result;
 use cawlr::{
     collapse::CollapseOptions,
     rank::{RankOptions, Ranks},
     train::{Model, Train},
     utils::CawlrIO,
 };
+use eyre::Result;
 
 const POS_CTRL: &str = "extra/pos_control.eventalign.txt";
 const POS_CTRL_BAM: &str = "extra/pos_control.bam";
@@ -35,8 +35,6 @@ fn rank(pos_ctrl: &Model, neg_ctrl: &Model, output: &Path) -> Result<Ranks> {
     rankings.save(output)?;
     Ok(rankings)
 }
-
-fn score() {}
 
 fn main() -> Result<()> {
     let args = std::env::args();

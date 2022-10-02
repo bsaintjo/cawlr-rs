@@ -1,8 +1,8 @@
 use std::{fs::File, path::PathBuf};
 
-use anyhow::Result;
 use cawlr::{load_read_write, wrap_writer, MetadataExt, Score, ScoredRead};
 use clap::Parser;
+use eyre::Result;
 
 #[derive(Parser)]
 struct Args {
