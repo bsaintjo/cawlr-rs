@@ -220,6 +220,8 @@ enum Commands {
 
 fn main() -> Result<()> {
     setup_panic!();
+    jane_eyre::install()?;
+
     let args = Args::parse();
     env_logger::Builder::new()
         .filter_level(args.verbose.log_level_filter())
