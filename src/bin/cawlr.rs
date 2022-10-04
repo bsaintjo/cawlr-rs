@@ -1,7 +1,7 @@
 use std::{
     fs::File,
     io::{self, BufWriter, Read},
-    path::PathBuf,
+    path::{PathBuf, Path},
 };
 
 use cawlr::{
@@ -303,7 +303,10 @@ fn main() -> Result<()> {
             p_value_threshold,
             motif,
         } => {
-            if !genome.with_extension("fai").exists() {
+            let fai_file = format!("{}.fai", genome.display());
+            let fai_file = Path::new(&fai_file);
+            log::debug!("fasta index file filename: {fai_file:?}");
+            if !fai_file.exists() {
                 let mut cmd = Args::command();
                 cmd.error(
                     ErrorKind::MissingRequiredArgument,
