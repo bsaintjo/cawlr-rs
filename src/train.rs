@@ -1,12 +1,13 @@
 use std::{
     borrow::Borrow,
     collections::HashMap,
-    fmt::Debug,
+    fmt::{Debug, Display},
     fs::File,
     path::{Path, PathBuf},
 };
 
 use bio::io::fasta::IndexedReader;
+use clap::ValueEnum;
 use eyre::Result;
 use fnv::{FnvHashMap, FnvHashSet};
 use linfa::{
@@ -144,16 +145,38 @@ impl KmerSkips {
     }
 }
 
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum TrainStrategy {
+    AvgSample,
+    AllSamples,
+}
+
+impl Display for TrainStrategy {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let res = match self {
+            Self::AvgSample => "avg",
+            Self::AllSamples => "all",
+        };
+        write!(f, "{res}")
+    }
+}
+
 pub struct Train {
     acc: KmerMeans,
     skips: KmerSkips,
     genome: IndexedReader<File>,
     feather: PathBuf,
     samples: usize,
+    strat: TrainStrategy,
 }
 
 impl Train {
-    pub fn try_new<P, Q>(filename: P, genome: Q, samples: usize) -> Result<Self, eyre::Error>
+    pub fn try_new<P, Q>(
+        filename: P,
+        genome: Q,
+        samples: usize,
+        strat: TrainStrategy,
+    ) -> Result<Self, eyre::Error>
     where
         P: AsRef<Path>,
         Q: AsRef<Path> + Debug,
@@ -167,6 +190,7 @@ impl Train {
             genome,
             feather,
             samples,
+            strat,
         })
     }
 
@@ -183,7 +207,10 @@ impl Train {
         load_apply(file, |eventaligns| {
             for eventalign in eventaligns.into_iter() {
                 if self.kmer_means_insufficient() || self.kmer_skips_insufficient() {
-                    self.read_to_kmer_means(&eventalign);
+                    match self.strat {
+                        TrainStrategy::AvgSample => self.read_to_kmer_means(&eventalign),
+                        TrainStrategy::AllSamples => self.read_to_kmer_samples(&eventalign),
+                    }
                     self.read_to_skip_counts(&eventalign)?;
                 }
             }
@@ -227,6 +254,17 @@ impl Train {
     }
 
     fn read_to_kmer_means(&mut self, read: &Eventalign) {
+        for signal in read.signal_iter() {
+            let kmer = signal.kmer().to_owned();
+            let entry = self.acc.entry(kmer).or_default();
+            if entry.len() > self.samples {
+                continue;
+            }
+            entry.push(signal.mean());
+        }
+    }
+
+    fn read_to_kmer_samples(&mut self, read: &Eventalign) {
         for signal in read.signal_iter() {
             let kmer = signal.kmer().to_owned();
             let entry = self.acc.entry(kmer).or_default();

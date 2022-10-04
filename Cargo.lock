@@ -399,6 +399,7 @@ dependencies = [
  "mimalloc",
  "nalgebra 0.31.1",
  "ndarray",
+ "num_cpus",
  "openblas-src",
  "predicates",
  "pretty_assertions",

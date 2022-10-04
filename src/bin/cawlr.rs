@@ -1,7 +1,7 @@
 use std::{
     fs::File,
     io::{self, BufWriter, Read},
-    path::{PathBuf, Path},
+    path::{Path, PathBuf},
 };
 
 use cawlr::{
@@ -13,7 +13,7 @@ use cawlr::{
     score::ScoreOptions,
     score_model,
     sma::SmaOptions,
-    train::{Model, Train},
+    train::{self, Model, Train, TrainStrategy},
     utils::{self, CawlrIO},
 };
 use clap::{error::ErrorKind, CommandFactory, Parser, Subcommand};
@@ -26,6 +26,14 @@ use mimalloc::MiMalloc;
 #[cfg(feature = "mimalloc")]
 #[global_allocator]
 static GLOBAL: MiMalloc = MiMalloc;
+
+fn parse_strategy(src: &str) -> Result<TrainStrategy, String> {
+    match src {
+        "all" => Ok(TrainStrategy::AllSamples),
+        "avg" => Ok(TrainStrategy::AvgSample),
+        _ => Err(String::from("Invalid strategy: either 'avg' or 'all'")),
+    }
+}
 
 #[derive(Parser, Debug)]
 #[clap(author, version, about, long_about=None)]
@@ -101,9 +109,16 @@ enum Commands {
         #[clap(short, long, default_value_t = 50_000)]
         samples: usize,
 
-        // Number of threads to use for training, by default num cpus
+        /// Number of threads to use for training, by default num cpus
         #[clap(short = 'j', long)]
         num_threads: Option<usize>,
+
+        /// Pick what data is used to train models
+        ///
+        /// Either train on individual samples using "all" or just the average
+        /// using "avg"
+        #[clap(long, default_value_t = TrainStrategy::AllSamples, value_parser=parse_strategy)]
+        strategy: train::TrainStrategy,
     },
 
     /// Rank each kmer by the Kulback-Leibler Divergence and between the trained
@@ -265,16 +280,22 @@ fn main() -> Result<()> {
             output,
             genome,
             samples,
+            strategy,
             num_threads,
         } => {
             log::info!("Train command");
+            let mut n_logical_cores = num_cpus::get();
+
             if let Some(n) = num_threads {
                 rayon::ThreadPoolBuilder::new()
                     .num_threads(n)
                     .build_global()?;
-            } else {
+                n_logical_cores = n;
             }
-            let train = Train::try_new(&input, &genome, samples)?;
+
+            log::info!("Using {n_logical_cores} logical cores");
+            log::info!("Using strategy: {strategy}");
+            let train = Train::try_new(&input, &genome, samples, strategy)?;
             let model = train.run()?;
             model.save(output)?;
         }

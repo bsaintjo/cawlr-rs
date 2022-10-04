@@ -74,6 +74,7 @@ rayon = "1.5.3"
 # Error reporting
 eyre = "0.6.8"
 jane-eyre = "0.3.0"
+num_cpus = "1.13.1"
 
 [profile.release]
 lto = "fat"

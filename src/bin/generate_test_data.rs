@@ -6,7 +6,7 @@ use std::{
 use cawlr::{
     collapse::CollapseOptions,
     rank::{RankOptions, Ranks},
-    train::{Model, Train},
+    train::{Model, Train, TrainStrategy},
     utils::CawlrIO,
 };
 use eyre::Result;
@@ -23,7 +23,7 @@ const READ_BAM: &str = "extra/single_read.bam";
 const GENOME: &str = "extra/sacCer3.fa";
 
 fn train(input: &PathBuf, output: &PathBuf) -> Result<Model> {
-    let train = Train::try_new(input, GENOME, 2048)?;
+    let train = Train::try_new(input, GENOME, 2048, TrainStrategy::AvgSample)?;
     let model = train.run()?;
     model.save(output)?;
     Ok(model)
