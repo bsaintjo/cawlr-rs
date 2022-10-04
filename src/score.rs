@@ -130,8 +130,6 @@ impl ScoreOptions {
                     .map(|m| (k, m))
             });
 
-            log::debug!("pos_kmer: {:?}", pos_kmer);
-
             if let Some((kmer, motif)) = pos_kmer {
                 let kmer = std::str::from_utf8(kmer).unwrap().to_string();
                 log::debug!("Position {pos} kmer: {kmer}");
