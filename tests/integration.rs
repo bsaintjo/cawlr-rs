@@ -117,6 +117,10 @@ fn integration() -> Result<(), Box<dyn Error>> {
     let scores = temp_dir.path().join("single_scores");
     Command::new(cawlr)
         .arg("score")
+        .arg("-m")
+        .arg("1:TA")
+        .arg("-m")
+        .arg("2:AT")
         .arg("--neg-ctrl")
         .arg(&neg_train)
         .arg("--pos-ctrl")
@@ -179,23 +183,43 @@ fn integration() -> Result<(), Box<dyn Error>> {
         .arg("model-scores")
         .arg("-i")
         .arg(&pos_scores)
+        .arg("--bins")
+        .arg("1000")
         .arg("-o")
         .arg(&pos_bkde_model)
         .env("RUST_BACKTRACE", "1")
         .assert()
         .success();
 
-    // eprintln!("Compute neg ctrl kernel density estimate");
-    // let neg_bkde_model = temp_dir.path().join("neg_bkde_model");
-    // Command::new(cawlr)
-    //     .arg("model-scores")
-    //     .arg("-i")
-    //     .arg(&neg_scores)
-    //     .arg("-o")
-    //     .arg(&neg_bkde_model)
-    //     .env("RUST_BACKTRACE", "1")
-    //     .assert()
-    //     .success();
+    eprintln!("Compute neg ctrl kernel density estimate");
+    let neg_bkde_model = temp_dir.path().join("neg_bkde_model");
+    Command::new(cawlr)
+        .arg("model-scores")
+        .arg("-i")
+        .arg(&neg_scores)
+        .arg("--bins")
+        .arg("1000")
+        .arg("-o")
+        .arg(&neg_bkde_model)
+        .env("RUST_BACKTRACE", "1")
+        .assert()
+        .success();
+    
+    eprintln!("Single molecule analysis");
+    let sma_bed = temp_dir.path().join("sma_bed");
+    Command::new(cawlr)
+        .arg("sma")
+        .arg("--neg-ctrl-scores")
+        .arg(&neg_bkde_model)
+        .arg("--pos-ctrl-scores")
+        .arg(&pos_bkde_model)
+        .arg("-i")
+        .arg(&scores)
+        .arg("-o")
+        .arg(&sma_bed)
+        .env("RUST_BACKTRACE", "1")
+        .assert()
+        .success();
 
     temp_dir.close()?;
     Ok(())
