@@ -94,8 +94,8 @@ impl SmaOptions {
             let first: &mut f64 = col
                 .get_mut(0)
                 .ok_or_else(|| eyre::eyre!("No values in matrix."))?;
-            let val: f64 = match score {
-                Some(score) => prev_max + self.pos_bkde.pmf_from_score(score.score()).ln(),
+            let val: f64 = match score.and_then(|s| s.signal_score().as_ref()) {
+                Some(&signal_score) => prev_max + self.pos_bkde.pmf_from_score(signal_score).ln(),
                 None => prev_max,
             };
             *first = val;
@@ -109,8 +109,8 @@ impl SmaOptions {
                 let next = col
                     .get_mut(rest)
                     .ok_or_else(|| eyre::eyre!("Failed to get column value"))?;
-                let val = match score {
-                    Some(score) => nuc_prev + self.neg_bkde.pmf_from_score(score.score()).ln(),
+                let val = match score.and_then(|s| s.signal_score().as_ref()) {
+                    Some(&signal_score) => nuc_prev + self.neg_bkde.pmf_from_score(signal_score).ln(),
                     None => prev_max,
                 };
                 *next = val;
