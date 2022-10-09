@@ -25,28 +25,41 @@ arrow2_convert = { version = "0.3.2", features = [
 bio = "1.0.0"
 bio-types = "0.13.0"
 
+# Command line parsing
 clap = { version = "4.0.7", features = ["derive"] }
 clap-verbosity-flag = "2.0.0"
 
 # Provides kernel density estimate calculations
 criterion-stats = "0.3.0"
 
+# Parsing nanopolish eventalign output
 csv = "1.1.6"
 
-env_logger = "0.9.1"
+# Faster HashMaps
 fnv = "1.0.7"
-human-panic = "1.0.3"
+
+# Progress reporting
 indicatif = { version = "0.17.1", features = ["improved_unicode"] }
+
 itertools = "0.10.5"
+
+# Gaussian Mixture Mdoesl
 linfa = { version = "0.6.0", features = ["openblas-static"] }
 linfa-clustering = { version = "0.6.0" }
+
+# Logging support
 log = "0.4.17"
+env_logger = "0.9.1"
 
 # Optional allocator to get speed ups
 mimalloc = { version = "0.1.29", default-features = false, optional = true }
+
+# Arrays for ML and DP Alignment
 nalgebra = "0.31.1"
 ndarray = { version = "0.15.6", features = ["blas"] }
 openblas-src = { version = "0.10.5", features = ["static"] }
+
+
 rand = { version = "0.8.5", features = ["small_rng", "alloc"] }
 
 # Saveable gaussian components and calculation of KL divergence
@@ -60,7 +73,6 @@ serde-pickle = "1.1.1"
 
 # Deals with eventalign tsv having to split columns to extract pA measurements
 serde_with = "2.0.1"
-thiserror = "1.0.37"
 
 # Parse bam files to extract strand information
 bam = "0.1.4"
@@ -74,6 +86,8 @@ rayon = "1.5.3"
 # Error reporting
 eyre = "0.6.8"
 jane-eyre = "0.3.0"
+thiserror = "1.0.37"
+human-panic = "1.0.3"
 num_cpus = "1.13.1"
 
 [profile.release]
