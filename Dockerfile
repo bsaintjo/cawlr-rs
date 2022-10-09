@@ -34,7 +34,8 @@ RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --de
 	&& source "$HOME"/.cargo/env \
 	&& cargo build --release --locked --bins \
 	&& cp ./target/release/cawlr /tools/ \
-	&& cp ./target/release/convert-detection /tools/
+	&& cp ./target/release/convert-detection /tools/ \
+	&& cp ./target/release/overlap-bed /tools/
 
 FROM base as dev
 COPY --from=base /tools/ /tools/
