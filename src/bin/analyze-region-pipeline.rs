@@ -153,8 +153,11 @@ fn main() -> eyre::Result<()> {
     p.finish();
 
     let p = pb("Running cawlr sma");
-    let sma = args.output_dir.join(format!("{}.sma.bed", args.name));
-    SmaOptions::try_new(args.pos_scores, args.neg_scores, all_bases(), sma)?.run(scored)?;
+    let track_name = format!("{}.cawlr.sma", args.name);
+    let sma = args.output_dir.join(format!("{}.sma.bed", track_name));
+    let mut sma_opts = SmaOptions::try_new(args.pos_scores, args.neg_scores, all_bases(), sma)?;
+    sma_opts.track_name(track_name);
+    sma_opts.run(scored)?;
     p.finish();
 
     Ok(())
