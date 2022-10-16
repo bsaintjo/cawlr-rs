@@ -29,13 +29,15 @@ WORKDIR /samtools
 RUN ./configure && make && make install && cp ./samtools /tools/
 
 WORKDIR /cawlr
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable --profile minimal
 COPY . .
-RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable --profile minimal \
-	&& source "$HOME"/.cargo/env \
+RUN source "$HOME"/.cargo/env \
 	&& cargo build --release --locked --bins \
 	&& cp ./target/release/cawlr /tools/ \
 	&& cp ./target/release/convert-detection /tools/ \
-	&& cp ./target/release/overlap-bed /tools/
+	&& cp ./target/release/analyze-region-pipeline /tools/ \
+	&& cp ./target/release/overlap-bed /tools/ \
+	&& cp ./target/release/agg-blocks /tools/
 
 FROM base as dev
 COPY --from=base /tools/ /tools/

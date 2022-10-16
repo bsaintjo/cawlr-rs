@@ -7,6 +7,7 @@ use std::{
 use cawlr::{
     bkde::BinnedKde,
     collapse::CollapseOptions,
+    filter::Region,
     index,
     motif::{all_bases, Motif},
     rank::RankOptions,
@@ -88,6 +89,9 @@ enum Commands {
         /// Arrow file output
         #[clap(short, long)]
         output: PathBuf,
+
+        #[clap(short, long)]
+        region: Option<Vec<Region>>,
     },
 
     /// For each kmer, train a two-component gaussian mixture model and save
@@ -272,7 +276,7 @@ fn main() -> Result<()> {
         Commands::Index { input } => {
             index::index(input)?;
         }
-        Commands::Filter { input, output } => {
+        Commands::Filter { .. } => {
             todo!()
         }
         Commands::Train {

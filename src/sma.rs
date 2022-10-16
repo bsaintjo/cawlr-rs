@@ -1,4 +1,10 @@
-use std::{collections::VecDeque, fmt::Display, fs::File, io::Write, path::Path};
+use std::{
+    collections::VecDeque,
+    fmt::Display,
+    fs::File,
+    io::{BufWriter, Write},
+    path::Path,
+};
 
 use eyre::Result;
 use itertools::Itertools;
@@ -8,6 +14,7 @@ use crate::{
     arrow::{load_apply, Metadata, MetadataExt, ScoredRead, Strand},
     bkde::BinnedKde,
     motif::Motif,
+    utils::CawlrIO,
 };
 
 pub struct SmaOptions {
@@ -32,6 +39,19 @@ impl SmaOptions {
             motifs,
             writer,
         }
+    }
+
+    pub fn try_new<P: AsRef<Path>>(
+        pos_scores_path: P,
+        neg_scores_path: P,
+        motifs: Vec<Motif>,
+        output: P,
+    ) -> Result<Self> {
+        let pos_bkde = BinnedKde::load(pos_scores_path)?;
+        let neg_bkde = BinnedKde::load(neg_scores_path)?;
+        let writer = BufWriter::new(File::create(output)?);
+        let writer = Box::new(writer);
+        Ok(SmaOptions::new(pos_bkde, neg_bkde, motifs, writer))
     }
 
     pub fn track_name<S: Into<String>>(&mut self, track_name: S) -> &mut Self {
@@ -110,7 +130,9 @@ impl SmaOptions {
                     .get_mut(rest)
                     .ok_or_else(|| eyre::eyre!("Failed to get column value"))?;
                 let val = match score.and_then(|s| s.signal_score().as_ref()) {
-                    Some(&signal_score) => nuc_prev + self.neg_bkde.pmf_from_score(signal_score).ln(),
+                    Some(&signal_score) => {
+                        nuc_prev + self.neg_bkde.pmf_from_score(signal_score).ln()
+                    }
                     None => prev_max,
                 };
                 *next = val;

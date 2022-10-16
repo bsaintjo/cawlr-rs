@@ -7,7 +7,7 @@ use std::{
 };
 
 use bio::io::fasta::IndexedReader;
-use clap::ValueEnum;
+
 use eyre::Result;
 use fnv::{FnvHashMap, FnvHashSet};
 use linfa::{

@@ -3,14 +3,15 @@ use std::{
     fs::File,
     hash::{BuildHasher, Hash},
     io::{stdout, Read, Seek, Write},
-    path::Path,
+    path::{Path, PathBuf},
 };
 
 use bio::io::fasta::IndexedReader;
-use eyre::Result;
+use eyre::{Context, Result};
 use fnv::FnvHashMap;
 use serde::{de::DeserializeOwned, Serialize};
 use serde_pickle::from_reader;
+use which::which;
 
 use crate::train::Model;
 
@@ -98,4 +99,12 @@ where
         chrom_lens.insert(sequence.name, sequence.len);
     });
     chrom_lens
+}
+
+pub fn find_binary(name: &'static str, binary_filepath: &Option<PathBuf>) -> eyre::Result<PathBuf> {
+    if let Some(p) = binary_filepath {
+        Ok(p.to_path_buf())
+    } else {
+        which(name).wrap_err("Error finding {name}")
+    }
 }
