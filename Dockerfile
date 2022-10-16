@@ -30,16 +30,28 @@ RUN ./configure && make && make install && cp ./samtools /tools/
 
 WORKDIR /cawlr
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable --profile minimal
+ENV PATH="/root/.cargo/bin:${PATH}"
+
+# For caching depedencies
+RUN cargo install cargo-chef
+FROM base AS planner
+WORKDIR /cawlr
 COPY . .
-RUN source "$HOME"/.cargo/env \
-	&& cargo build --release --locked --bins \
+RUN cargo chef prepare --recipe-path recipe.json
+
+FROM base AS builder
+WORKDIR /cawlr
+COPY --from=planner /cawlr/recipe.json recipe.json
+RUN cargo chef cook --release --recipe-path recipe.json
+COPY . .
+RUN cargo build --release --bins \
 	&& cp ./target/release/cawlr /tools/ \
 	&& cp ./target/release/convert-detection /tools/ \
 	&& cp ./target/release/analyze-region-pipeline /tools/ \
 	&& cp ./target/release/overlap-bed /tools/ \
 	&& cp ./target/release/agg-blocks /tools/
 
-FROM base as dev
+FROM guppy as dev
 COPY --from=base /tools/ /tools/
 ENV PATH="/tools:${PATH}"
 
