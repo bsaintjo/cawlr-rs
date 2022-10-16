@@ -63,9 +63,12 @@ fn main() -> Result<(), Box<dyn Error>> {
     let args = Args::parse();
 
     let input = BufReader::new(File::open(args.input)?);
+    let mut lines = input.lines();
+    // Skip header
+    lines.next();
     let mut output = LineWriter::new(File::create(args.output)?);
 
-    for line in input.lines() {
+    for line in lines {
         let line = line?;
         if filter_line(&line, &args.chrom, args.start, args.end, args.pct) {
             let nbytes = output.write(line.as_bytes())?;

@@ -1,6 +1,6 @@
 use std::{
     fs::File,
-    io::{LineWriter, Write},
+    io::{LineWriter, Write, BufReader, BufRead},
     path::PathBuf,
 };
 
@@ -87,11 +87,13 @@ impl Position {
 
 fn main() -> eyre::Result<()> {
     let args = Args::parse();
-    let input = File::open(args.input)?;
+    let mut input = BufReader::new(File::open(args.input)?);
+    // Skip header
+    input.read_line(&mut String::new())?;  
     let mut reader = csv::ReaderBuilder::new()
-        .has_headers(false)
+        .has_headers(true)
         .delimiter(b'\t')
-        .from_reader(input);
+        .from_reader(input.into_inner());
     let reader = reader.deserialize::<Bed>();
     let mut counts: FnvHashMap<Position, Count> = FnvHashMap::default();
     for line in reader {
