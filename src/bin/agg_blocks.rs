@@ -22,7 +22,7 @@ struct Args {
 
 #[serde_as]
 #[derive(Deserialize)]
-struct Bed {
+pub struct Bed {
     chrom: String,
     start: u64,
     stop: u64,
