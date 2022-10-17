@@ -45,14 +45,14 @@ COPY --from=planner /cawlr/recipe.json recipe.json
 RUN cargo chef cook --release --recipe-path recipe.json
 COPY . .
 RUN cargo build --release --bins \
-	&& cp ./target/release/cawlr /tools/ \
-	&& cp ./target/release/convert-detection /tools/ \
-	&& cp ./target/release/analyze-region-pipeline /tools/ \
-	&& cp ./target/release/overlap-bed /tools/ \
-	&& cp ./target/release/agg-blocks /tools/
+	&& cp ./target/release/cawlr /tools \
+	&& cp ./target/release/convert-detection /tools \
+	&& cp ./target/release/analyze-region-pipeline /tools \
+	&& cp ./target/release/overlap-bed /tools \
+	&& cp ./target/release/agg-blocks /tools
 
 FROM guppy as dev
-COPY --from=base /tools/ /tools/
+COPY --from=builder /tools /tools
 ENV PATH="/tools:${PATH}"
 
 WORKDIR /
