@@ -1,10 +1,12 @@
 use std::{
     fs::File,
-    io::{LineWriter, Write, BufReader, BufRead},
+    io::{BufRead, BufReader, LineWriter, Write},
     path::PathBuf,
 };
 
+use cawlr::utils::stdout_or_file;
 use clap::Parser;
+use csv::StringRecord;
 use fnv::{FnvHashMap, FnvHashSet};
 use serde::{de::IgnoredAny, Deserialize};
 use serde_with::{formats::CommaSeparator, serde_as, StringWithSeparator};
@@ -17,7 +19,7 @@ struct Args {
 
     /// Output tsv containing chromosome, position, frac overlapped
     #[clap(short, long)]
-    output: PathBuf,
+    output: Option<PathBuf>,
 }
 
 #[serde_as]
@@ -49,6 +51,14 @@ impl Bed {
 
     fn overlaps(self) -> FnvHashSet<Position> {
         self.iter_counts().collect()
+    }
+
+    pub fn bstarts(&self) -> &[u64] {
+        &self.bstarts
+    }
+
+    pub fn bsizes(&self) -> &[u64] {
+        &self.bsizes
     }
 }
 
@@ -87,17 +97,15 @@ impl Position {
 
 fn main() -> eyre::Result<()> {
     let args = Args::parse();
-    let mut input = BufReader::new(File::open(args.input)?);
+    let input = BufReader::new(File::open(args.input)?);
     // Skip header
-    input.read_line(&mut String::new())?;  
-    let mut reader = csv::ReaderBuilder::new()
-        .has_headers(true)
-        .delimiter(b'\t')
-        .from_reader(input.into_inner());
-    let reader = reader.deserialize::<Bed>();
+
     let mut counts: FnvHashMap<Position, Count> = FnvHashMap::default();
-    for line in reader {
-        let line = line?;
+    for rec in input.lines().skip(1) {
+        let rec = rec?;
+        let line: Vec<&str> = rec.split('\t').collect();
+        let line = StringRecord::from(line);
+        let line = line.deserialize::<Bed>(None)?;
         let chrom = line.chrom.clone();
         let start = line.start;
         let stop = line.stop;
@@ -113,13 +121,14 @@ fn main() -> eyre::Result<()> {
         });
     }
 
-    let mut output = LineWriter::new(File::open(args.output)?);
+    let mut output = stdout_or_file(args.output.as_ref())?;
     for (p, c) in counts.into_iter() {
         writeln!(
             &mut output,
-            "{}\t{}\t{}\t{}",
+            "{}\t{}\t{}\t{}\t{}",
             p.chrom,
             p.pos,
+            c.count,
             c.total,
             c.frac()
         )?;
