@@ -30,6 +30,18 @@ impl Region {
         Self { chrom, start, end }
     }
 
+    pub fn chrom(&self) -> &str {
+        &self.chrom
+    }
+
+    pub fn start(&self) -> u64 {
+        self.start
+    }
+
+    pub fn end(&self) -> u64 {
+        self.end
+    }
+
     fn from_bed_line(bed_line: &str) -> Result<Self, FilterError> {
         if bed_line.is_empty() {
             return Err(FilterError::EmptyRegionError);
