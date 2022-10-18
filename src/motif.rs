@@ -86,7 +86,7 @@ impl Motif {
         kmer.contains(self.motif())
     }
 
-    fn surrounding_idxs(&self, pos: usize) -> Vec<usize> {
+    fn surrounding_idxs(&self, _pos: usize) -> Vec<usize> {
         unimplemented!()
     }
 }

@@ -1,4 +1,4 @@
-use std::{error::Error, fs::File, io::BufWriter, path::PathBuf};
+use std::{error::Error, fs::File, io::BufWriter, path::{PathBuf, Path}};
 
 use cawlr::{
     plus_strand_map::PlusStrandMap, save, wrap_writer, Metadata, MetadataExt, MetadataMutExt,
@@ -68,19 +68,17 @@ fn convert_to_read(dlines: &[DetectionLine]) -> ScoredRead {
     ScoredRead::new(meta, scores)
 }
 
-fn main() -> Result<(), Box<dyn Error>> {
-    let args = Args::parse();
-
+pub fn run(input: &Path, bam: &Option<PathBuf>, output: &Path) -> Result<(), Box<dyn Error>> {
     let strand_map = {
-        if let Some(bam_file) = args.bam {
+        if let Some(bam_file) = bam {
             PlusStrandMap::from_bam_file(bam_file)?
         } else {
             PlusStrandMap::default()
         }
     };
 
-    let reader = File::open(&args.input)?;
-    let writer = File::create(&args.output)?;
+    let reader = File::open(input)?;
+    let writer = File::create(output)?;
     let schema = ScoredRead::schema();
     let mut writer = wrap_writer(BufWriter::new(writer), &schema)?;
     let mut builder = csv::ReaderBuilder::new()
@@ -110,4 +108,10 @@ fn main() -> Result<(), Box<dyn Error>> {
     }
     writer.finish()?;
     Ok(())
+}
+
+fn main() -> Result<(), Box<dyn Error>> {
+    let args = Args::parse();
+
+    run(&args.input, &args.bam, &args.output)
 }

@@ -42,7 +42,7 @@ impl Context {
     #[allow(clippy::read_zero_byte_vec)]
     pub(crate) fn from_read<R>(
         genome: &mut IndexedReader<R>,
-        chrom_lens: &FnvHashMap<String, u64>,
+        _chrom_lens: &FnvHashMap<String, u64>,
         read: &impl MetadataExt,
     ) -> Result<Self>
     where

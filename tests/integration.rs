@@ -204,7 +204,7 @@ fn integration() -> Result<(), Box<dyn Error>> {
         .env("RUST_BACKTRACE", "1")
         .assert()
         .success();
-    
+
     eprintln!("Single molecule analysis");
     let sma_bed = temp_dir.path().join("sma_bed");
     Command::new(cawlr)
