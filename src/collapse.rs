@@ -1,7 +1,7 @@
 use std::{
     fs::File,
     io::{BufWriter, Read, Write},
-    path::Path,
+    path::Path, time::Duration,
 };
 
 use arrow2::io::ipc::write::FileWriter;
@@ -105,6 +105,7 @@ fn spin_iter<I: Read>(iter: I, show_progress: bool) -> ProgressBarIter<I> {
     } else {
         ProgressBar::hidden()
     };
+    pb.enable_steady_tick(Duration::from_millis(100));
     let style = ProgressStyle::default_spinner()
         .template("{spinner} [{elapsed_precise}] {binary_bytes_per_sec} {msg}")
         .unwrap();

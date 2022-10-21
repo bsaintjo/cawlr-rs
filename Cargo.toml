@@ -123,6 +123,10 @@ name = "analyze-region-pipeline"
 path = "src/bin/analyze_region_pipeline.rs"
 
 [[bin]]
+name = "analyze-region-mesmlr-detection-pipeline"
+path = "src/bin/analyze_region_mesmlr_detection_pipeline.rs"
+
+[[bin]]
 name = "into-single"
 path = "src/bin/into_single.rs"
 

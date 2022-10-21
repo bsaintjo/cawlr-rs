@@ -2,7 +2,6 @@ use std::{fs, path::PathBuf, process::Command};
 
 use cawlr::utils;
 use clap::Parser;
-use eyre::Result;
 
 #[derive(Parser)]
 struct Args {

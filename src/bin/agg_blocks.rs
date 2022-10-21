@@ -1,7 +1,7 @@
 use std::{
     fs::File,
-    io::{BufRead, BufReader, LineWriter, Write},
-    path::PathBuf,
+    io::{BufRead, BufReader, Write},
+    path::{Path, PathBuf},
 };
 
 use cawlr::utils::stdout_or_file;
@@ -95,9 +95,8 @@ impl Position {
     }
 }
 
-fn main() -> eyre::Result<()> {
-    let args = Args::parse();
-    let input = BufReader::new(File::open(args.input)?);
+pub fn run(input: &Path, output: Option<&PathBuf>) -> eyre::Result<()> {
+    let input = BufReader::new(File::open(input)?);
     // Skip header
 
     let mut counts: FnvHashMap<Position, Count> = FnvHashMap::default();
@@ -121,7 +120,7 @@ fn main() -> eyre::Result<()> {
         });
     }
 
-    let mut output = stdout_or_file(args.output.as_ref())?;
+    let mut output = stdout_or_file(output)?;
     for (p, c) in counts.into_iter() {
         writeln!(
             &mut output,
@@ -134,4 +133,9 @@ fn main() -> eyre::Result<()> {
         )?;
     }
     Ok(())
+}
+
+fn main() -> eyre::Result<()> {
+    let args = Args::parse();
+    run(&args.input, args.output.as_ref())
 }

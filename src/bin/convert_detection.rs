@@ -68,7 +68,7 @@ fn convert_to_read(dlines: &[DetectionLine]) -> ScoredRead {
     ScoredRead::new(meta, scores)
 }
 
-pub fn run(input: &Path, bam: &Option<PathBuf>, output: &Path) -> Result<(), Box<dyn Error>> {
+pub fn run(input: &Path, bam: &Option<PathBuf>, output: &Path) -> eyre::Result<()> {
     let strand_map = {
         if let Some(bam_file) = bam {
             PlusStrandMap::from_bam_file(bam_file)?
@@ -113,5 +113,6 @@ pub fn run(input: &Path, bam: &Option<PathBuf>, output: &Path) -> Result<(), Box
 fn main() -> Result<(), Box<dyn Error>> {
     let args = Args::parse();
 
-    run(&args.input, &args.bam, &args.output)
+    run(&args.input, &args.bam, &args.output)?;
+    Ok(())
 }

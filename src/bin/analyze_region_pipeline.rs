@@ -5,12 +5,19 @@ use std::{
     time::Duration,
 };
 
+#[path="agg_blocks.rs"]
+mod agg_blocks;
+
 use cawlr::{
-    collapse::CollapseOptions, filter::Region, motif::{Motif, all_bases}, score::ScoreOptions, sma::SmaOptions,
+    collapse::CollapseOptions,
+    filter::Region,
+    motif::{all_bases, Motif},
+    score::ScoreOptions,
+    sma::SmaOptions,
     utils,
 };
 use clap::Parser;
-use indicatif::{ProgressBar, ProgressFinish};
+use indicatif::{ProgressBar, ProgressFinish, ProgressStyle};
 
 #[derive(Parser)]
 struct Args {
@@ -31,8 +38,8 @@ struct Args {
     bam: PathBuf,
 
     /// Path to full fastq, doesn't need to be filtered
-    #[clap(short, long)]
-    fastq: PathBuf,
+    #[clap(long)]
+    reads: PathBuf,
 
     /// Path to genome
     #[clap(short, long)]
@@ -55,7 +62,7 @@ struct Args {
     neg_scores: PathBuf,
 
     /// Path to ranks file, from cawlr ranks
-    #[clap(short, long)]
+    #[clap(long)]
     ranks: PathBuf,
 
     /// Motifs to analyze, formatted "2:GC" if second base C is modified
@@ -70,19 +77,26 @@ struct Args {
     /// Path to samtools binary, if not specified will look in $PATH
     #[clap(long)]
     samtools_path: Option<PathBuf>,
+
+    #[clap(long, default_value_t = false)]
+    overwrite: bool,
 }
+
+const START_TEMPLATE: &str = "{spinner:.green} [{elapsed_precise}] {msg}";
+const FINISH_TEMPLATE: &str = "✅ [{elapsed_precise}] {msg}";
 
 fn pb(msg: &'static str) -> ProgressBar {
     let p = ProgressBar::new_spinner()
+        .with_style(ProgressStyle::with_template(START_TEMPLATE).unwrap())
         .with_message(msg)
-        .with_finish(ProgressFinish::AndLeave);
-    p.enable_steady_tick(Duration::from_secs(1));
+        .with_finish(ProgressFinish::WithMessage(FINISH_TEMPLATE.into()));
+    p.enable_steady_tick(Duration::from_millis(100));
     p
 }
 
-fn wrap_cmd<F>(msg: &'static str, f: F) -> eyre::Result<()>
+pub fn wrap_cmd<F>(msg: &'static str, mut f: F) -> eyre::Result<()>
 where
-    F: Fn() -> eyre::Result<()>,
+    F: FnMut() -> eyre::Result<()>,
 {
     let p = pb(msg);
     f()?;
@@ -95,6 +109,9 @@ fn main() -> eyre::Result<()> {
     let motifs = args.motifs.ok_or(eyre::eyre!("Need atleast 1 motif"))?;
     let nanopolish = utils::find_binary("nanopolish", &args.nanopolish_path)?;
 
+    if args.overwrite && args.output_dir.exists() {
+        fs::remove_dir_all(&args.output_dir)?;
+    }
     fs::create_dir_all(&args.output_dir)?;
     let filtered_bam = args.output_dir.join("filtered.bam");
 
@@ -112,53 +129,60 @@ fn main() -> eyre::Result<()> {
         Ok(())
     })?;
 
-    let p = pb("Running nanopolish eventalign");
     let eventalign_path = args.output_dir.join("eventalign.tsv");
-    let eventalign = File::create(&eventalign_path)?;
-    let eventalign_stdout = Stdio::from(eventalign.try_clone()?);
+    wrap_cmd("nanopolish eventalign", || {
+        let eventalign = File::create(&eventalign_path)?;
+        let eventalign_stdout = Stdio::from(eventalign.try_clone()?);
 
-    Command::new(nanopolish)
-        .arg("eventalign")
-        .arg("--reads")
-        .arg(args.fastq)
-        .arg("--bam")
-        .arg(&filtered_bam)
-        .arg("--genome")
-        .arg(&args.genome)
-        .arg("--scale-events")
-        .arg("--print-read-names")
-        .arg("--samples")
-        .args(&["-t", "4"])
-        .stdout(eventalign_stdout)
-        .output()?;
-    p.finish();
+        Command::new(&nanopolish)
+            .arg("eventalign")
+            .arg("--reads")
+            .arg(&args.reads)
+            .arg("--bam")
+            .arg(&filtered_bam)
+            .arg("--genome")
+            .arg(&args.genome)
+            .arg("--scale-events")
+            .arg("--print-read-names")
+            .arg("--samples")
+            .args(&["-t", "4"])
+            .stdout(eventalign_stdout)
+            .output()?;
+        Ok(())
+    })?;
 
-    let p = pb("Running cawlr collapse");
     let collapse = args.output_dir.join("collapse.arrow");
-    let eventalign = File::open(&eventalign_path)?;
-    CollapseOptions::try_new(args.bam, &collapse)?.run(eventalign)?;
-    p.finish();
+    wrap_cmd("cawlr collapse", || {
+        let eventalign = File::open(&eventalign_path)?;
+        CollapseOptions::try_new(&args.bam, &collapse)?.run(eventalign)
+    })?;
 
-    let p = pb("Running cawlr score");
     let scored = args.output_dir.join("score.arrow");
-    let mut scoring = ScoreOptions::try_new(
-        args.pos_model,
-        args.neg_model,
-        args.genome,
-        args.ranks,
-        scored.clone(),
-    )?;
-    scoring.motifs(motifs);
-    scoring.run(collapse)?;
-    p.finish();
+    wrap_cmd("cawlr score", || {
+        let mut scoring = ScoreOptions::try_new(
+            &args.pos_model,
+            &args.neg_model,
+            &args.genome,
+            &args.ranks,
+            &scored,
+        )?;
+        scoring.motifs(motifs.clone());
+        scoring.run(&collapse)
+    })?;
 
-    let p = pb("Running cawlr sma");
     let track_name = format!("{}.cawlr.sma", args.name);
-    let sma = args.output_dir.join(format!("{}.sma.bed", track_name));
-    let mut sma_opts = SmaOptions::try_new(args.pos_scores, args.neg_scores, all_bases(), sma)?;
-    sma_opts.track_name(track_name);
-    sma_opts.run(scored)?;
-    p.finish();
+    let sma = args.output_dir.join(format!("{}.bed", track_name));
+    wrap_cmd("cawlr sma", || {
+        let mut sma_opts =
+            SmaOptions::try_new(&args.pos_scores, &args.neg_scores, all_bases(), &sma)?;
+        sma_opts.track_name(&track_name);
+        sma_opts.run(&scored)
+    })?;
+
+    let agg_output = args.output_dir.join(format!("{}.tsv", track_name));
+    wrap_cmd("Aggregating blocks", || {
+        agg_blocks::run(&sma, Some(&agg_output))
+    })?;
 
     Ok(())
 }

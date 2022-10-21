@@ -1,4 +1,4 @@
-FROM nvidia/cuda:10.2-cudnn8-devel-centos7 AS guppy
+FROM nvidia/cuda:10.2-cudnn8-runtime-centos7 AS guppy
 LABEL Name=cawlr Version=0.0.1
 
 RUN yum makecache \
@@ -29,7 +29,7 @@ WORKDIR /samtools
 RUN ./configure && make && make install && cp ./samtools /tools/
 
 WORKDIR /cawlr
-RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable --profile minimal
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain nightly --profile minimal
 ENV PATH="/root/.cargo/bin:${PATH}"
 
 # For caching depedencies
@@ -44,16 +44,12 @@ WORKDIR /cawlr
 COPY --from=planner /cawlr/recipe.json recipe.json
 RUN cargo chef cook --release --recipe-path recipe.json
 COPY . .
-RUN cargo build --release --bins \
-	&& cp ./target/release/cawlr /tools \
-	&& cp ./target/release/convert-detection /tools \
-	&& cp ./target/release/analyze-region-pipeline /tools \
-	&& cp ./target/release/overlap-bed /tools \
-	&& cp ./target/release/agg-blocks /tools
+RUN cargo build --release --bins -Z unstable-options --out-dir /tools
 
 FROM guppy as dev
 COPY --from=builder /tools /tools
 ENV PATH="/tools:${PATH}"
+# ENV PATH="/tools/bin:${PATH}"
 
 WORKDIR /
 CMD ["/bin/bash"]

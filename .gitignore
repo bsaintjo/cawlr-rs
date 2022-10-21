@@ -5,3 +5,4 @@ test_gen/
 log.txt
 dist/
 .cargo/
+paper_data
