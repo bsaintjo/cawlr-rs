@@ -106,6 +106,10 @@ pub fn run(input: &Path, bam: &Option<PathBuf>, output: &Path) -> eyre::Result<(
             acc = vec![dline];
         }
     }
+    if !acc.is_empty() {
+        let read = convert_to_read(&acc);
+        save(&mut writer, &[read])?;
+    }
     writer.finish()?;
     Ok(())
 }
