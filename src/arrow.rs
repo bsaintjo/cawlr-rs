@@ -254,6 +254,14 @@ impl Display for Strand {
 }
 
 impl Strand {
+    pub fn rgb_str(&self) -> &str {
+        match self {
+            Strand::Plus => "255,0,0",
+            Strand::Minus => "0,0,255",
+            Strand::Unknown => "0,0,0",
+        }
+    }
+
     pub(crate) fn plus() -> Self {
         // Strand { strand: 1i8 }
         Strand::Plus
