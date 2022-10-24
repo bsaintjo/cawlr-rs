@@ -396,6 +396,10 @@ impl Score {
     pub fn kmer(&self) -> &str {
         self.kmer.as_ref()
     }
+
+    pub fn pos(&self) -> u64 {
+        self.pos
+    }
 }
 
 /// Represents a single read scored by cawlr score
