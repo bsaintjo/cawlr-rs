@@ -18,9 +18,21 @@ def main():
     ) as minus_file, open(plus_filepath, "w") as plus_file, open(
         nostrand_filepath, "w"
     ) as none_file:
-        header = next(bed_file)
-        print(header, file=minus_file, end="")
-        print(header, file=plus_file, end="")
+        header = next(bed_file)  # Skip header
+        # print(header, file=minus_file, end="")
+        print(
+            'track name="{}" itemRgb="on" visibility=2'.format(path.stem + ".minus"),
+            file=minus_file,
+        )
+        # print(header, file=plus_file, end="")
+        print(
+            'track name="{}" itemRgb="on" visibility=2'.format(path.stem + ".plus"),
+            file=plus_file,
+        )
+        print(
+            'track name="{}" itemRgb="on" visibility=2'.format(path.stem + ".unknown"),
+            file=none_file,
+        )
         for line in bed_file:
             strand = line.rstrip().split("\t")[5]
             if strand == "+":
