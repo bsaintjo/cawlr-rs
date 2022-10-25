@@ -27,3 +27,6 @@ README.md
 extra
 guide
 paper_data
+tests
+.github
+.devcontainer
