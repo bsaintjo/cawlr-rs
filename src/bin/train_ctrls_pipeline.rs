@@ -25,6 +25,12 @@ struct Args {
 
     #[clap(long)]
     nanopolish_path: Option<PathBuf>,
+
+    #[clap(long)]
+    minimap2_path: Option<PathBuf>,
+
+    #[clap(long)]
+    samtools_path: Option<PathBuf>,
 }
 
 fn aln_reads(
@@ -49,8 +55,8 @@ fn aln_reads(
 fn main() -> eyre::Result<()> {
     let args = Args::parse();
     let nanopolish = utils::find_binary("nanopolish", &args.nanopolish_path)?;
-    let minimap2 = utils::find_binary("minimap2", &args.nanopolish_path)?;
-    let samtools = utils::find_binary("samtools", &args.nanopolish_path)?;
+    let minimap2 = utils::find_binary("minimap2", &args.minimap2_path)?;
+    let samtools = utils::find_binary("samtools", &args.samtools_path)?;
 
     fs::create_dir_all(&args.output_dir)?;
 
