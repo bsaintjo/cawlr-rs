@@ -15,6 +15,7 @@ RUN yum makecache \
 	&& rm ont-guppy-6.1.7-1.el7.x86_64.rpm \
 	&& yum clean all
 
+RUN pip3 install --user matplotlib numpy scikit-learn pyBigWig pandas seaborn
 
 FROM guppy as base
 RUN git clone --recursive -b v0.13.3 https://github.com/jts/nanopolish.git \
@@ -34,8 +35,6 @@ RUN make && cp ./minimap2 /tools/
 WORKDIR /samtools
 RUN ./configure && make && make install && cp ./samtools /tools/
 
-RUN pip3 install --user matplotlib numpy scikit-learn pyBigWig
-
 WORKDIR /cawlr
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain nightly --profile minimal
 ENV PATH="/root/.cargo/bin:${PATH}"
@@ -53,9 +52,8 @@ COPY --from=planner /cawlr/recipe.json recipe.json
 RUN cargo chef cook --release --recipe-path recipe.json
 COPY . .
 RUN cargo build --release --bins -Z unstable-options --out-dir /tools
-
-WORKDIR /tools
-RUN cp /cawlr/notebooks/*.py . && chmod +x ./*
+RUN cp notebooks/*py /tools \
+	&& chmod +x /tools/*
 
 FROM guppy as dev
 COPY --from=builder /tools /tools
