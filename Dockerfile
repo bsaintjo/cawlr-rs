@@ -4,11 +4,18 @@ LABEL Name=cawlr Version=0.0.1
 RUN yum makecache \
 	&& yum -y update ca-certificates \
 	&& yum install -y epel-release \
+	&& yum clean all \
 	&& yum install -y gcc gcc-c++ gcc-gfortran make perl git wget tar \
 	zlib-devel ncurses-devel ncurses bzip2 bzip2-devel xz-devel libcurl-devel \
+	python3 python3-devel libjpeg-turbo libtiff-devel libjpeg-devel openjpeg2-devel zlib-devel \
+	freetype-devel lcms2-devel libwebp-devel tcl-devel tk-devel \
+	harfbuzz-devel fribidi-devel libraqm-devel libimagequant-devel libxcb-devel \
 	&& wget https://cdn.oxfordnanoportal.com/software/analysis/ont-guppy-6.1.7-1.el7.x86_64.rpm \
 	&& yum install -y ont-guppy-6.1.7-1.el7.x86_64.rpm \
-	&& rm ont-guppy-6.1.7-1.el7.x86_64.rpm
+	&& rm ont-guppy-6.1.7-1.el7.x86_64.rpm \
+	&& yum clean all
+
+RUN pip3 install --user matplotlib numpy scikit-learn
 
 FROM guppy as base
 RUN git clone --recursive -b v0.13.3 https://github.com/jts/nanopolish.git \
@@ -46,10 +53,13 @@ RUN cargo chef cook --release --recipe-path recipe.json
 COPY . .
 RUN cargo build --release --bins -Z unstable-options --out-dir /tools
 
+WORKDIR /tools
+RUN cp /cawlr/notebooks/*.py . && chmod +x ./*
+
 FROM guppy as dev
 COPY --from=builder /tools /tools
 ENV PATH="/tools:${PATH}"
-# ENV PATH="/tools/bin:${PATH}"
+ENV PATH="/scripts:${PATH}"
 
 WORKDIR /
 CMD ["/bin/bash"]
