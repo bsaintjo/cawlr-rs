@@ -6,10 +6,12 @@ nucleosome configurations in a given region.
 """
 
 import argparse
+from pathlib import Path
 import sys
 from collections import defaultdict
 import matplotlib.pyplot as plt
 from sklearn.cluster import KMeans
+import numpy as np
 
 
 def bed_line_cluster_array(line, cluster_start, cluster_stop):
@@ -47,7 +49,7 @@ def pct_full(arr):
 
 def convert_nones(arr):
     """Convert Nones to something else so KMeans is able to cluster on it"""
-    return [x if x is not None else -1 for x in arr]
+    return [x if x is not None else 0.5 for x in arr]
 
 
 def split_clusters(cresults, carrays):
@@ -59,11 +61,14 @@ def split_clusters(cresults, carrays):
         labels[label].append(res)
     return labels
 
+
 def parse_highlights(s):
-    xs = s.split('-')
+    xs = s.split(":")
+    strand = xs[-1]
+    xs = xs[0].split("-")
     start = int(xs[0])
     end = int(xs[1])
-    return (start, end)
+    return (start, end, strand)
 
 
 def main():
@@ -86,22 +91,20 @@ def main():
         "-n", "--n-clusters", type=int, default=3, help="Number of clusters"
     )
     parser.add_argument("--suptitle", default="Region name", help="Figure title")
-    parser.add_argument(
-        "-o",
-        "--output",
-        required=True,
-        help="Path to output, format can be png, pdf, svg, and is based on file extension",
-    )
 
     parser.add_argument(
         "--highlight",
         nargs="*",
-        help="Highlight particular regions, usually gene bodies, etc., format is usually {start}-{end}",
+        help="Highlight particular regions, usually gene bodies, etc., format is usually {start}-{end}:{strand}",
+        default=[]
     )
 
     args = parser.parse_args()
 
-    highlights = [parse_highlights(h) for h in args.highlights]
+    input_path = Path(args.input)
+    output = input_path.parent / (input_path.stem + ".cluster.png")
+
+    highlights = [parse_highlights(h) for h in args.highlight]
 
     acc = []
     with open(args.input, "r") as bedfile:
@@ -121,23 +124,46 @@ def main():
 
     label_to_arr = split_clusters(results, acc)
 
-    fig, axs = plt.subplots(nrows=3, ncols=1, sharex=True, figsize=(6, 15))
+    fig, axs = plt.subplots(nrows=args.n_clusters, ncols=1, sharex=True, figsize=(15, 6))
     for idx, arrs in label_to_arr.items():
         axs[idx].imshow(arrs, aspect="auto", interpolation="none")
-        for (hstart, hend) in highlights:
-            axs[idx].avxspan(hstart - args.start, hend - args.start, alpha=0.5)
+        for (hstart, hend, hstrand) in highlights:
+            axs[idx].axvspan(
+                hstart - args.start, hend - args.start, alpha=0.5, color="grey"
+            )
+            if hstrand == "+":
+                fp_color = "green"
+                tp_color = "red"
+            elif hstrand == "-":
+                fp_color = "red"
+                tp_color = "green"
+            else:
+                fp_color = "black"
+                tp_color = "black"
+            axs[idx].axvline(
+                hstart - args.start,
+                color=fp_color,
+                alpha=0.5,
+                linewidth=2,
+                linestyle=":",
+            )
+            axs[idx].axvline(
+                hend - args.start, color=tp_color, alpha=0.5, linewidth=2, linestyle=":"
+            )
 
     fig.suptitle(args.suptitle)
     fig.supylabel("Reads")
     fig.supxlabel("Genomic coordinate")
+    fig.tight_layout()
 
     plt.xticks(
-        ticks=range(0, (args.end - args.start), 200),
-        labels=range(args.start, args.end, 200),
-        rotation=45,
+        ticks=np.linspace(0, (args.end - args.start), 20, dtype=int),
+        labels=np.linspace(args.start, args.end, 20, dtype=int),
+        rotation=30,
     )
 
-    plt.savefig(args.output, dpi=100)
+    plt.savefig(output, dpi=500)
+    print("Output file to: ", output)
 
 
 if __name__ == "__main__":
