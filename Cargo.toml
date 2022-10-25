@@ -90,6 +90,7 @@ thiserror = "1.0.37"
 human-panic = "1.0.3"
 num_cpus = "1.13.1"
 which = "4.3.0"
+simple-logging = "2.0.2"
 
 [profile.release]
 lto = "fat"

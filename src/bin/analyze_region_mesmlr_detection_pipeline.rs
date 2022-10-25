@@ -2,17 +2,20 @@ use std::{
     fs::{self, File},
     io::{BufRead, BufReader, LineWriter, Write},
     path::PathBuf,
+    process::Command,
 };
 
 mod agg_blocks;
 mod analyze_region_pipeline;
 mod convert_detection;
 
+use analyze_region_pipeline::parse_name_from_output_dir;
 use analyze_region_pipeline::wrap_cmd;
 use cawlr::{filter::Region, motif::all_bases, sma::SmaOptions};
 use clap::Parser;
+use log::LevelFilter;
 
-#[derive(Parser)]
+#[derive(Debug, Parser)]
 struct Args {
     /// Detection file from NP-SMLR
     #[clap(short, long)]
@@ -37,8 +40,16 @@ struct Args {
     #[clap(short, long)]
     output_dir: PathBuf,
 
+    // #[clap(long)]
+    // name: String,
+
+    /// Number of clusters to use for clustering script
+    #[clap(long, default_value_t = 3)]
+    n_clusters: usize,
+
+    /// Percent of read that should overlap region to be clustered
     #[clap(long)]
-    name: String,
+    pct: f64,
 
     #[clap(long, default_value_t = false)]
     overwrite: bool,
@@ -70,10 +81,18 @@ fn convert_chrom(s: &str) -> eyre::Result<&str> {
 
 fn main() -> eyre::Result<()> {
     let args = Args::parse();
+
     if args.overwrite && args.output_dir.exists() {
         fs::remove_dir_all(&args.output_dir)?;
     }
     fs::create_dir_all(&args.output_dir)?;
+
+    let log_file = args.output_dir.join("log.txt");
+    simple_logging::log_to_file(log_file, LevelFilter::Info)?;
+    log::info!("{args:?}");
+
+    let name = parse_name_from_output_dir(&args.output_dir)?;
+
     let filtered_output_path = args.output_dir.join("filtered_detection.txt");
     let mut writer = LineWriter::new(File::create(&filtered_output_path)?);
 
@@ -101,7 +120,7 @@ fn main() -> eyre::Result<()> {
         convert_detection::run(&filtered_output_path, &args.bam, &converted_output)
     })?;
 
-    let track_name = format!("{}.sma", args.name);
+    let track_name = format!("{}.sma", name);
     let sma = args.output_dir.join(format!("{}.bed", track_name));
     wrap_cmd("cawlr sma", || {
         let mut sma_opts =
@@ -112,5 +131,24 @@ fn main() -> eyre::Result<()> {
 
     let agg_output = args.output_dir.join(format!("{}.tsv", track_name));
     wrap_cmd("Aggregating", || agg_blocks::run(&sma, Some(&agg_output)))?;
+
+    wrap_cmd("Clustering reads", || {
+        let mut cmd = Command::new("cluster_region.py");
+        cmd.arg("-p")
+            .arg(args.pct.to_string())
+            .arg("-s")
+            .arg(args.locus.start().to_string())
+            .arg("-e")
+            .arg(args.locus.end().to_string())
+            .arg("--suptitle")
+            .arg(&*name)
+            .arg("-n")
+            .arg(args.n_clusters.to_string())
+            .arg("-i")
+            .arg(&sma);
+        log::info!("{cmd:?}");
+        cmd.output()?;
+        Ok(())
+    })?;
     Ok(())
 }
