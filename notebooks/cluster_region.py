@@ -62,13 +62,26 @@ def split_clusters(cresults, carrays):
     return labels
 
 
-def parse_highlights(s):
+def parse_highlights(s: str):
     xs = s.split(":")
     strand = xs[-1]
     xs = xs[0].split("-")
     start = int(xs[0])
     end = int(xs[1])
     return (start, end, strand)
+
+
+def strand_to_color(hstrand: str):
+    if hstrand == "+":
+        fp_color = "green"
+        tp_color = "red"
+    elif hstrand == "-":
+        fp_color = "red"
+        tp_color = "green"
+    else:
+        fp_color = "black"
+        tp_color = "black"
+    return fp_color, tp_color
 
 
 def main():
@@ -96,7 +109,7 @@ def main():
         "--highlight",
         nargs="*",
         help="Highlight particular regions, usually gene bodies, etc., format is usually {start}-{end}:{strand}",
-        default=[]
+        default=[],
     )
 
     args = parser.parse_args()
@@ -124,22 +137,16 @@ def main():
 
     label_to_arr = split_clusters(results, acc)
 
-    fig, axs = plt.subplots(nrows=args.n_clusters, ncols=1, sharex=True, figsize=(15, 6))
+    fig, axs = plt.subplots(
+        nrows=args.n_clusters, ncols=1, sharex=True, figsize=(15, 6)
+    )
     for idx, arrs in label_to_arr.items():
         axs[idx].imshow(arrs, aspect="auto", interpolation="none")
         for (hstart, hend, hstrand) in highlights:
+            fp_color, tp_color = strand_to_color(hstrand)
             axs[idx].axvspan(
                 hstart - args.start, hend - args.start, alpha=0.5, color="grey"
             )
-            if hstrand == "+":
-                fp_color = "green"
-                tp_color = "red"
-            elif hstrand == "-":
-                fp_color = "red"
-                tp_color = "green"
-            else:
-                fp_color = "black"
-                tp_color = "black"
             axs[idx].axvline(
                 hstart - args.start,
                 color=fp_color,
@@ -150,11 +157,11 @@ def main():
             axs[idx].axvline(
                 hend - args.start, color=tp_color, alpha=0.5, linewidth=2, linestyle=":"
             )
-
-    fig.suptitle(args.suptitle)
-    fig.supylabel("Reads")
-    fig.supxlabel("Genomic coordinate")
-    fig.tight_layout()
+    fig.add_subplot(111, frameon=False)
+    plt.tick_params(labelcolor='none', which='both', top=False, bottom=False, left=False, right=False)
+    plt.xlabel("Genomic coordinate")
+    plt.ylabel("Reads")
+    plt.title(args.suptitle)
 
     plt.xticks(
         ticks=np.linspace(0, (args.end - args.start), 20, dtype=int),
