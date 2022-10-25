@@ -9,8 +9,7 @@ mod agg_blocks;
 mod analyze_region_pipeline;
 mod convert_detection;
 
-use analyze_region_pipeline::parse_name_from_output_dir;
-use analyze_region_pipeline::wrap_cmd;
+use analyze_region_pipeline::{parse_name_from_output_dir, wrap_cmd};
 use cawlr::{filter::Region, motif::all_bases, sma::SmaOptions};
 use clap::Parser;
 use log::LevelFilter;
@@ -42,7 +41,6 @@ struct Args {
 
     // #[clap(long)]
     // name: String,
-
     /// Number of clusters to use for clustering script
     #[clap(long, default_value_t = 3)]
     n_clusters: usize,
@@ -50,6 +48,10 @@ struct Args {
     /// Percent of read that should overlap region to be clustered
     #[clap(long)]
     pct: f64,
+
+    /// Regions to highlight during clustering
+    #[clap(long)]
+    highlights: Vec<String>,
 
     #[clap(long, default_value_t = false)]
     overwrite: bool,
@@ -146,8 +148,13 @@ fn main() -> eyre::Result<()> {
             .arg(args.n_clusters.to_string())
             .arg("-i")
             .arg(&sma);
+        if !args.highlights.is_empty() {
+            cmd.arg("--highlight");
+            cmd.args(&args.highlights);
+        }
         log::info!("{cmd:?}");
-        cmd.output()?;
+        let output = cmd.output()?;
+        log::info!("{}", output.status);
         Ok(())
     })?;
     Ok(())

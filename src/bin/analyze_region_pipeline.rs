@@ -18,7 +18,7 @@ use cawlr::{
     utils,
 };
 use clap::Parser;
-use indicatif::{ProgressBar, ProgressStyle};
+use indicatif::{ProgressBar, ProgressFinish, ProgressStyle};
 use log::LevelFilter;
 
 #[derive(Debug, Parser)]
@@ -79,6 +79,10 @@ struct Args {
     #[clap(short, long)]
     motifs: Option<Vec<Motif>>,
 
+    /// Regions to highlight during clustering
+    #[clap(long)]
+    highlights: Vec<String>,
+
     /// Path to nanopolish binary, if not specified will look in $PATH
     #[clap(long)]
     nanopolish_path: Option<PathBuf>,
@@ -102,7 +106,7 @@ where
         .with_message(msg);
     p.enable_steady_tick(Duration::from_millis(100));
     f()?;
-    p.finish_with_message("✅ [{elapsed_precise}] {msg}");
+    p.finish_with_message(format!("✅ \"{}\" complete", msg));
     Ok(())
 }
 
@@ -121,6 +125,7 @@ fn cluster_region_cmd<S: AsRef<OsStr>>(
     pct: f64,
     n_clusters: usize,
     name: &str,
+    highlights: &[String],
     sma_path: S,
 ) -> Command {
     let mut cmd = Command::new("cluster_region.py");
@@ -136,6 +141,11 @@ fn cluster_region_cmd<S: AsRef<OsStr>>(
         .arg(n_clusters.to_string())
         .arg("-i")
         .arg(&sma_path);
+
+    if !highlights.is_empty() {
+        cmd.arg("--highlight");
+        cmd.args(highlights);
+    }
     cmd
 }
 
@@ -242,19 +252,13 @@ fn main() -> eyre::Result<()> {
     let plus_filepath = plus_filepath.join(".plus.bed");
 
     wrap_cmd("Clustering all reads", || {
-        let mut cmd = cluster_region_cmd(&args.locus, args.pct, args.n_clusters, &name, &sma);
-        log::info!("{cmd:?}");
-        cmd.output()?;
-        Ok(())
-    })?;
-
-    wrap_cmd("Clustering (+) reads", || {
         let mut cmd = cluster_region_cmd(
             &args.locus,
             args.pct,
             args.n_clusters,
             &name,
-            &plus_filepath,
+            &args.highlights,
+            &sma,
         );
         log::info!("{cmd:?}");
         cmd.output()?;
@@ -267,6 +271,21 @@ fn main() -> eyre::Result<()> {
             args.pct,
             args.n_clusters,
             &name,
+            &args.highlights,
+            &plus_filepath,
+        );
+        log::info!("{cmd:?}");
+        cmd.output()?;
+        Ok(())
+    })?;
+
+    wrap_cmd("Clustering (-) reads", || {
+        let mut cmd = cluster_region_cmd(
+            &args.locus,
+            args.pct,
+            args.n_clusters,
+            &name,
+            &args.highlights,
             &minus_filepath,
         );
         log::info!("{cmd:?}");
