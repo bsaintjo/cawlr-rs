@@ -114,7 +114,7 @@ impl ScoreOptions {
         let mut acc = Vec::new();
         let context = context::Context::from_read(&mut self.genome, &self.chrom_lens, &read)?;
 
-        log::info!("{:?}", read.metadata());
+        log::debug!("{:?}", read.metadata());
         log::debug!("{context:.3?}");
 
         let data_pos = pos_with_data(&read);

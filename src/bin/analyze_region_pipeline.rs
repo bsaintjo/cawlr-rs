@@ -246,10 +246,10 @@ fn main() -> eyre::Result<()> {
     })?;
 
     let minus_filepath: &Path = sma.file_stem().unwrap().as_ref();
-    let minus_filepath = minus_filepath.join(".minus.bed");
+    let minus_filepath = format!("{}.minus.bed", minus_filepath.display());
 
     let plus_filepath: &Path = sma.file_stem().unwrap().as_ref();
-    let plus_filepath = plus_filepath.join(".plus.bed");
+    let plus_filepath = format!("{}.plus.bed", plus_filepath.display());
 
     wrap_cmd("Clustering all reads", || {
         let mut cmd = cluster_region_cmd(
@@ -261,7 +261,8 @@ fn main() -> eyre::Result<()> {
             &sma,
         );
         log::info!("{cmd:?}");
-        cmd.output()?;
+        let output = cmd.output()?;
+        log::info!("Exit code: {}", output.status);
         Ok(())
     })?;
 
@@ -275,7 +276,8 @@ fn main() -> eyre::Result<()> {
             &plus_filepath,
         );
         log::info!("{cmd:?}");
-        cmd.output()?;
+        let output = cmd.output()?;
+        log::info!("Exit code: {}", output.status);
         Ok(())
     })?;
 
@@ -289,7 +291,8 @@ fn main() -> eyre::Result<()> {
             &minus_filepath,
         );
         log::info!("{cmd:?}");
-        cmd.output()?;
+        let output = cmd.output()?;
+        log::info!("Exit code: {}", output.status);
         Ok(())
     })?;
 
