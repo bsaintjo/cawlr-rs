@@ -143,7 +143,7 @@ fn main() -> eyre::Result<()> {
             .arg("-e")
             .arg(args.locus.end().to_string())
             .arg("--suptitle")
-            .arg(&*name)
+            .arg(format!("{name} {}", args.locus))
             .arg("-n")
             .arg(args.n_clusters.to_string())
             .arg("-i")

@@ -256,7 +256,7 @@ fn main() -> eyre::Result<()> {
             &args.locus,
             args.pct,
             args.n_clusters,
-            &name,
+            &format!("{name} {} all", args.locus),
             &args.highlights,
             &sma,
         );
@@ -270,7 +270,7 @@ fn main() -> eyre::Result<()> {
             &args.locus,
             args.pct,
             args.n_clusters,
-            &name,
+            &format!("{name} {} plus", args.locus),
             &args.highlights,
             &plus_filepath,
         );
@@ -284,7 +284,7 @@ fn main() -> eyre::Result<()> {
             &args.locus,
             args.pct,
             args.n_clusters,
-            &name,
+            &format!("{name} {} minus", args.locus),
             &args.highlights,
             &minus_filepath,
         );
