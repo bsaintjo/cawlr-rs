@@ -1,10 +1,11 @@
 use std::{
     fs,
+    io::BufReader,
     path::PathBuf,
     process::{Command, Stdio},
 };
 
-use cawlr::utils;
+use cawlr::{collapse::CollapseOptions, utils, train::Train};
 use clap::Parser;
 use eyre::Result;
 
@@ -75,19 +76,29 @@ fn aln_reads(
     Ok(())
 }
 
-fn eventalign_collapse(nanopolish: PathBuf, reads: PathBuf, bam: PathBuf) -> Result<()> {
+fn eventalign_collapse(
+    nanopolish: PathBuf,
+    reads: PathBuf,
+    bam: PathBuf,
+    output: PathBuf,
+) -> Result<()> {
     let cmd = Command::new(nanopolish)
         .arg("eventalign")
         .arg("-r")
         .arg(reads)
         .arg("-b")
-        .arg(bam)
+        .arg(&bam)
         .arg("-t")
         .arg("4")
         .arg("--print-read-names")
         .arg("--samples")
         .stdout(Stdio::piped())
-        .spawn()?;
+        .spawn()?
+        .stdout
+        .ok_or_else(|| eyre::eyre!("Could not capture stdout"))?;
+    let reader = BufReader::new(cmd);
+    let mut collapse = CollapseOptions::try_new(&bam, output)?;
+    collapse.run(reader)?;
     Ok(())
 }
 
