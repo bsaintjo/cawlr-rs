@@ -1,7 +1,13 @@
-use std::{fs, path::PathBuf, process::Command};
+use std::{
+    fs,
+    io::BufReader,
+    path::PathBuf,
+    process::{Command, Stdio},
+};
 
-use cawlr::utils;
+use cawlr::{collapse::CollapseOptions, utils, train::Train};
 use clap::Parser;
+use eyre::Result;
 
 #[derive(Parser)]
 struct Args {
@@ -33,13 +39,22 @@ struct Args {
     samtools_path: Option<PathBuf>,
 }
 
+fn np_index(nanopolish: PathBuf, fast5s: PathBuf, reads: PathBuf) -> Result<()> {
+    let mut cmd = Command::new(nanopolish);
+    cmd.arg("index").arg("-d").arg(fast5s).arg(reads);
+    log::info!("{cmd:?}");
+    cmd.output()?;
+    Ok(())
+}
+
 fn aln_reads(
     minimap2: PathBuf,
+    samtools: PathBuf,
     genome: PathBuf,
     reads: PathBuf,
     output: PathBuf,
 ) -> eyre::Result<()> {
-    Command::new(minimap2)
+    let map_cmd = Command::new(minimap2)
         .arg("-ax")
         .arg("map-ont")
         .arg("--sam-hit-only")
@@ -47,8 +62,43 @@ fn aln_reads(
         .args(&["-t", "4"])
         .arg(genome)
         .arg(reads)
+        .stdout(Stdio::piped())
+        .spawn()?;
+    let sam_cmd = Command::new(samtools)
+        .arg("sort")
+        .arg("--write-index")
+        .arg("-T")
+        .arg("reads.tmp")
         .arg("-o")
-        .arg(output);
+        .arg(output)
+        .stdin(map_cmd.stdout.unwrap())
+        .output()?;
+    Ok(())
+}
+
+fn eventalign_collapse(
+    nanopolish: PathBuf,
+    reads: PathBuf,
+    bam: PathBuf,
+    output: PathBuf,
+) -> Result<()> {
+    let cmd = Command::new(nanopolish)
+        .arg("eventalign")
+        .arg("-r")
+        .arg(reads)
+        .arg("-b")
+        .arg(&bam)
+        .arg("-t")
+        .arg("4")
+        .arg("--print-read-names")
+        .arg("--samples")
+        .stdout(Stdio::piped())
+        .spawn()?
+        .stdout
+        .ok_or_else(|| eyre::eyre!("Could not capture stdout"))?;
+    let reader = BufReader::new(cmd);
+    let mut collapse = CollapseOptions::try_new(&bam, output)?;
+    collapse.run(reader)?;
     Ok(())
 }
 
