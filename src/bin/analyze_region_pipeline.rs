@@ -18,7 +18,7 @@ use cawlr::{
     utils,
 };
 use clap::Parser;
-use indicatif::{ProgressBar, ProgressFinish, ProgressStyle};
+use indicatif::{ProgressBar, ProgressStyle};
 use log::LevelFilter;
 
 #[derive(Debug, Parser)]
@@ -93,6 +93,9 @@ struct Args {
 
     #[clap(long, default_value_t = false)]
     overwrite: bool,
+
+    #[clap(short='j', long, default_value_t=4)]
+    n_threads: usize,
 }
 
 pub fn wrap_cmd<F>(msg: &'static str, mut f: F) -> eyre::Result<()>
@@ -177,6 +180,7 @@ fn main() -> eyre::Result<()> {
             .arg("-o")
             .arg(&filtered_bam);
         log::info!("{cmd:?}");
+        log::info!("Output file: {}", filtered_bam.display());
         cmd.output()?;
         Ok(())
     })?;
@@ -197,9 +201,10 @@ fn main() -> eyre::Result<()> {
             .arg("--scale-events")
             .arg("--print-read-names")
             .arg("--samples")
-            .args(&["-t", "4"])
+            .arg("-t")
+            .arg(args.n_threads.to_string())
             .stdout(eventalign_stdout);
-        log::info!("{cmd:?}");
+        log::info!("{cmd:?} >{}", eventalign_path.display());
         cmd.output()?;
         Ok(())
     })?;
@@ -246,10 +251,10 @@ fn main() -> eyre::Result<()> {
     })?;
 
     let minus_filepath: &Path = sma.file_stem().unwrap().as_ref();
-    let minus_filepath = format!("{}.minus.bed", minus_filepath.display());
+    let minus_filepath = sma.parent().unwrap().join(format!("{}.minus.bed", minus_filepath.display()));
 
     let plus_filepath: &Path = sma.file_stem().unwrap().as_ref();
-    let plus_filepath = format!("{}.plus.bed", plus_filepath.display());
+    let plus_filepath = sma.parent().unwrap().join(format!("{}.plus.bed", plus_filepath.display()));
 
     wrap_cmd("Clustering all reads", || {
         let mut cmd = cluster_region_cmd(
