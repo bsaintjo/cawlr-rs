@@ -1,14 +1,21 @@
-use std::{collections::hash_map::Entry, path::Path, str::from_utf8};
+//! Provides StrandMap struct to get strand information from bam files.
+//!
+//! Intended to eventually replace PlusStrandMap and eventually add more
+//! metadata like alignment info from bam
+//!
+use std::{path::Path, str::from_utf8};
 
 use bam::BamReader;
 use eyre::Result;
 use fnv::FnvHashMap;
 
-#[derive(Default)]
-pub struct PlusStrandMap(FnvHashMap<Vec<u8>, bool>);
+use crate::Strand;
 
-impl PlusStrandMap {
-    fn new(db: FnvHashMap<Vec<u8>, bool>) -> Self {
+#[derive(Default)]
+pub struct StrandMap(FnvHashMap<Vec<u8>, Strand>);
+
+impl StrandMap {
+    fn new(db: FnvHashMap<Vec<u8>, Strand>) -> Self {
         Self(db)
     }
 
@@ -22,22 +29,21 @@ impl PlusStrandMap {
             log::debug!("ReadName from bam: {:?}", from_utf8(read_name));
 
             let plus_stranded = !record.flag().is_reverse_strand();
-            match acc.entry(read_name.to_owned()) {
-                Entry::Occupied(mut entry) => {
-                    let old_stranded = entry.insert(plus_stranded);
-                    if old_stranded != plus_stranded {
-                        log::warn!("Multimapped read has strand swap");
-                    }
-                }
-                Entry::Vacant(entry) => {
-                    entry.insert(plus_stranded);
-                }
+            let strand = if plus_stranded {
+                Strand::Plus
+            } else {
+                Strand::Minus
+            };
+            let entry = acc.entry(read_name.to_owned()).or_insert(strand);
+            if *entry != strand {
+                *entry = Strand::Unknown;
+                log::warn!("Multimapped read has strand swap");
             }
         }
-        Ok(PlusStrandMap::new(acc))
+        Ok(StrandMap::new(acc))
     }
 
-    pub fn get<B>(&self, read_id: B) -> Option<bool>
+    pub fn get<B>(&self, read_id: B) -> Option<Strand>
     where
         B: AsRef<[u8]>,
     {
@@ -45,7 +51,7 @@ impl PlusStrandMap {
         self.0.get(read_id).cloned()
     }
 
-    pub(crate) fn insert<K: Into<Vec<u8>>>(&mut self, k: K, v: bool) -> Option<bool> {
+    pub(crate) fn insert<K: Into<Vec<u8>>>(&mut self, k: K, v: Strand) -> Option<Strand> {
         self.0.insert(k.into(), v)
     }
 }
@@ -57,18 +63,18 @@ mod test {
     #[test]
     fn test_from_bam_file() {
         let filepath = "extra/single_read.bam";
-        let psmap = PlusStrandMap::from_bam_file(filepath).unwrap();
+        let psmap = StrandMap::from_bam_file(filepath).unwrap();
         let read_id: &[u8] = b"20d1aac0-29de-43ae-a0ef-aa8a6766eb70";
         assert!(psmap.0.contains_key(read_id));
-        assert_eq!(psmap.get(read_id), Some(true));
+        assert_eq!(psmap.get(read_id), Some(Strand::Plus));
     }
 
     #[test]
     fn test_from_bam_file_neg_strand() {
         let filepath = "extra/pos_control.bam";
-        let psmap = PlusStrandMap::from_bam_file(filepath).unwrap();
+        let psmap = StrandMap::from_bam_file(filepath).unwrap();
         let read_id: &[u8] = b"ca10c9e3-61d4-439b-abb3-078767d19f8c";
         assert!(psmap.0.contains_key(read_id));
-        assert_eq!(psmap.get(read_id), Some(false));
+        assert_eq!(psmap.get(read_id), Some(Strand::Minus));
     }
 }

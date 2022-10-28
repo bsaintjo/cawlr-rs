@@ -6,6 +6,7 @@ pub mod filter;
 pub mod index;
 pub mod motif;
 pub mod plus_strand_map;
+mod strand_map;
 pub mod rank;
 // mod reservoir;
 pub mod score;
