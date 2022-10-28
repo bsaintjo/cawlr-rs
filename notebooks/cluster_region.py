@@ -158,16 +158,24 @@ def main():
                 hend - args.start, color=tp_color, alpha=0.5, linewidth=2, linestyle=":"
             )
     fig.add_subplot(111, frameon=False)
-    plt.tick_params(labelcolor='none', which='both', top=False, bottom=False, left=False, right=False)
-    plt.xlabel("Genomic coordinate")
+    plt.tick_params(
+        labelcolor="none",
+        which="both",
+        top=False,
+        bottom=False,
+        left=False,
+        right=False,
+    )
+
+    axs[-1].set_xticks(np.linspace(0, (args.end - args.start), 20, dtype=int))
+    axs[-1].set_xticklabels(
+        np.linspace(args.start, args.end, 20, dtype=int), rotation=45
+    )
+
+    plt.subplots_adjust(top=0.95, bottom=0.15)
+    plt.xlabel("Genomic coordinate", labelpad=30)
     plt.ylabel("Reads")
     plt.title(args.suptitle)
-
-    plt.xticks(
-        ticks=np.linspace(0, (args.end - args.start), 20, dtype=int),
-        labels=np.linspace(args.start, args.end, 20, dtype=int),
-        rotation=30,
-    )
 
     plt.savefig(output, dpi=500)
     print("Output file to: ", output)
