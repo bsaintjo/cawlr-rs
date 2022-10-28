@@ -56,6 +56,14 @@ impl ModelParams {
         1. - self.weight
     }
 
+    pub fn single(&self) -> Gaussian {
+        if self.weight_a() > self.weight_b() {
+            Gaussian::new_unchecked(self.mu_a, self.sigma_a)
+        } else {
+            Gaussian::new_unchecked(self.mu_b, self.sigma_b)
+        }
+    }
+
     pub fn mixture(&self) -> Mixture<Gaussian> {
         let g1 = Gaussian::new_unchecked(self.mu_a, self.sigma_a);
         let g2 = Gaussian::new_unchecked(self.mu_b, self.sigma_b);

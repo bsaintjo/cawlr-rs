@@ -23,6 +23,7 @@ use arrow2_convert::{
 };
 use eyre::Result;
 use itertools::Itertools;
+use rv::traits::ContinuousDistr;
 
 /// Trait for getting read information
 pub trait MetadataExt {
@@ -226,6 +227,10 @@ impl Signal {
 
     pub(crate) fn samples(&self) -> &[f64] {
         &self.samples
+    }
+
+    pub(crate) fn score_lnsum<M: ContinuousDistr<f64>>(&self, model: &M) -> f64 {
+        self.samples().iter().map(|x| model.ln_pdf(x)).sum()
     }
 }
 
@@ -468,6 +473,44 @@ impl<'a, I: SliceIndex<[Option<&'a Score>]>> Index<I> for ExpandedScores<'a> {
     fn index(&self, index: I) -> &Self::Output {
         self.0.index(index)
     }
+}
+
+struct ArrowWriter<W: Write>(FileWriter<W>);
+
+trait SchemaExt: ArrowField {
+    fn type_as_str() -> &'static str;
+    fn wrap_writer<W: Write>(writer: W) -> Result<ArrowWriter<W>> {
+        let data_type = Self::data_type();
+        let str_type = Self::type_as_str();
+        let schema = Schema::from(vec![Field::new(str_type, data_type, false)]);
+        let options = WriteOptions {
+            compression: Some(Compression::LZ4),
+        };
+        let fw = FileWriter::try_new(writer, &schema, None, options)?;
+        Ok(ArrowWriter(fw))
+    }
+}
+
+impl SchemaExt for Eventalign {
+    fn type_as_str() -> &'static str {
+        "eventalign"
+    }
+}
+
+impl SchemaExt for ScoredRead {
+    fn type_as_str() -> &'static str {
+        "scored"
+    }
+}
+
+fn wrap_writer2<T: ArrowField, W: Write>(writer: W) -> Result<ArrowWriter<W>> {
+    let data_type = T::data_type();
+    let schema = Schema::from(vec![Field::new("eventalign", data_type, false)]);
+    let options = WriteOptions {
+        compression: Some(Compression::LZ4),
+    };
+    let fw = FileWriter::try_new(writer, &schema, None, options)?;
+    Ok(ArrowWriter(fw))
 }
 
 /// Wraps writer for use later with [save].

@@ -348,6 +348,18 @@ where
     })
 }
 
+const FREQ_THRESH: usize = 10;
+
+fn filter_signal_mesmlr<'a>(signals: &[&'a Signal]) -> Vec<&'a Signal> {
+    let mut acc = Vec::new();
+    for signal in signals.iter() {
+        if signal.samples().len() > FREQ_THRESH {
+            continue
+        }
+    }
+    acc
+}
+
 /// Returns HashMap mapping positions as u64 to the respective signal data
 /// Useful for iterating through each base pair position and computing results
 /// based on if there is data or not
