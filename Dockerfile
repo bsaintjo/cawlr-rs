@@ -56,7 +56,7 @@ WORKDIR /cawlr
 COPY --from=planner /cawlr/recipe.json recipe.json
 RUN mold -run cargo chef cook --release --recipe-path recipe.json
 COPY ./*[^py] ./
-RUN mold -run cargo build --release --bins -Z unstable-options --out-dir /tools
+RUN mold -run cargo build --release --all-features --bins -Z unstable-options --out-dir /tools
 COPY ./notebooks/*py ./notebooks/
 RUN cp notebooks/*py /tools \
 	&& chmod +x /tools/*
