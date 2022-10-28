@@ -94,7 +94,7 @@ struct Args {
     #[clap(long, default_value_t = false)]
     overwrite: bool,
 
-    #[clap(short='j', long, default_value_t=4)]
+    #[clap(short = 'j', long, default_value_t = 4)]
     n_threads: usize,
 }
 
@@ -212,7 +212,9 @@ fn main() -> eyre::Result<()> {
     let collapse = args.output_dir.join("collapse.arrow");
     wrap_cmd("cawlr collapse", || {
         let eventalign = File::open(&eventalign_path)?;
-        CollapseOptions::try_new(&args.bam, &collapse)?.run(eventalign)
+        CollapseOptions::try_new(&args.bam, &collapse)?
+            .progress(false)
+            .run(eventalign)
     })?;
 
     let scored = args.output_dir.join("score.arrow");
@@ -251,10 +253,16 @@ fn main() -> eyre::Result<()> {
     })?;
 
     let minus_filepath: &Path = sma.file_stem().unwrap().as_ref();
-    let minus_filepath = sma.parent().unwrap().join(format!("{}.minus.bed", minus_filepath.display()));
+    let minus_filepath = sma
+        .parent()
+        .unwrap()
+        .join(format!("{}.minus.bed", minus_filepath.display()));
 
     let plus_filepath: &Path = sma.file_stem().unwrap().as_ref();
-    let plus_filepath = sma.parent().unwrap().join(format!("{}.plus.bed", plus_filepath.display()));
+    let plus_filepath = sma
+        .parent()
+        .unwrap()
+        .join(format!("{}.plus.bed", plus_filepath.display()));
 
     wrap_cmd("Clustering all reads", || {
         let mut cmd = cluster_region_cmd(
