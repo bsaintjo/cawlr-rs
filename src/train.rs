@@ -87,7 +87,7 @@ impl<T: Borrow<Mixture<Gaussian>>> From<T> for ModelParams {
     }
 }
 
-#[derive(Default, Serialize, Deserialize)]
+#[derive(Debug, Default, Serialize, Deserialize)]
 pub struct Model {
     gmms: ModelDB,
     skips: FnvHashMap<String, f64>,

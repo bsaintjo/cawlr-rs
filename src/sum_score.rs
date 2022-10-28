@@ -1,19 +1,27 @@
-use std::{
-    io::{Read, Seek},
-};
+use std::io::{Read, Seek, Write};
 
 use eyre::Result;
 use fnv::FnvHashMap;
 
-use crate::{arrow::Signal, load_apply, train::Model, Eventalign};
+use crate::{
+    arrow::{load_read_write_arrow, SchemaExt, Signal},
+    motif::Motif,
+    train::Model,
+    Eventalign, Score, ScoredRead,
+};
 
+#[derive(Debug)]
 struct ScoreOptions {
     pos_model: Model,
     neg_model: Model,
+    ranks: FnvHashMap<String, f64>,
+    freq_thresh: usize,
+    motifs: Vec<Motif>,
 }
 
-const MOTIF: &str = "GC";
-const MOD_START: u64 = 1;
+fn count_motif_in_kmer(kmer: &str, motif: &Motif) -> usize {
+    kmer.matches(motif.motif()).count()
+}
 
 struct SignalScore<'a> {
     signal: &'a Signal,
@@ -32,37 +40,84 @@ impl<'a> SignalScore<'a> {
 }
 
 impl ScoreOptions {
-    fn run<R: Read + Seek>(&self, reader: R) -> Result<()> {
-        load_apply(reader, |eventaligns: Vec<Eventalign>| {
+    fn matches_motifs(&self, kmer: &str) -> Option<&Motif> {
+        for motif in self.motifs.iter() {
+            if kmer.starts_with(motif.motif()) {
+                return Some(motif);
+            }
+        }
+        None
+    }
+
+    fn run<R: Read + Seek, W: Write>(&self, reader: R, writer: W) -> Result<()> {
+        let writer = ScoredRead::wrap_writer(writer)?;
+        load_read_write_arrow(reader, writer, |eventaligns: Vec<Eventalign>| {
+            let mut scored_reads = Vec::new();
             for eventalign in eventaligns {
+                let mut scores = Vec::new();
                 let data_map = eventalign
                     .signal_iter()
                     .map(|s| (s.pos(), s))
                     .collect::<FnvHashMap<_, _>>();
                 for signal in eventalign.signal_iter() {
-                    if signal.kmer().starts_with(MOTIF) {
+                    let kmer = signal.kmer();
+                    if let Some(m) = self.motifs.iter().find(|m| kmer.starts_with(m.motif())) {
                         let mut kmers = Vec::new();
-                        let surround_idx = signal.pos() + MOD_START;
-                        let surrounding = surround_idx - (5 + MOD_START)..=surround_idx;
+                        let surround_idx = signal.pos() + m.position_0b() as u64;
+                        let surrounding =
+                            surround_idx - (5 + m.position_0b() as u64)..=surround_idx;
                         for surr in surrounding {
                             if let Some(&s) = data_map.get(&surr) {
-                                let kmer = s.kmer();
-                                if self.pos_model.gmms().contains_key(kmer)
-                                    && self.neg_model.gmms().contains_key(kmer)
-                                {
-                                    let pos_model = self.pos_model.gmms()[kmer].mixture();
-                                    let neg_model = self.neg_model.gmms()[kmer].single();
+                                if signal.samples().len() > self.freq_thresh {
+                                    continue;
+                                }
 
-                                    let pos_sum = s.score_lnsum(&pos_model);
-                                    let neg_sum = s.score_lnsum(&neg_model);
+                                let kmer = s.kmer();
+                                if count_motif_in_kmer(kmer, m) > 1 {
+                                    continue;
+                                }
+                                let pm = self.pos_model.gmms().get(kmer);
+                                let nm = self.neg_model.gmms().get(kmer);
+                                if let (Some(pm), Some(nm)) = (pm, nm) {
+                                    let pos_model = pm.mixture();
+                                    let neg_model = nm.single();
+
+                                    let (pos_sum, neg_sum) = s.score_lnsum(&pos_model, &neg_model);
                                     kmers.push(SignalScore::new(s, pos_sum, neg_sum));
                                 }
                             }
                         }
+                        let mut best_signal = None;
+                        let mut diff = f64::NEG_INFINITY;
+                        for ss in kmers.into_iter() {
+                            if let Some(&rank) = self.ranks.get(ss.signal.kmer()) {
+                                if rank > diff {
+                                    diff = rank;
+                                    best_signal = Some(ss);
+                                }
+                            }
+                        }
+
+                        if let Some(best_signal) = best_signal {
+                            let exp_me = best_signal.pos_sum.exp();
+                            let exp_un = best_signal.neg_sum.exp();
+                            let rate = exp_me / (exp_me + exp_un);
+                            let score = Score::new(
+                                signal.pos(),
+                                signal.kmer().to_string(),
+                                false,
+                                Some(rate),
+                                0.0,
+                                rate,
+                            );
+                            scores.push(score);
+                        }
                     }
                 }
+                let scored = ScoredRead::from_read_with_scores(eventalign, scores);
+                scored_reads.push(scored);
             }
-            Ok(())
+            Ok(scored_reads)
         })?;
         Ok(())
     }

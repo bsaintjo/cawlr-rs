@@ -229,8 +229,24 @@ impl Signal {
         &self.samples
     }
 
-    pub(crate) fn score_lnsum<M: ContinuousDistr<f64>>(&self, model: &M) -> f64 {
-        self.samples().iter().map(|x| model.ln_pdf(x)).sum()
+    pub(crate) fn score_lnsum<M, N>(&self, pm: &M, nm: &N) -> (f64, f64)
+    where
+        M: ContinuousDistr<f64>,
+        N: ContinuousDistr<f64>,
+    {
+        self.samples()
+            .iter()
+            .map(|x| {
+                let likelihood_neg = nm.ln_pdf(x);
+                let likelihood_pos = pm.ln_pdf(x);
+                if likelihood_neg > -10.0 && likelihood_pos > -10.0 {
+                    Some((likelihood_pos, likelihood_neg))
+                } else {
+                    None
+                }
+            })
+            .flatten()
+            .fold((0.0, 0.0), |acc, elem| (acc.0 + elem.0, acc.1 + elem.1))
     }
 }
 
@@ -475,9 +491,9 @@ impl<'a, I: SliceIndex<[Option<&'a Score>]>> Index<I> for ExpandedScores<'a> {
     }
 }
 
-struct ArrowWriter<W: Write>(FileWriter<W>);
+pub struct ArrowWriter<W: Write>(FileWriter<W>);
 
-trait SchemaExt: ArrowField {
+pub trait SchemaExt: ArrowField {
     fn type_as_str() -> &'static str;
     fn wrap_writer<W: Write>(writer: W) -> Result<ArrowWriter<W>> {
         let data_type = Self::data_type();
@@ -501,16 +517,6 @@ impl SchemaExt for ScoredRead {
     fn type_as_str() -> &'static str {
         "scored"
     }
-}
-
-fn wrap_writer2<T: ArrowField, W: Write>(writer: W) -> Result<ArrowWriter<W>> {
-    let data_type = T::data_type();
-    let schema = Schema::from(vec![Field::new("eventalign", data_type, false)]);
-    let options = WriteOptions {
-        compression: Some(Compression::LZ4),
-    };
-    let fw = FileWriter::try_new(writer, &schema, None, options)?;
-    Ok(ArrowWriter(fw))
 }
 
 /// Wraps writer for use later with [save].
@@ -648,6 +654,35 @@ where
         }
     }
     writer.finish()?;
+    Ok(())
+}
+
+pub fn load_read_write_arrow<R, W, F, T, U>(
+    reader: R,
+    mut writer: ArrowWriter<W>,
+    mut func: F,
+) -> Result<()>
+where
+    R: Read + Seek,
+    W: Write,
+    F: FnMut(Vec<T>) -> eyre::Result<Vec<U>>,
+    T: ArrowField<Type = T> + ArrowDeserialize + 'static,
+    U: ArrowField<Type = U> + ArrowSerialize + 'static,
+    for<'a> &'a <T as ArrowDeserialize>::ArrayType: IntoIterator,
+{
+    let feather = load(reader)?;
+    for read in feather {
+        if let Ok(chunk) = read {
+            for arr in chunk.into_arrays().into_iter() {
+                let eventaligns: Vec<T> = arr.try_into_collection()?;
+                let res = func(eventaligns)?;
+                save(&mut writer.0, &res)?;
+            }
+        } else {
+            log::warn!("Failed to load arrow chunk")
+        }
+    }
+    writer.0.finish()?;
     Ok(())
 }
 

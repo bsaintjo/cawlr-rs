@@ -2,7 +2,7 @@ use fnv::{FnvHashMap, FnvHashSet};
 use rand::{prelude::SmallRng, SeedableRng};
 use rv::{
     prelude::{Gaussian, Mixture},
-    traits::Rv,
+    traits::{ContinuousDistr, Rv},
 };
 use serde::{Deserialize, Serialize};
 
@@ -74,10 +74,12 @@ impl RankOptions {
     // IV-317-IV-320, doi: 10.1109/ICASSP.2007.366913.
     //
     // TODO: Check if some normalization is required for this
-    fn kl_approx(&mut self, pos_ctrl: &Mixture<Gaussian>, neg_ctrl: &Mixture<Gaussian>) -> f64 {
-        let neg_ctrl = choose_model(neg_ctrl);
-        let pos_ctrl = choose_pos_model(neg_ctrl, pos_ctrl);
-        let samples: Vec<f32> = pos_ctrl.sample(self.n_samples, &mut self.rng);
+    fn kl_approx<M, N>(&mut self, pos_ctrl: &M, neg_ctrl: &N) -> f64
+    where
+        M: Rv<f64> + ContinuousDistr<f64>,
+        N: Rv<f64> + ContinuousDistr<f64>,
+    {
+        let samples: Vec<f64> = pos_ctrl.sample(self.n_samples, &mut self.rng);
         let total: f64 = samples
             .into_iter()
             .map(|sample| {
@@ -99,8 +101,26 @@ impl RankOptions {
         let neg_ctrl_kmers = neg_ctrl.gmms().keys().collect::<FnvHashSet<&String>>();
         let kmers = pos_ctrl_kmers.intersection(&neg_ctrl_kmers);
         for &kmer in kmers {
-            let pos_ctrl_model = &pos_ctrl.gmms()[kmer].mixture();
             let neg_ctrl_model = &neg_ctrl.gmms()[kmer].mixture();
+            let pos_ctrl_model = &pos_ctrl.gmms()[kmer].mixture();
+
+            let neg_ctrl_model = choose_model(neg_ctrl_model);
+            let pos_ctrl_model = choose_pos_model(&neg_ctrl_model, pos_ctrl_model);
+
+            let kl = self.kl_approx(pos_ctrl_model, neg_ctrl_model);
+            kmer_ranks.insert(kmer.clone(), kl);
+        }
+        kmer_ranks
+    }
+
+    pub fn rank_npsmlr(&mut self, pos_ctrl: &Model, neg_ctrl: &Model) -> Ranks {
+        let mut kmer_ranks = FnvHashMap::default();
+        let pos_ctrl_kmers = pos_ctrl.gmms().keys().collect::<FnvHashSet<&String>>();
+        let neg_ctrl_kmers = neg_ctrl.gmms().keys().collect::<FnvHashSet<&String>>();
+        let kmers = pos_ctrl_kmers.intersection(&neg_ctrl_kmers);
+        for &kmer in kmers {
+            let pos_ctrl_model = &pos_ctrl.gmms()[kmer].mixture();
+            let neg_ctrl_model = &neg_ctrl.gmms()[kmer].single();
             let kl = self.kl_approx(pos_ctrl_model, neg_ctrl_model);
             kmer_ranks.insert(kmer.clone(), kl);
         }
