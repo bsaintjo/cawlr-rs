@@ -26,7 +26,7 @@ impl PlusStrandMap {
                 Entry::Occupied(mut entry) => {
                     let old_stranded = entry.insert(plus_stranded);
                     if old_stranded != plus_stranded {
-                        log::warn!("Multimapped read has strand swap");
+                        log::debug!("Multimapped read has strand swap");
                     }
                 }
                 Entry::Vacant(entry) => {
