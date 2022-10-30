@@ -71,7 +71,7 @@ def main():
     _, ax = plt.subplots(1, 1, figsize=(10, 4))
     sns.lineplot(data=combined, x="pos", y="score", hue="group")
     for hl in args.highlights:
-        (hstart, hend, hstrand) = cluster_region.parse_highlights(hl)
+        (hstart, hend, hstrand) = cluster_region.parse_highlights(hl, args.start, args.end)
         fp_color, tp_color = cluster_region.strand_to_color(hstrand)
         ax.axvspan(hstart, hend, alpha=0.5, color="grey")
         ax.axvline(

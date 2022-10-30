@@ -62,12 +62,17 @@ def split_clusters(cresults, carrays):
     return labels
 
 
-def parse_highlights(s: str):
+def parse_highlights(s: str, region_start, region_end):
     xs = s.split(":")
     strand = xs[-1]
     xs = xs[0].split("-")
+
     start = int(xs[0])
+    start = start if start > region_start else region_start
+
     end = int(xs[1])
+    end = end if end < region_end else region_end
+
     return (start, end, strand)
 
 
@@ -117,7 +122,7 @@ def main():
     input_path = Path(args.input)
     output = input_path.parent / (input_path.stem + ".cluster.png")
 
-    highlights = [parse_highlights(h) for h in args.highlight]
+    highlights = [parse_highlights(h, args.start, args.end) for h in args.highlight]
 
     acc = []
     with open(args.input, "r") as bedfile:
