@@ -109,8 +109,16 @@ where
         .with_message(msg);
     p.enable_steady_tick(Duration::from_millis(100));
     f()?;
-    p.finish_with_message(format!("✅ \"{}\" complete", msg));
-    Ok(())
+    // p.finish_with_message(format!("✅ \"{}\" complete", msg));
+    // Ok(())
+
+    if let Ok(()) = f() {
+        p.finish_with_message(format!("✅ \"{}\" complete", msg));
+        Ok(())
+    } else {
+        p.finish_with_message(format!("❌ \"{}\" failed", msg));
+        Err(eyre::eyre!("Previous command failed, check log.txt"))
+    }
 }
 
 pub fn parse_name_from_output_dir<P: AsRef<Path>>(path: P) -> eyre::Result<String> {
