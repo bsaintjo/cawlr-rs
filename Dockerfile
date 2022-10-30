@@ -44,25 +44,32 @@ WORKDIR /cawlr
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain nightly --profile minimal
 ENV PATH="/root/.cargo/bin:${PATH}"
 
-# For caching depedencies
-RUN mold -run cargo install cargo-chef
+# For caching dependencies
+RUN cargo install cargo-chef
+
 FROM base AS planner
 WORKDIR /cawlr
 COPY . .
-RUN mold -run cargo chef prepare --recipe-path recipe.json
+RUN cargo chef prepare --recipe-path recipe.json
 
 FROM base AS builder
 WORKDIR /cawlr
 COPY --from=planner /cawlr/recipe.json recipe.json
-RUN mold -run cargo chef cook --release --recipe-path recipe.json
-COPY ./*[^py] ./
-RUN mold -run cargo build --release --all-features --bins -Z unstable-options --out-dir /tools
-COPY ./notebooks/*py ./notebooks/
+RUN cargo chef cook --release --recipe-path recipe.json
+COPY . .
+RUN mold -run cargo build --release --bins
 RUN cp notebooks/*py /tools \
 	&& chmod +x /tools/*
 
 FROM guppy as dev
-COPY --from=builder /tools /tools
+COPY --from=builder /tools /cawlr/target/release/cawlr \
+	/cawlr/target/release/analyze-region-mesmlr-detection-pipeline \
+	/cawlr/target/release/analyze-region-pipeline \
+	/cawlr/target/release/filter_scores \
+	/cawlr/target/release/agg-blocks \
+	/cawlr/target/release/train_ctrls_pipeline \
+	/cawlr/target/release/filter_detection \
+	/tools/
 ENV PATH="/tools:${PATH}"
 ENV PATH="/root/.local/bin:${PATH}"
 
