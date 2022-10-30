@@ -130,3 +130,7 @@ path = "src/bin/analyze_region_mesmlr_detection_pipeline.rs"
 [[bin]]
 name = "overlap-bed"
 path = "src/bin/overlap_bed.rs"
+
+[[bin]]
+name = "cawlr"
+path = "src/bin/cawlr.rs"
