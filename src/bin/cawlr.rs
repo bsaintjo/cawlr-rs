@@ -299,7 +299,7 @@ fn main() -> Result<()> {
 
             log::info!("Using {n_logical_cores} logical cores");
             log::info!("Using strategy: {strategy}");
-            let train = Train::try_new(&input, &genome, samples, strategy)?;
+            let train = Train::try_new(input, genome, samples, strategy)?;
             let model = train.run()?;
             model.save(output)?;
         }

@@ -15,6 +15,7 @@ pub mod sma;
 pub mod train;
 pub mod utils;
 mod sum_score;
+pub mod agg_blocks;
 
 pub use arrow::{
     load_apply, load_read_write, save, wrap_writer, Eventalign, Metadata, MetadataExt,

@@ -1,16 +1,15 @@
 use std::{
     fs::{self, File},
-    io::{BufRead, BufReader, LineWriter, Write},
+    io::{BufRead, BufReader, BufWriter, Write},
     path::PathBuf,
     process::Command,
 };
 
-mod agg_blocks;
 mod analyze_region_pipeline;
 mod convert_detection;
 
-use analyze_region_pipeline::{parse_name_from_output_dir, wrap_cmd};
-use cawlr::{filter::Region, motif::all_bases, sma::SmaOptions};
+use analyze_region_pipeline::parse_name_from_output_dir;
+use cawlr::{agg_blocks, filter::Region, motif::all_bases, sma::SmaOptions, utils::wrap_cmd};
 use clap::Parser;
 use log::LevelFilter;
 
@@ -96,7 +95,7 @@ fn main() -> eyre::Result<()> {
     let name = parse_name_from_output_dir(&args.output_dir)?;
 
     let filtered_output_path = args.output_dir.join("filtered_detection.txt");
-    let mut writer = LineWriter::new(File::create(&filtered_output_path)?);
+    let mut writer = BufWriter::new(File::create(&filtered_output_path)?);
 
     wrap_cmd("Filtering detection.txt", || {
         let detection = BufReader::new(File::open(&args.detection)?);
@@ -114,6 +113,7 @@ fn main() -> eyre::Result<()> {
                 writeln!(&mut writer, "{}", result)?;
             }
         }
+        writer.flush()?;
         Ok(())
     })?;
 

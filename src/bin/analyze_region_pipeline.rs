@@ -3,11 +3,7 @@ use std::{
     fs::{self, File},
     path::{Path, PathBuf},
     process::{Command, Stdio},
-    time::Duration,
 };
-
-#[path = "agg_blocks.rs"]
-mod agg_blocks;
 
 use cawlr::{
     collapse::CollapseOptions,
@@ -15,10 +11,9 @@ use cawlr::{
     motif::{all_bases, Motif},
     score::ScoreOptions,
     sma::SmaOptions,
-    utils,
+    utils::{self, wrap_cmd}, agg_blocks,
 };
 use clap::Parser;
-use indicatif::{ProgressBar, ProgressStyle};
 use log::LevelFilter;
 
 #[derive(Debug, Parser)]
@@ -96,29 +91,6 @@ struct Args {
 
     #[clap(short = 'j', long, default_value_t = 4)]
     n_threads: usize,
-}
-
-pub fn wrap_cmd<F>(msg: &'static str, mut f: F) -> eyre::Result<()>
-where
-    F: FnMut() -> eyre::Result<()>,
-{
-    let p = ProgressBar::new_spinner()
-        .with_style(
-            ProgressStyle::with_template("{spinner:.green} [{elapsed_precise}] {msg}").unwrap(),
-        )
-        .with_message(msg);
-    p.enable_steady_tick(Duration::from_millis(100));
-    f()?;
-    // p.finish_with_message(format!("✅ \"{}\" complete", msg));
-    // Ok(())
-
-    if let Ok(()) = f() {
-        p.finish_with_message(format!("✅ \"{}\" complete", msg));
-        Ok(())
-    } else {
-        p.finish_with_message(format!("❌ \"{}\" failed", msg));
-        Err(eyre::eyre!("Previous command failed, check log.txt"))
-    }
 }
 
 pub fn parse_name_from_output_dir<P: AsRef<Path>>(path: P) -> eyre::Result<String> {

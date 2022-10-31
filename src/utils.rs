@@ -3,12 +3,13 @@ use std::{
     fs::File,
     hash::{BuildHasher, Hash},
     io::{stdout, Read, Seek, Write},
-    path::{Path, PathBuf},
+    path::{Path, PathBuf}, time::Duration,
 };
 
 use bio::io::fasta::IndexedReader;
 use eyre::{Context, Result};
 use fnv::FnvHashMap;
+use indicatif::{ProgressBar, ProgressStyle};
 use serde::{de::DeserializeOwned, Serialize};
 use serde_pickle::from_reader;
 use which::which;
@@ -106,5 +107,28 @@ pub fn find_binary(name: &'static str, binary_filepath: &Option<PathBuf>) -> eyr
         Ok(p.to_path_buf())
     } else {
         which(name).wrap_err("Error finding {name}")
+    }
+}
+
+pub fn wrap_cmd<F>(msg: &'static str, mut f: F) -> eyre::Result<()>
+where
+    F: FnMut() -> eyre::Result<()>,
+{
+    let p = ProgressBar::new_spinner()
+        .with_style(
+            ProgressStyle::with_template("{spinner:.green} [{elapsed_precise}] {msg}").unwrap(),
+        )
+        .with_message(msg);
+    p.enable_steady_tick(Duration::from_millis(100));
+    f()?;
+    // p.finish_with_message(format!("✅ \"{}\" complete", msg));
+    // Ok(())
+
+    if let Ok(()) = f() {
+        p.finish_with_message(format!("✅ \"{}\" complete", msg));
+        Ok(())
+    } else {
+        p.finish_with_message(format!("❌ \"{}\" failed", msg));
+        Err(eyre::eyre!("Previous command failed, check log.txt"))
     }
 }
