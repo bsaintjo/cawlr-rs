@@ -5,6 +5,7 @@ use cawlr::{
     Score, ScoredRead, Strand,
 };
 use clap::Parser;
+use indicatif::{ProgressBar, ProgressStyle};
 use serde::Deserialize;
 
 #[derive(Parser)]
@@ -77,10 +78,14 @@ pub fn run(input: &Path, bam: &Option<PathBuf>, output: &Path) -> eyre::Result<(
         }
     };
 
+    let style = ProgressStyle::with_template("[{elapsed_precise}] [{binary_bytes_per_sec}] {msg}")?;
+    let pb = ProgressBar::new_spinner().with_style(style);
+
     let reader = File::open(input)?;
     let writer = File::create(output)?;
     let schema = ScoredRead::schema();
     let mut writer = wrap_writer(BufWriter::new(writer), &schema)?;
+    let reader = pb.wrap_read(reader);
     let mut builder = csv::ReaderBuilder::new()
         .has_headers(false)
         .delimiter(b'\t')

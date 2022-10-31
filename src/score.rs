@@ -13,11 +13,11 @@ use rv::{
 use statrs::statistics::Statistics;
 
 use crate::{
-    arrow::{load_apply, save, wrap_writer, Eventalign, MetadataExt, Score, ScoredRead, Signal},
+    arrow::{Eventalign, MetadataExt, Score, ScoredRead, Signal},
     context,
     motif::{all_bases, Motif},
     train::{Model, ModelDB},
-    utils::{chrom_lens, CawlrIO},
+    utils::{chrom_lens, CawlrIO}, wrap_writer, load_apply, save,
 };
 
 pub struct ScoreOptions {
@@ -230,14 +230,6 @@ impl ScoreOptions {
     }
 }
 
-/// If a kmer starts with one of the given motifs, return the motif that
-/// matched, otherwise return None.
-fn contains_motif<'a>(kmer: &[u8], motifs: &'a [Motif]) -> Option<&'a Motif> {
-    motifs
-        .iter()
-        .find(|m| kmer.starts_with(m.motif().as_bytes()))
-}
-
 fn surrounding_pos(pos: u64) -> RangeInclusive<u64> {
     let start = if pos < 5 { 0 } else { pos - 5 };
     start..=pos
@@ -428,35 +420,6 @@ fn score_signal(
     }
 }
 
-fn score_signals(
-    signals: &[f64],
-    pos_mix: &Mixture<Gaussian>,
-    neg_mix: &Mixture<Gaussian>,
-    cutoff: f64,
-) -> Option<f64> {
-    log::debug!("Scoring signal: {signals:?}");
-    let neg_mix = choose_model(neg_mix);
-    let pos_mix = choose_pos_model(neg_mix, pos_mix);
-    let pos_proba: f64 = signals.iter().map(|x| pos_mix.f(x)).product();
-    let neg_proba: f64 = signals.iter().map(|x| neg_mix.f(x)).product();
-    let score = pos_proba / (pos_proba + neg_proba);
-    log::debug!("Score: {score:.3}");
-
-    let mean = signals.mean();
-    let pos_log_proba: f64 = pos_mix.ln_f(&mean);
-    let neg_log_proba: f64 = neg_mix.ln_f(&mean);
-
-    log::debug!("+ Gaussian log proba: {pos_log_proba}");
-    log::debug!("- Gaussian log proba: {neg_log_proba}");
-
-    if (pos_log_proba > -cutoff) || (neg_log_proba > -cutoff) {
-        log::debug!("Valid score");
-        Some(score)
-    } else {
-        log::debug!("Below cutoff, not scoring.");
-        None
-    }
-}
 
 #[cfg(test)]
 mod test {

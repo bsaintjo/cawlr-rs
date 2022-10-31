@@ -6,7 +6,7 @@ use std::{
 
 use eyre::Result;
 
-use crate::arrow::{load_apply, Eventalign, MetadataExt};
+use crate::{arrow::{Eventalign, MetadataExt}, arrow_utils::load_apply};
 
 fn to_bed_line<M: MetadataExt>(metadata: M, chunk_idx: usize, rec_idx: usize) -> String {
     let chrom = metadata.chrom();

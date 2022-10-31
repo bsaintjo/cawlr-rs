@@ -1,10 +1,8 @@
 use fnv::{FnvHashMap, FnvHashSet};
 use rand::{prelude::SmallRng, SeedableRng};
 use rv::{
-    prelude::{Gaussian, Mixture},
     traits::{ContinuousDistr, Rv},
 };
-use serde::{Deserialize, Serialize};
 
 use crate::{
     score::{choose_model, choose_pos_model},
@@ -25,39 +23,6 @@ impl Default for RankOptions {
             rng,
             n_samples: 10_000,
         }
-    }
-}
-
-#[derive(Serialize, Deserialize)]
-pub(crate) struct Rankings {
-    ranks: FnvHashMap<String, f64>,
-    hi_rank_pos_idx: FnvHashMap<String, usize>,
-    p_values: FnvHashMap<String, f64>,
-}
-
-impl Rankings {
-    fn new(
-        ranks: FnvHashMap<String, f64>,
-        hi_rank_pos_idx: FnvHashMap<String, usize>,
-        p_values: FnvHashMap<String, f64>,
-    ) -> Self {
-        Self {
-            ranks,
-            hi_rank_pos_idx,
-            p_values,
-        }
-    }
-
-    pub(crate) fn ranks(&self) -> &FnvHashMap<String, f64> {
-        &self.ranks
-    }
-
-    pub(crate) fn hi_rank_pos_idx(&self) -> &FnvHashMap<String, usize> {
-        &self.hi_rank_pos_idx
-    }
-
-    pub(crate) fn p_values(&self) -> &FnvHashMap<String, f64> {
-        &self.p_values
     }
 }
 
@@ -105,7 +70,7 @@ impl RankOptions {
             let pos_ctrl_model = &pos_ctrl.gmms()[kmer].mixture();
 
             let neg_ctrl_model = choose_model(neg_ctrl_model);
-            let pos_ctrl_model = choose_pos_model(&neg_ctrl_model, pos_ctrl_model);
+            let pos_ctrl_model = choose_pos_model(neg_ctrl_model, pos_ctrl_model);
 
             let kl = self.kl_approx(pos_ctrl_model, neg_ctrl_model);
             kmer_ranks.insert(kmer.clone(), kl);

@@ -13,8 +13,8 @@ use serde_with::{formats::CommaSeparator, serde_as, StringWithSeparator};
 use statrs::statistics::Statistics;
 
 use crate::{
-    arrow::{self, save, Eventalign, Metadata, Signal, Strand},
-    plus_strand_map::PlusStrandMap,
+    arrow::{self, Eventalign, Metadata, Signal, Strand},
+    plus_strand_map::PlusStrandMap, arrow_utils::{self, save},
 };
 
 fn empty_from_npr(npr: Npr) -> Eventalign {
@@ -160,7 +160,7 @@ impl<W: Write> CollapseOptions<W> {
     {
         let strand_db = PlusStrandMap::from_bam_file(bam_file)?;
         let schema = arrow::Eventalign::schema();
-        let writer = arrow::wrap_writer(writer, &schema)?;
+        let writer = arrow_utils::wrap_writer(writer, &schema)?;
         Ok(CollapseOptions::new(writer, strand_db))
     }
 

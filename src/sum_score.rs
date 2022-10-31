@@ -1,13 +1,16 @@
-use std::io::{Read, Seek, Write};
+use std::{
+    io::{Read, Seek, Write},
+    path::Path,
+};
 
 use eyre::Result;
 use fnv::FnvHashMap;
 
 use crate::{
-    arrow::{load_read_write_arrow, SchemaExt, Signal},
+    arrow::{Signal},
     motif::Motif,
     train::Model,
-    Eventalign, Score, ScoredRead,
+    Eventalign, Score, ScoredRead, arrow_utils::{load_read_write_arrow, SchemaExt},
 };
 
 #[derive(Debug)]
@@ -40,13 +43,37 @@ impl<'a> SignalScore<'a> {
 }
 
 impl ScoreOptions {
-    fn matches_motifs(&self, kmer: &str) -> Option<&Motif> {
-        for motif in self.motifs.iter() {
-            if kmer.starts_with(motif.motif()) {
-                return Some(motif);
-            }
+    fn new(
+        pos_model: Model,
+        neg_model: Model,
+        ranks: FnvHashMap<String, f64>,
+        freq_thresh: usize,
+        motifs: Vec<Motif>,
+    ) -> Self {
+        Self {
+            pos_model,
+            neg_model,
+            ranks,
+            freq_thresh,
+            motifs,
         }
-        None
+    }
+
+    fn load<P>(pos_model_filepath: P, neg_model_filepath: P, ranks_filepath: P) -> Result<Self>
+    where
+        P: AsRef<Path>,
+    {
+        todo!()
+    }
+
+    fn freq_thresh(&mut self, freq_thresh: usize) -> &mut Self {
+        self.freq_thresh = freq_thresh;
+        self
+    }
+
+    fn motifs(&mut self, motifs: Vec<Motif>) -> &mut Self {
+        self.motifs = motifs;
+        self
     }
 
     fn run<R: Read + Seek, W: Write>(&self, reader: R, writer: W) -> Result<()> {

@@ -8,8 +8,8 @@ use eyre::Result;
 use rand::{rngs::SmallRng, seq::SliceRandom, SeedableRng};
 
 use crate::{
-    arrow::{load_apply, ScoredRead},
-    bkde::BinnedKde,
+    arrow::{ScoredRead},
+    bkde::BinnedKde, load_apply,
 };
 
 pub struct Options {

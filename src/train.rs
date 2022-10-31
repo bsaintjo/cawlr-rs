@@ -20,7 +20,7 @@ use rayon::prelude::{IntoParallelIterator, ParallelIterator};
 use rv::prelude::{Gaussian, Mixture};
 use serde::{Deserialize, Serialize};
 
-use crate::arrow::{load_apply, Eventalign, MetadataExt};
+use crate::{arrow::{Eventalign, MetadataExt}, load_apply};
 
 pub(crate) type ModelDB = FnvHashMap<String, ModelParams>;
 type KmerMeans = FnvHashMap<String, Vec<f64>>;

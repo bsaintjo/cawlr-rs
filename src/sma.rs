@@ -8,10 +8,10 @@ use eyre::Result;
 use itertools::Itertools;
 
 use crate::{
-    arrow::{load_apply, MetadataExt, ScoredRead},
+    arrow::{MetadataExt, ScoredRead},
     bkde::BinnedKde,
     motif::Motif,
-    utils::CawlrIO,
+    utils::CawlrIO, load_apply,
 };
 
 fn make_scoring_vec(read: &ScoredRead) -> Vec<f64> {
@@ -119,7 +119,7 @@ fn sma<W: Write>(
     let mut backtrack_vec = Vec::new();
     for i in (1..=base_num).rev() {
         backtrack_vec.push(max_index);
-        max_index = ptr_mat[i as usize][max_index as usize] as isize;
+        max_index = ptr_mat[i as usize][max_index as usize];
     }
 
     backtrack_vec.reverse();

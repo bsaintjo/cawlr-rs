@@ -45,9 +45,6 @@ impl PlusStrandMap {
         self.0.get(read_id).cloned()
     }
 
-    pub(crate) fn insert<K: Into<Vec<u8>>>(&mut self, k: K, v: bool) -> Option<bool> {
-        self.0.insert(k.into(), v)
-    }
 }
 
 #[cfg(test)]

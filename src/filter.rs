@@ -42,7 +42,7 @@ impl Region {
         self.end
     }
 
-    fn from_bed_line(bed_line: &str) -> Result<Self, FilterError> {
+    pub fn from_bed_line(bed_line: &str) -> Result<Self, FilterError> {
         if bed_line.is_empty() {
             return Err(FilterError::EmptyRegionError);
         }
