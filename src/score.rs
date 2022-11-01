@@ -14,10 +14,12 @@ use statrs::statistics::Statistics;
 
 use crate::{
     arrow::{Eventalign, MetadataExt, Score, ScoredRead, Signal},
-    context,
+    context, load_apply,
     motif::{all_bases, Motif},
+    save,
     train::{Model, ModelDB},
-    utils::{chrom_lens, CawlrIO}, wrap_writer, load_apply, save,
+    utils::{chrom_lens, CawlrIO},
+    wrap_writer,
 };
 
 pub struct ScoreOptions {
@@ -419,7 +421,6 @@ fn score_signal(
         None
     }
 }
-
 
 #[cfg(test)]
 mod test {

@@ -7,7 +7,6 @@ use std::{
 };
 
 use bio::io::fasta::IndexedReader;
-
 use eyre::Result;
 use fnv::{FnvHashMap, FnvHashSet};
 use linfa::{
@@ -20,7 +19,10 @@ use rayon::prelude::{IntoParallelIterator, ParallelIterator};
 use rv::prelude::{Gaussian, Mixture};
 use serde::{Deserialize, Serialize};
 
-use crate::{arrow::{Eventalign, MetadataExt}, load_apply};
+use crate::{
+    arrow::{Eventalign, MetadataExt},
+    load_apply,
+};
 
 pub(crate) type ModelDB = FnvHashMap<String, ModelParams>;
 type KmerMeans = FnvHashMap<String, Vec<f64>>;

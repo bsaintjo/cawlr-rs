@@ -1,8 +1,6 @@
 use fnv::{FnvHashMap, FnvHashSet};
 use rand::{prelude::SmallRng, SeedableRng};
-use rv::{
-    traits::{ContinuousDistr, Rv},
-};
+use rv::traits::{ContinuousDistr, Rv};
 
 use crate::{
     score::{choose_model, choose_pos_model},

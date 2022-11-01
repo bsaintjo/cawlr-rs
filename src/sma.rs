@@ -10,8 +10,9 @@ use itertools::Itertools;
 use crate::{
     arrow::{MetadataExt, ScoredRead},
     bkde::BinnedKde,
+    load_apply,
     motif::Motif,
-    utils::CawlrIO, load_apply,
+    utils::CawlrIO,
 };
 
 fn make_scoring_vec(read: &ScoredRead) -> Vec<f64> {

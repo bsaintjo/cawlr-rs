@@ -1,4 +1,9 @@
-use std::{error::Error, fs::File, io::BufWriter, path::{PathBuf, Path}};
+use std::{
+    error::Error,
+    fs::File,
+    io::BufWriter,
+    path::{Path, PathBuf},
+};
 
 use cawlr::{
     plus_strand_map::PlusStrandMap, save, wrap_writer, Metadata, MetadataExt, MetadataMutExt,

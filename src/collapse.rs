@@ -1,7 +1,8 @@
 use std::{
     fs::File,
     io::{BufWriter, Read, Write},
-    path::Path, time::Duration,
+    path::Path,
+    time::Duration,
 };
 
 use arrow2::io::ipc::write::FileWriter;
@@ -14,7 +15,8 @@ use statrs::statistics::Statistics;
 
 use crate::{
     arrow::{self, Eventalign, Metadata, Signal, Strand},
-    plus_strand_map::PlusStrandMap, arrow_utils::{self, save},
+    arrow_utils::{self, save},
+    plus_strand_map::PlusStrandMap,
 };
 
 fn empty_from_npr(npr: Npr) -> Eventalign {

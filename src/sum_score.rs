@@ -7,10 +7,11 @@ use eyre::Result;
 use fnv::FnvHashMap;
 
 use crate::{
-    arrow::{Signal},
+    arrow::Signal,
+    arrow_utils::{load_read_write_arrow, SchemaExt},
     motif::Motif,
     train::Model,
-    Eventalign, Score, ScoredRead, arrow_utils::{load_read_write_arrow, SchemaExt},
+    Eventalign, Score, ScoredRead,
 };
 
 #[derive(Debug)]

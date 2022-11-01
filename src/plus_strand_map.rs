@@ -44,7 +44,6 @@ impl PlusStrandMap {
         let read_id = read_id.as_ref();
         self.0.get(read_id).cloned()
     }
-
 }
 
 #[cfg(test)]

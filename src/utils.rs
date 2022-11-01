@@ -3,7 +3,8 @@ use std::{
     fs::File,
     hash::{BuildHasher, Hash},
     io::{stdout, Read, Seek, Write},
-    path::{Path, PathBuf}, time::Duration,
+    path::{Path, PathBuf},
+    time::Duration,
 };
 
 use bio::io::fasta::IndexedReader;

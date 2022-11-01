@@ -6,12 +6,13 @@ use std::{
 };
 
 use cawlr::{
+    agg_blocks,
     collapse::CollapseOptions,
     filter::Region,
     motif::{all_bases, Motif},
     score::ScoreOptions,
     sma::SmaOptions,
-    utils::{self, wrap_cmd}, agg_blocks,
+    utils::{self, wrap_cmd},
 };
 use clap::Parser;
 use log::LevelFilter;

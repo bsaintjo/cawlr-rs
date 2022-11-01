@@ -7,10 +7,7 @@ use criterion_stats::univariate::{
 use eyre::Result;
 use rand::{rngs::SmallRng, seq::SliceRandom, SeedableRng};
 
-use crate::{
-    arrow::{ScoredRead},
-    bkde::BinnedKde, load_apply,
-};
+use crate::{arrow::ScoredRead, bkde::BinnedKde, load_apply};
 
 pub struct Options {
     samples: usize,

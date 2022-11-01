@@ -5,7 +5,7 @@ use std::{
     process::{Command, Stdio},
 };
 
-use cawlr::{collapse::CollapseOptions, utils, train::Train};
+use cawlr::{collapse::CollapseOptions, train::Train, utils};
 use clap::Parser;
 use eyre::Result;
 

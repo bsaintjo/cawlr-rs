@@ -2,7 +2,6 @@
 //!
 //! Intended to eventually replace PlusStrandMap and eventually add more
 //! metadata like alignment info from bam
-//!
 use std::{path::Path, str::from_utf8};
 
 use bam::BamReader;
