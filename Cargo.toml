@@ -91,6 +91,8 @@ human-panic = "1.0.3"
 num_cpus = "1.13.1"
 which = "4.3.0"
 simple-logging = "2.0.2"
+typed-sled = { version = "0.2.0", git = "https://github.com/bsaintjo/typed-sled", branch = "impl-mergeoperator"}
+sled = "0.34.7"
 
 [profile.release]
 lto = "fat"

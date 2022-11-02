@@ -8,14 +8,15 @@ use fnv::FnvHashMap;
 
 use crate::{
     arrow::Signal,
-    arrow_utils::{load_read_write_arrow, SchemaExt},
-    motif::Motif,
+    arrow_utils::load_read_write_arrow,
+    motif::{all_bases, Motif},
     train::Model,
+    utils::CawlrIO,
     Eventalign, Score, ScoredRead,
 };
 
 #[derive(Debug)]
-struct ScoreOptions {
+pub struct ScoreOptions {
     pos_model: Model,
     neg_model: Model,
     ranks: FnvHashMap<String, f64>,
@@ -44,7 +45,7 @@ impl<'a> SignalScore<'a> {
 }
 
 impl ScoreOptions {
-    fn new(
+    pub fn new(
         pos_model: Model,
         neg_model: Model,
         ranks: FnvHashMap<String, f64>,
@@ -60,25 +61,37 @@ impl ScoreOptions {
         }
     }
 
-    fn load<P>(pos_model_filepath: P, neg_model_filepath: P, ranks_filepath: P) -> Result<Self>
+    pub fn load<P>(pos_model_filepath: P, neg_model_filepath: P, ranks_filepath: P) -> Result<Self>
     where
         P: AsRef<Path>,
     {
-        todo!()
+        let pos_model = Model::load(pos_model_filepath)?;
+        let neg_model = Model::load(neg_model_filepath)?;
+        let ranks = FnvHashMap::load(ranks_filepath)?;
+        Ok(ScoreOptions::new(
+            pos_model,
+            neg_model,
+            ranks,
+            10,
+            all_bases(),
+        ))
     }
 
-    fn freq_thresh(&mut self, freq_thresh: usize) -> &mut Self {
+    pub fn freq_thresh(&mut self, freq_thresh: usize) -> &mut Self {
         self.freq_thresh = freq_thresh;
         self
     }
 
-    fn motifs(&mut self, motifs: Vec<Motif>) -> &mut Self {
+    pub fn motifs(&mut self, motifs: Vec<Motif>) -> &mut Self {
         self.motifs = motifs;
         self
     }
 
-    fn run<R: Read + Seek, W: Write>(&self, reader: R, writer: W) -> Result<()> {
-        let writer = ScoredRead::wrap_writer(writer)?;
+    pub fn run<R, W>(&self, reader: R, writer: W) -> Result<()>
+    where
+        R: Read + Seek,
+        W: Write,
+    {
         load_read_write_arrow(reader, writer, |eventaligns: Vec<Eventalign>| {
             let mut scored_reads = Vec::new();
             for eventalign in eventaligns {

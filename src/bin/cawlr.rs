@@ -36,6 +36,37 @@ fn parse_strategy(src: &str) -> Result<TrainStrategy, String> {
     }
 }
 
+#[derive(Debug, Subcommand)]
+enum NpsmlrCmd {
+    Train {
+        #[clap(short, long)]
+        input: PathBuf,
+
+        #[clap(short, long)]
+        output: PathBuf,
+    },
+    Score {
+        #[clap(short, long)]
+        input: PathBuf,
+
+        #[clap(short, long)]
+        pos_ctrl: PathBuf,
+
+        #[clap(short, long)]
+        neg_ctrl: PathBuf,
+
+        #[clap(short, long)]
+        output: PathBuf,
+
+        /// Threshold for current value to be considered reasonable
+        #[clap(short, long, default_value_t = 10.0)]
+        cutoff: f64,
+
+        #[clap(short, long)]
+        freq_thresh: usize,
+    },
+}
+
 #[derive(Parser, Debug)]
 #[clap(author, version, about, long_about=None)]
 /// Chromatin accessibility with long reads.
@@ -49,6 +80,9 @@ struct Args {
 
 #[derive(Subcommand, Debug)]
 enum Commands {
+    #[clap(subcommand)]
+    Npsmlr(NpsmlrCmd),
+
     /// Preprocess nanopolish eventalign output
     Collapse {
         /// Path to nanopolish eventalign output with samples column, or stdin
@@ -405,6 +439,7 @@ fn main() -> Result<()> {
             }
             sma.run(input)?;
         }
+        Commands::Npsmlr(cmd) => {}
     }
     Ok(())
 }

@@ -192,20 +192,17 @@ where
 }
 
 /// Takes a ArrowWriter instead of FileWriter to avoid exposing FileWriter
-pub fn load_read_write_arrow<R, W, F, T, U>(
-    reader: R,
-    mut writer: ArrowWriter<W>,
-    mut func: F,
-) -> Result<()>
+pub fn load_read_write_arrow<R, W, F, T, U>(reader: R, writer: W, mut func: F) -> Result<()>
 where
     R: Read + Seek,
     W: Write,
     F: FnMut(Vec<T>) -> eyre::Result<Vec<U>>,
-    T: ArrowField<Type = T> + ArrowDeserialize + 'static,
+    T: ArrowField<Type = T> + ArrowDeserialize + 'static + SchemaExt,
     U: ArrowField<Type = U> + ArrowSerialize + 'static,
     for<'a> &'a <T as ArrowDeserialize>::ArrayType: IntoIterator,
 {
     let feather = load(reader)?;
+    let mut writer = T::wrap_writer(writer)?;
     for read in feather {
         if let Ok(chunk) = read {
             for arr in chunk.into_arrays().into_iter() {
@@ -214,10 +211,33 @@ where
                 save(&mut writer.0, &res)?;
             }
         } else {
-            log::warn!("Failed to load arrow chunk")
+            log::error!("Failed to load arrow chunk");
+            return Err(eyre::eyre!("Failed to load arrow chunk"));
         }
     }
     writer.0.finish()?;
+    Ok(())
+}
+
+pub fn load_read_arrow<R, F, T>(reader: R, mut func: F) -> Result<()>
+where
+    R: Read + Seek,
+    F: FnMut(Vec<T>) -> eyre::Result<()>,
+    T: ArrowField<Type = T> + ArrowDeserialize + 'static,
+    for<'a> &'a <T as ArrowDeserialize>::ArrayType: IntoIterator,
+{
+    let feather = load(reader)?;
+    for read in feather {
+        if let Ok(chunk) = read {
+            for arr in chunk.into_arrays().into_iter() {
+                let eventaligns: Vec<T> = arr.try_into_collection()?;
+                func(eventaligns)?;
+            }
+        } else {
+            log::error!("Failed to load arrow chunk");
+            return Err(eyre::eyre!("Failed to load arrow chunk"));
+        }
+    }
     Ok(())
 }
 
