@@ -96,6 +96,9 @@ pub struct Model {
 }
 
 impl Model {
+    pub(crate) fn new(gmms: ModelDB, skips: FnvHashMap<String, f64>) -> Self {
+        Self { gmms, skips }
+    }
     /// Get a reference to the model's gmms.
     pub(crate) fn gmms(&self) -> &ModelDB {
         &self.gmms
@@ -105,11 +108,10 @@ impl Model {
     pub(crate) fn skips(&self) -> &FnvHashMap<String, f64> {
         &self.skips
     }
-}
 
-impl Model {
-    pub(crate) fn new(gmms: ModelDB, skips: FnvHashMap<String, f64>) -> Self {
-        Self { gmms, skips }
+    pub(crate) fn insert_gmm(&mut self, kmer: String, gmm: Mixture<Gaussian>) {
+        let gmm = ModelParams::from(gmm);
+        self.gmms.insert(kmer, gmm);
     }
 }
 

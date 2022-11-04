@@ -44,6 +44,13 @@ impl PlusStrandMap {
         let read_id = read_id.as_ref();
         self.0.get(read_id).cloned()
     }
+
+    pub fn insert<B>(&mut self, read_id: B, plus_stranded: bool)
+    where
+        B: Into<Vec<u8>>,
+    {
+        self.0.insert(read_id.into(), plus_stranded);
+    }
 }
 
 #[cfg(test)]

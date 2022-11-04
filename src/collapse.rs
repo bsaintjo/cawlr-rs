@@ -314,7 +314,7 @@ mod test {
     use assert_fs::TempDir;
 
     use super::*;
-    use crate::arrow::{load_apply, load_iter, Metadata, MetadataExt, Strand};
+    use crate::{arrow::{Metadata, MetadataExt, Strand}, wrap_writer, arrow_utils::load_iter, load_apply};
 
     #[test]
     fn test_collapse() -> Result<()> {
@@ -400,7 +400,7 @@ chr1	199403040	ATATAA	c25d27a8-0eec-4e7d-96f9-b8e730a25832	t	3918	87.01		72.4013
         strand_db.insert(b"c25d27a8-0eec-4e7d-96f9-b8e730a25832" as &[u8], true);
 
         let schema = arrow::Eventalign::schema();
-        let writer = arrow::wrap_writer(Vec::new(), &schema).unwrap();
+        let writer = wrap_writer(Vec::new(), &schema).unwrap();
         let mut opts = CollapseOptions::new(writer, strand_db);
         let res = opts.run(lines);
         assert!(res.is_ok());
@@ -440,7 +440,7 @@ chr1	199403041	GATATA	c25d27a8-0eec-4e7d-96f9-b8e730a25832	t	3917	106.85	4.255	0
         strand_db.insert(b"c25d27a8-0eec-4e7d-96f9-b8e730a25832" as &[u8], true);
 
         let schema = arrow::Eventalign::schema();
-        let writer = arrow::wrap_writer(Vec::new(), &schema).unwrap();
+        let writer = wrap_writer(Vec::new(), &schema).unwrap();
         let mut opts = CollapseOptions::new(writer, strand_db);
         let res = opts.run(lines);
         assert!(res.is_ok());

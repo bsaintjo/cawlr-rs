@@ -497,6 +497,8 @@ mod test {
     use arrow2_convert::deserialize::TryIntoCollection;
     use bio::io::fasta::IndexedReader;
 
+    use crate::{wrap_writer, save, arrow_utils::load};
+
     use super::*;
 
     #[test]
