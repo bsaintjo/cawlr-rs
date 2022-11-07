@@ -21,6 +21,7 @@ pub struct ScoreOptions {
     neg_model: Model,
     ranks: FnvHashMap<String, f64>,
     freq_thresh: usize,
+    cutoff: f64,
     motifs: Vec<Motif>,
 }
 
@@ -50,6 +51,7 @@ impl ScoreOptions {
         neg_model: Model,
         ranks: FnvHashMap<String, f64>,
         freq_thresh: usize,
+        cutoff: f64,
         motifs: Vec<Motif>,
     ) -> Self {
         Self {
@@ -57,6 +59,7 @@ impl ScoreOptions {
             neg_model,
             ranks,
             freq_thresh,
+            cutoff,
             motifs,
         }
     }
@@ -73,12 +76,18 @@ impl ScoreOptions {
             neg_model,
             ranks,
             10,
+            10.0,
             all_bases(),
         ))
     }
 
     pub fn freq_thresh(&mut self, freq_thresh: usize) -> &mut Self {
         self.freq_thresh = freq_thresh;
+        self
+    }
+
+    pub fn cutoff(&mut self, cutoff: f64) -> &mut Self {
+        self.cutoff = cutoff;
         self
     }
 

@@ -10,6 +10,7 @@ use cawlr::{
     filter::Region,
     index,
     motif::{all_bases, Motif},
+    npsmlr,
     rank::RankOptions,
     score::ScoreOptions,
     score_model,
@@ -54,6 +55,9 @@ enum NpsmlrCmd {
 
         #[clap(short, long)]
         neg_ctrl: PathBuf,
+
+        #[clap(short, long)]
+        ranks: PathBuf,
 
         #[clap(short, long)]
         output: PathBuf,
@@ -439,7 +443,26 @@ fn main() -> Result<()> {
             }
             sma.run(input)?;
         }
-        Commands::Npsmlr(cmd) => {}
+        Commands::Npsmlr(cmd) => match cmd {
+            NpsmlrCmd::Train { .. } => {}
+            NpsmlrCmd::Score {
+                input,
+                pos_ctrl,
+                neg_ctrl,
+                ranks,
+                output,
+                cutoff,
+                freq_thresh,
+            } => {
+                let reader = File::open(input)?;
+                let writer = File::create(output)?;
+                let mut score_options = npsmlr::ScoreOptions::load(pos_ctrl, neg_ctrl, ranks)?;
+                score_options
+                    .freq_thresh(freq_thresh)
+                    .cutoff(cutoff)
+                    .run(reader, writer);
+            }
+        },
     }
     Ok(())
 }
