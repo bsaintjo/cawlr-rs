@@ -10,7 +10,7 @@ use cawlr::{
     filter::Region,
     index,
     motif::{all_bases, Motif},
-    npsmlr,
+    npsmlr::{self, train::TrainOptions},
     rank::RankOptions,
     score::ScoreOptions,
     score_model,
@@ -39,34 +39,67 @@ fn parse_strategy(src: &str) -> Result<TrainStrategy, String> {
 
 #[derive(Debug, Subcommand)]
 enum NpsmlrCmd {
+    /// Train using algorithm adapted from NP-SMLR
     Train {
+        /// Input arrow file, usually from cawlr collapse
         #[clap(short, long)]
         input: PathBuf,
 
+        /// Pickle file containing model parameters
         #[clap(short, long)]
         output: PathBuf,
+
+        /// Only train on kmers containing these motifs, can speed up training
+        /// time
+        #[clap(short, long)]
+        motif: Vec<Motif>,
+
+        /// Number of samples to use to train GMM
+        #[clap(long, default_value_t = 50000)]
+        samples: usize,
+
+        /// Train a single component GMM (ie fit a single Gaussian)
+        #[clap(long)]
+        single: bool,
+
+        /// Filter outliers with DBSCAN algorithm
+        #[clap(long)]
+        dbscan: bool,
     },
+
+    /// Score using algorithm adapted from NP-SMLR
     Score {
+        /// Input arrow file, usually from cawlr collapse
         #[clap(short, long)]
         input: PathBuf,
 
+        /// Path to positive control model, usually from cawlr train
         #[clap(short, long)]
         pos_ctrl: PathBuf,
 
+        /// Path to negative control model, usually from cawlr train
         #[clap(short, long)]
         neg_ctrl: PathBuf,
 
+        /// Path to ranks file, usually from cawlr rank
         #[clap(short, long)]
         ranks: PathBuf,
 
+        /// Output arrow file of scored reads
         #[clap(short, long)]
         output: PathBuf,
 
-        /// Threshold for current value to be considered reasonable
+        /// Motifs to score on, at least 1 motif must be provided
+        #[clap(short, long, num_args(1..))]
+        motif: Vec<Motif>,
+
+        /// Values less than -cutoff for the positive and negative control will
+        /// be filtered
         #[clap(short, long, default_value_t = 10.0)]
         cutoff: f64,
 
-        #[clap(short, long)]
+        /// If an events has more than freq_thresh samples, it will be filtered
+        #[clap(short, long, default_value_t = 10)]
         freq_thresh: usize,
     },
 }
@@ -339,7 +372,7 @@ fn main() -> Result<()> {
             log::info!("Using strategy: {strategy}");
             let train = Train::try_new(input, genome, samples, strategy)?;
             let model = train.run()?;
-            model.save(output)?;
+            model.save_as(output)?;
         }
 
         Commands::Rank {
@@ -352,7 +385,7 @@ fn main() -> Result<()> {
             let pos_ctrl_db = Model::load(pos_ctrl)?;
             let neg_ctrl_db = Model::load(neg_ctrl)?;
             let kmer_ranks = RankOptions::new(seed, samples).rank(&pos_ctrl_db, &neg_ctrl_db);
-            kmer_ranks.save(output)?;
+            kmer_ranks.save_as(output)?;
         }
 
         Commands::Score {
@@ -412,7 +445,7 @@ fn main() -> Result<()> {
                 .bins(bins)
                 .samples(samples)
                 .run(file)?;
-            bkde.save(output)?;
+            bkde.save_as(output)?;
         }
 
         Commands::Sma {
@@ -444,7 +477,23 @@ fn main() -> Result<()> {
             sma.run(input)?;
         }
         Commands::Npsmlr(cmd) => match cmd {
-            NpsmlrCmd::Train { .. } => {}
+            NpsmlrCmd::Train {
+                input,
+                output,
+                motif,
+                samples,
+                single,
+                dbscan,
+            } => {
+                let reader = File::open(input)?;
+                let writer = File::create(output)?;
+                TrainOptions::default()
+                    .n_samples(samples)
+                    .single(single)
+                    .dbscan(dbscan)
+                    .motifs(motif)
+                    .run(reader, writer)?;
+            }
             NpsmlrCmd::Score {
                 input,
                 pos_ctrl,
@@ -453,6 +502,7 @@ fn main() -> Result<()> {
                 output,
                 cutoff,
                 freq_thresh,
+                motif,
             } => {
                 let reader = File::open(input)?;
                 let writer = File::create(output)?;
@@ -460,7 +510,8 @@ fn main() -> Result<()> {
                 score_options
                     .freq_thresh(freq_thresh)
                     .cutoff(cutoff)
-                    .run(reader, writer);
+                    .motifs(motif)
+                    .run(reader, writer)?;
             }
         },
     }

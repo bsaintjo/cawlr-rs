@@ -29,6 +29,7 @@ fn count_motif_in_kmer(kmer: &str, motif: &Motif) -> usize {
     kmer.matches(motif.motif()).count()
 }
 
+#[derive(Debug)]
 struct SignalScore<'a> {
     signal: &'a Signal,
     pos_sum: f64,
@@ -71,14 +72,9 @@ impl ScoreOptions {
         let pos_model = Model::load(pos_model_filepath)?;
         let neg_model = Model::load(neg_model_filepath)?;
         let ranks = FnvHashMap::load(ranks_filepath)?;
-        Ok(ScoreOptions::new(
-            pos_model,
-            neg_model,
-            ranks,
-            10,
-            10.0,
-            all_bases(),
-        ))
+        let score_options = ScoreOptions::new(pos_model, neg_model, ranks, 10, 10.0, all_bases());
+        log::debug!("Score Options: {score_options:?}");
+        Ok(score_options)
     }
 
     pub fn freq_thresh(&mut self, freq_thresh: usize) -> &mut Self {
@@ -104,26 +100,33 @@ impl ScoreOptions {
         load_read_write_arrow(reader, writer, |eventaligns: Vec<Eventalign>| {
             let mut scored_reads = Vec::new();
             for eventalign in eventaligns {
+                log::debug!("eventalign: {:?}", eventalign.metadata());
                 let mut scores = Vec::new();
                 let data_map = eventalign
                     .signal_iter()
                     .map(|s| (s.pos(), s))
                     .collect::<FnvHashMap<_, _>>();
                 for signal in eventalign.signal_iter() {
+                    log::debug!("signal {signal:?}");
                     let kmer = signal.kmer();
                     if let Some(m) = self.motifs.iter().find(|m| kmer.starts_with(m.motif())) {
+                        log::debug!("Kmer motif matches {m:?}");
                         let mut kmers = Vec::new();
-                        let surround_idx = signal.pos() + m.position_0b() as u64;
-                        let surrounding =
-                            surround_idx - (5 + m.position_0b() as u64)..=surround_idx;
+                        let surrounding = m.surrounding_idxs(signal.pos());
                         for surr in surrounding {
+                            log::debug!("Surrounding idx {surr}");
                             if let Some(&s) = data_map.get(&surr) {
+                                log::debug!("Surrounding signal: {s:?}");
                                 if signal.samples().len() > self.freq_thresh {
+                                    log::debug!(
+                                        "n samples greater than frequency threshold, skipping"
+                                    );
                                     continue;
                                 }
 
                                 let kmer = s.kmer();
                                 if count_motif_in_kmer(kmer, m) > 1 {
+                                    log::debug!("Count of motifs in kmer greater than 1, skipping");
                                     continue;
                                 }
                                 let pm = self.pos_model.gmms().get(kmer);
@@ -141,6 +144,7 @@ impl ScoreOptions {
                         let mut diff = f64::NEG_INFINITY;
                         for ss in kmers.into_iter() {
                             if let Some(&rank) = self.ranks.get(ss.signal.kmer()) {
+                                log::debug!("signal score: {ss:?}");
                                 if rank > diff {
                                     diff = rank;
                                     best_signal = Some(ss);
@@ -149,9 +153,17 @@ impl ScoreOptions {
                         }
 
                         if let Some(best_signal) = best_signal {
+                            log::debug!("Best signal: {best_signal:?}");
+
                             let exp_me = best_signal.pos_sum.exp();
                             let exp_un = best_signal.neg_sum.exp();
+
                             let rate = exp_me / (exp_me + exp_un);
+
+                            log::debug!("exp_me: {exp_me}");
+                            log::debug!("exp_un: {exp_un}");
+                            log::debug!("rate: {rate}");
+
                             let score = Score::new(
                                 signal.pos(),
                                 signal.kmer().to_string(),

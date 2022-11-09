@@ -29,6 +29,7 @@ type KmerMeans = FnvHashMap<String, Vec<f64>>;
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub struct ModelParams {
+    is_single: bool,
     // weight for a
     weight: f64,
     mu_a: f64,
@@ -40,8 +41,16 @@ pub struct ModelParams {
 }
 
 impl ModelParams {
-    pub fn new(weight: f64, mu_a: f64, sigma_a: f64, mu_b: f64, sigma_b: f64) -> Self {
+    pub fn new(
+        is_single: bool,
+        weight: f64,
+        mu_a: f64,
+        sigma_a: f64,
+        mu_b: f64,
+        sigma_b: f64,
+    ) -> Self {
         Self {
+            is_single,
             weight,
             mu_a,
             sigma_a,
@@ -83,9 +92,15 @@ impl<T: Borrow<Mixture<Gaussian>>> From<T> for ModelParams {
         let mu_a = components[0].mu();
         let sigma_a = components[0].sigma();
 
-        let mu_b = components[1].mu();
-        let sigma_b = components[1].sigma();
-        ModelParams::new(weight, mu_a, sigma_a, mu_b, sigma_b)
+        let (is_single, mu_b, sigma_b) = {
+            if components.len() == 2 {
+                (false, components[1].mu(), components[1].sigma())
+            } else {
+                (true, 0.0, 0.0)
+            }
+        };
+
+        ModelParams::new(is_single, weight, mu_a, sigma_a, mu_b, sigma_b)
     }
 }
 
@@ -383,6 +398,12 @@ fn train_gmm(means: Vec<f64>) -> Result<Option<Mixture<Gaussian>>> {
         .tolerance(tolerance)
         .check()?
         .fit(&data)?;
+    let mm = mix_to_mix(&gmm);
+
+    Ok(Some(mm))
+}
+
+pub(crate) fn mix_to_mix(gmm: &GaussianMixtureModel<f64>) -> Mixture<Gaussian> {
     let weights = gmm.weights().iter().cloned().collect::<Vec<f64>>();
     let means = gmm.means().iter();
     let covs = gmm.covariances().iter();
@@ -390,9 +411,7 @@ fn train_gmm(means: Vec<f64>) -> Result<Option<Mixture<Gaussian>>> {
         .zip(covs)
         .map(|(&mean, &sigma)| Gaussian::new_unchecked(mean, sigma.sqrt()))
         .collect::<Vec<Gaussian>>();
-    let mm = Mixture::new_unchecked(weights, gausses);
-
-    Ok(Some(mm))
+    Mixture::new_unchecked(weights, gausses)
 }
 
 fn insufficient<K, V, S>(dict: &HashMap<K, Vec<V>, S>, n: usize) -> bool {
@@ -419,16 +438,25 @@ mod test {
 
     #[test]
     fn test_model_params() {
-        let g1 = Gaussian::new(1., 2.).unwrap();
-        let g2 = Gaussian::new(3., 4.).unwrap();
+        let g1 = Gaussian::new_unchecked(1., 2.);
+        let g2 = Gaussian::new_unchecked(3., 4.);
         let components = vec![g1, g2];
         let weights = vec![0.7, 0.3];
-
         let mix = Mixture::new_unchecked(weights, components);
         let params = ModelParams::from(&mix);
 
-        let answer = ModelParams::new(0.7, 1., 2., 3., 4.);
+        let answer = ModelParams::new(false, 0.7, 1., 2., 3., 4.);
 
         pretty_assertions::assert_eq!(params, answer);
+
+        let g = Gaussian::new_unchecked(1., 2.);
+        let components = vec![g];
+        let weights = vec![1.0];
+        let mix = Mixture::new_unchecked(weights, components);
+        let params = ModelParams::from(&mix);
+        let answer = ModelParams::new(true, 1.0, 1., 2., 0.0, 0.0);
+
+        pretty_assertions::assert_eq!(params, answer);
+        pretty_assertions::assert_eq!(params.single(), Gaussian::new_unchecked(1., 2.));
     }
 }

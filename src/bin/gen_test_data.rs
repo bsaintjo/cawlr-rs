@@ -25,14 +25,14 @@ const GENOME: &str = "extra/sacCer3.fa";
 fn train(input: &PathBuf, output: &PathBuf) -> Result<Model> {
     let train = Train::try_new(input, GENOME, 2048, TrainStrategy::AvgSample)?;
     let model = train.run()?;
-    model.save(output)?;
+    model.save_as(output)?;
     Ok(model)
 }
 
 fn rank(pos_ctrl: &Model, neg_ctrl: &Model, output: &Path) -> Result<Ranks> {
     let mut rank_opts = RankOptions::default();
     let rankings = rank_opts.rank(pos_ctrl, neg_ctrl);
-    rankings.save(output)?;
+    rankings.save_as(output)?;
     Ok(rankings)
 }
 
@@ -54,7 +54,7 @@ fn main() -> Result<()> {
 
     CollapseOptions::try_new(NEG_CTRL_BAM, &neg_output)?.run(neg_ctrl)?;
     CollapseOptions::try_new(POS_CTRL_BAM, &pos_output)?.run(pos_ctrl)?;
-    CollapseOptions::try_new(READ_BAM, &read_output)?.run(read)?;
+    CollapseOptions::try_new(READ_BAM, read_output)?.run(read)?;
 
     let pos_model_path = output_dir.join("pos_model");
     let neg_model_path = output_dir.join("neg_model");

@@ -38,7 +38,11 @@ impl BinnedKde {
 }
 
 impl CawlrIO for BinnedKde {
-    fn save<P>(&self, filename: P) -> eyre::Result<()>
+    fn save<W: std::io::Write>(&self, writer: &mut W) -> eyre::Result<()> {
+        serde_pickle::to_writer(writer, self, Default::default())?;
+        Ok(())
+    }
+    fn save_as<P>(&self, filename: P) -> eyre::Result<()>
     where
         P: AsRef<std::path::Path>,
         Self: Sized,

@@ -35,7 +35,8 @@ where
 }
 
 pub trait CawlrIO {
-    fn save<P>(&self, filename: P) -> Result<()>
+    fn save<W: Write>(&self, writer: &mut W) -> Result<()>;
+    fn save_as<P>(&self, filename: P) -> Result<()>
     where
         P: AsRef<Path>,
         Self: Sized;
@@ -50,7 +51,11 @@ where
     V: Serialize + DeserializeOwned,
     S: BuildHasher + Default,
 {
-    fn save<P>(&self, filename: P) -> Result<()>
+    fn save<W: Write>(&self, writer: &mut W) -> Result<()> {
+        serde_pickle::to_writer(writer, self, Default::default())?;
+        Ok(())
+    }
+    fn save_as<P>(&self, filename: P) -> Result<()>
     where
         P: AsRef<Path>,
     {
@@ -70,7 +75,12 @@ where
 }
 
 impl CawlrIO for Model {
-    fn save<P>(&self, filename: P) -> Result<()>
+    fn save<W: Write>(&self, writer: &mut W) -> Result<()> {
+        serde_pickle::to_writer(writer, self, Default::default())?;
+        Ok(())
+    }
+
+    fn save_as<P>(&self, filename: P) -> Result<()>
     where
         P: AsRef<Path>,
     {

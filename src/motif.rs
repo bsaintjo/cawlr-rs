@@ -86,8 +86,16 @@ impl Motif {
         kmer.contains(self.motif())
     }
 
-    fn surrounding_idxs(&self, _pos: usize) -> Vec<usize> {
-        unimplemented!()
+    pub(crate) fn surrounding_idxs(&self, pos: u64) -> impl Iterator<Item = u64> {
+        let end_idx = pos + self.position_0b() as u64;
+        let start = {
+            if end_idx < 5 {
+                0
+            } else {
+                end_idx - 5
+            }
+        };
+        start..=end_idx
     }
 }
 
@@ -154,5 +162,23 @@ mod test {
 
         let m = Motif::parse_from_str("1:TA:");
         assert!(m.is_err());
+    }
+
+    #[test]
+    fn test_surrounding_idxs() {
+        let m = Motif::from_str("1:CG").unwrap();
+        let pos = 504;
+        assert_eq!(
+            m.surrounding_idxs(pos).collect::<Vec<_>>(),
+            (499 ..= 504).collect::<Vec<_>>()
+        );
+
+        let m = Motif::from_str("2:GC").unwrap();
+        let pos = 510;
+        assert_eq!(pos + m.position_0b() as u64, 511);
+        assert_eq!(
+            m.surrounding_idxs(pos).collect::<Vec<_>>(),
+            (506..=511).collect::<Vec<_>>()
+        );
     }
 }
