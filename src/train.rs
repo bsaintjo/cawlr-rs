@@ -27,7 +27,7 @@ use crate::{
 pub(crate) type ModelDB = FnvHashMap<String, ModelParams>;
 type KmerMeans = FnvHashMap<String, Vec<f64>>;
 
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct ModelParams {
     is_single: bool,
     // weight for a
@@ -104,7 +104,7 @@ impl<T: Borrow<Mixture<Gaussian>>> From<T> for ModelParams {
     }
 }
 
-#[derive(Debug, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct Model {
     gmms: ModelDB,
     skips: FnvHashMap<String, f64>,
