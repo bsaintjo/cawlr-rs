@@ -1,6 +1,7 @@
 use std::{
     borrow::Borrow,
     io::{Read, Seek, Write},
+    marker::PhantomData,
 };
 
 use arrow2::{
@@ -22,7 +23,20 @@ use itertools::Itertools;
 
 use crate::{Eventalign, ScoredRead};
 
-pub struct ArrowWriter<W: Write>(FileWriter<W>);
+// pub struct ArrowWriter<W: Write>(FileWriter<W>);
+pub struct ArrowWriter<W: Write, T> {
+    inner: FileWriter<W>,
+    _type: PhantomData<T>,
+}
+
+impl<W: Write, T> ArrowWriter<W, T> {
+    pub fn new(inner: FileWriter<W>) -> Self {
+        Self {
+            inner,
+            _type: PhantomData,
+        }
+    }
+}
 
 /// Helper trait to wrap Writers for saving Arrow files. Only needs to implement
 /// type_as_str which is used as a tag in the Arrow StructArray.
@@ -30,7 +44,10 @@ pub struct ArrowWriter<W: Write>(FileWriter<W>);
 // SchemaExt
 pub trait SchemaExt: ArrowField {
     fn type_as_str() -> &'static str;
-    fn wrap_writer<W: Write>(writer: W) -> Result<ArrowWriter<W>> {
+    fn wrap_writer<W: Write>(writer: W) -> Result<ArrowWriter<W, Self>>
+    where
+        Self: Sized,
+    {
         let data_type = Self::data_type();
         let str_type = Self::type_as_str();
         let schema = Schema::from(vec![Field::new(str_type, data_type, false)]);
@@ -38,7 +55,7 @@ pub trait SchemaExt: ArrowField {
             compression: Some(Compression::LZ4),
         };
         let fw = FileWriter::try_new(writer, &schema, None, options)?;
-        Ok(ArrowWriter(fw))
+        Ok(ArrowWriter::new(fw))
     }
 }
 
@@ -72,8 +89,22 @@ where
     T: ArrowField<Type = T> + ArrowSerialize + 'static,
     W: Write,
 {
-    let arrow_array: Chunk<Box<dyn Array>> = x.try_into_arrow()?;
-    writer.write(&arrow_array, None)?;
+    if !x.is_empty() {
+        let arrow_array: Chunk<Box<dyn Array>> = x.try_into_arrow()?;
+        writer.write(&arrow_array, None)?;
+    }
+    Ok(())
+}
+
+pub fn save_t<W, T>(writer: &mut ArrowWriter<W, T>, x: &[T]) -> Result<()>
+where
+    T: ArrowField<Type = T> + ArrowSerialize + 'static,
+    W: Write,
+{
+    if !x.is_empty() {
+        let arrow_array: Chunk<Box<dyn Array>> = x.try_into_arrow()?;
+        writer.inner.write(&arrow_array, None)?;
+    }
     Ok(())
 }
 
@@ -197,25 +228,25 @@ where
     R: Read + Seek,
     W: Write,
     F: FnMut(Vec<T>) -> eyre::Result<Vec<U>>,
-    T: ArrowField<Type = T> + ArrowDeserialize + 'static + SchemaExt,
-    U: ArrowField<Type = U> + ArrowSerialize + 'static,
+    T: ArrowField<Type = T> + ArrowDeserialize + 'static,
+    U: ArrowField<Type = U> + ArrowSerialize + 'static + SchemaExt,
     for<'a> &'a <T as ArrowDeserialize>::ArrayType: IntoIterator,
 {
     let feather = load(reader)?;
-    let mut writer = T::wrap_writer(writer)?;
+    let mut writer = U::wrap_writer(writer)?;
     for read in feather {
         if let Ok(chunk) = read {
             for arr in chunk.into_arrays().into_iter() {
                 let eventaligns: Vec<T> = arr.try_into_collection()?;
                 let res = func(eventaligns)?;
-                save(&mut writer.0, &res)?;
+                save_t(&mut writer, &res)?;
             }
         } else {
             log::error!("Failed to load arrow chunk");
             return Err(eyre::eyre!("Failed to load arrow chunk"));
         }
     }
-    writer.0.finish()?;
+    writer.inner.finish()?;
     Ok(())
 }
 
