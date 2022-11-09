@@ -1,30 +1,46 @@
 use std::{
-    fs,
+    fs::{self, File},
     io::BufReader,
-    path::PathBuf,
+    path::{Path, PathBuf},
     process::{Command, Stdio},
 };
 
-use cawlr::{collapse::CollapseOptions, train::Train, utils};
+use cawlr::{
+    collapse::CollapseOptions,
+    motif::Motif,
+    npsmlr::{train::TrainOptions, ScoreOptions},
+    rank::RankOptions,
+    score_model::Options,
+    train::{Model, Train, TrainStrategy},
+    utils::{self, CawlrIO},
+};
 use clap::Parser;
 use eyre::Result;
+use fnv::FnvHashMap;
+use log::LevelFilter;
 
 #[derive(Parser)]
 struct Args {
     #[clap(short, long)]
     genome: PathBuf,
 
-    #[clap(short, long)]
+    #[clap(long)]
     pos_fast5s: PathBuf,
 
-    #[clap(short, long)]
+    #[clap(long)]
     pos_reads: PathBuf,
 
-    #[clap(short, long)]
+    #[clap(long)]
+    pos_summary: Option<PathBuf>,
+
+    #[clap(long)]
     neg_fast5s: PathBuf,
 
-    #[clap(short, long)]
+    #[clap(long)]
     neg_reads: PathBuf,
+
+    #[clap(long)]
+    neg_summary: Option<PathBuf>,
 
     #[clap(short, long)]
     output_dir: PathBuf,
@@ -37,57 +53,71 @@ struct Args {
 
     #[clap(long)]
     samtools_path: Option<PathBuf>,
+
+    #[clap(short = 'j', long, default_value_t = 4)]
+    n_threads: usize,
+
+    #[clap(short, long, num_args=1..)]
+    motifs: Vec<Motif>,
 }
 
-fn np_index(nanopolish: PathBuf, fast5s: PathBuf, reads: PathBuf) -> Result<()> {
+fn np_index(
+    nanopolish: &Path,
+    fast5s: &Path,
+    reads: &Path,
+    summary: &Option<PathBuf>,
+) -> Result<()> {
     let mut cmd = Command::new(nanopolish);
     cmd.arg("index").arg("-d").arg(fast5s).arg(reads);
+    if let Some(summary) = summary {
+        cmd.arg("-s").arg(summary);
+    }
     log::info!("{cmd:?}");
     cmd.output()?;
     Ok(())
 }
 
 fn aln_reads(
-    minimap2: PathBuf,
-    samtools: PathBuf,
-    genome: PathBuf,
-    reads: PathBuf,
-    output: PathBuf,
+    minimap2: &Path,
+    samtools: &Path,
+    genome: &Path,
+    reads: &Path,
+    output: &Path,
 ) -> eyre::Result<()> {
-    let map_cmd = Command::new(minimap2)
+    let mut map_cmd = Command::new(minimap2);
+    map_cmd
         .arg("-ax")
         .arg("map-ont")
         .arg("--sam-hit-only")
         .arg("--secondary=no")
-        .args(&["-t", "4"])
+        .args(["-t", "4"])
         .arg(genome)
         .arg(reads)
-        .stdout(Stdio::piped())
-        .spawn()?;
-    let sam_cmd = Command::new(samtools)
+        .stdout(Stdio::piped());
+    log::info!("{map_cmd:?}");
+    let map_output = map_cmd.spawn()?;
+
+    let mut sam_cmd = Command::new(samtools);
+    sam_cmd
         .arg("sort")
         .arg("--write-index")
         .arg("-T")
         .arg("reads.tmp")
         .arg("-o")
         .arg(output)
-        .stdin(map_cmd.stdout.unwrap())
-        .output()?;
+        .stdin(map_output.stdout.unwrap());
+    log::info!("{sam_cmd:?}");
+    sam_cmd.output()?;
     Ok(())
 }
 
-fn eventalign_collapse(
-    nanopolish: PathBuf,
-    reads: PathBuf,
-    bam: PathBuf,
-    output: PathBuf,
-) -> Result<()> {
+fn eventalign_collapse(nanopolish: &Path, reads: &Path, bam: &Path, output: &Path) -> Result<()> {
     let cmd = Command::new(nanopolish)
         .arg("eventalign")
         .arg("-r")
         .arg(reads)
         .arg("-b")
-        .arg(&bam)
+        .arg(bam)
         .arg("-t")
         .arg("4")
         .arg("--print-read-names")
@@ -97,18 +127,113 @@ fn eventalign_collapse(
         .stdout
         .ok_or_else(|| eyre::eyre!("Could not capture stdout"))?;
     let reader = BufReader::new(cmd);
-    let mut collapse = CollapseOptions::try_new(&bam, output)?;
+    let mut collapse = CollapseOptions::try_new(bam, output)?;
     collapse.run(reader)?;
     Ok(())
 }
 
+fn train_npsmlr(collapse_file: &Path) -> Result<Model> {
+    let train_opts = TrainOptions::default();
+    let reader = File::open(collapse_file)?;
+    let model = train_opts.run_model(reader)?;
+    Ok(model)
+}
+
+fn rank_models(
+    rank_output: &Path,
+    pos_model: &Model,
+    neg_model: &Model,
+) -> Result<FnvHashMap<String, f64>> {
+    let mut rank_opts = RankOptions::default();
+    let ranks = rank_opts.rank(pos_model, neg_model);
+    ranks.save_as(rank_output)?;
+    Ok(ranks)
+}
+
 fn main() -> eyre::Result<()> {
     let args = Args::parse();
+
     let nanopolish = utils::find_binary("nanopolish", &args.nanopolish_path)?;
     let minimap2 = utils::find_binary("minimap2", &args.minimap2_path)?;
     let samtools = utils::find_binary("samtools", &args.samtools_path)?;
 
     fs::create_dir_all(&args.output_dir)?;
+
+    let log_file = args.output_dir.join("log.txt");
+    simple_logging::log_to_file(log_file, LevelFilter::Info)?;
+
+    np_index(
+        &nanopolish,
+        &args.pos_fast5s,
+        &args.pos_reads,
+        &args.pos_summary,
+    )?;
+    np_index(
+        &nanopolish,
+        &args.neg_fast5s,
+        &args.neg_reads,
+        &args.neg_summary,
+    )?;
+
+    let pos_aln = args.output_dir.join("pos.bam");
+    aln_reads(
+        &minimap2,
+        &samtools,
+        &args.genome,
+        &args.pos_reads,
+        &pos_aln,
+    )?;
+    let neg_aln = args.output_dir.join("neg.bam");
+    aln_reads(
+        &minimap2,
+        &samtools,
+        &args.genome,
+        &args.neg_reads,
+        &neg_aln,
+    )?;
+
+    let pos_collapse = args.output_dir.join("pos_collapse.arrow");
+    eventalign_collapse(&nanopolish, &args.pos_reads, &pos_aln, &pos_collapse)?;
+
+    let neg_collapse = args.output_dir.join("neg_collapse.collapse.arrow");
+    eventalign_collapse(&nanopolish, &args.pos_reads, &neg_aln, &neg_collapse)?;
+
+    let pos_train = args.output_dir.join("pos_train.pickle");
+    let neg_train = args.output_dir.join("neg_train.pickle");
+
+    let pos_model = train_npsmlr(&pos_collapse)?;
+    let neg_model = train_npsmlr(&neg_collapse)?;
+    pos_model.save_as(pos_train)?;
+    neg_model.save_as(neg_train)?;
+
+    let rank_output = args.output_dir.join("ranks.pickle");
+    let ranks = rank_models(&rank_output, &pos_model, &neg_model)?;
+
+    let score_opts = ScoreOptions::new(pos_model, neg_model, ranks, 10, 10.0, args.motifs.clone());
+
+    let pos_collapse = File::open(pos_collapse)?;
+    let pos_scores_path = args.output_dir.join("pos_scored.arrow");
+    let pos_scores = File::create(&pos_scores_path)?;
+    score_opts.run(pos_collapse, pos_scores)?;
+
+    let neg_collapse = File::open(&neg_collapse)?;
+    let neg_scores_path = args.output_dir.join("neg_scored.arrow");
+    let neg_scores = File::create(&neg_scores_path)?;
+    score_opts.run(neg_collapse, neg_scores)?;
+
+    {
+        let pos_scores = File::open(pos_scores_path)?;
+        let pos_bkde_path = args.output_dir.join("pos_model_scores.pickle");
+        let pos_bkde = Options::default().run(pos_scores)?;
+        pos_bkde.save_as(pos_bkde_path)?;
+    }
+
+    {
+        let neg_scores = File::open(neg_scores_path)?;
+        let neg_bkde_path = args.output_dir.join("neg_model_scores.pickle");
+        let neg_bkde = Options::default().run(neg_scores)?;
+        neg_bkde.save_as(neg_bkde_path)?;
+    }
 
     Ok(())
 }

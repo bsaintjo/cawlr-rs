@@ -75,6 +75,15 @@ impl TrainOptions {
         R: Read + Seek,
         W: Write,
     {
+        let model = self.run_model(input)?;
+        model.save(&mut writer)?;
+        Ok(())
+    }
+
+    pub fn run_model<R>(self, input: R) -> Result<Model>
+    where
+        R: Read + Seek,
+    {
         let db = sled::Config::new().temporary(true).open()?;
         let tree = Tree::open(&db, "npsmlr_train");
         tree.set_merge_operator(extend_merge);
@@ -89,9 +98,7 @@ impl TrainOptions {
             Ok(())
         })?;
 
-        let model = self.train_gmms(tree)?;
-        model.save(&mut writer)?;
-        Ok(())
+        self.train_gmms(tree)
     }
 
     fn train_gmms(&self, tree: Tree<String, Vec<f64>>) -> Result<Model> {
