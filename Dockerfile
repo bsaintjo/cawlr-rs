@@ -70,7 +70,7 @@ COPY --from=builder /tools /cawlr/target/release/cawlr \
 	/cawlr/target/release/analyze-region-pipeline \
 	/cawlr/target/release/filter_scores \
 	/cawlr/target/release/agg-blocks \
-	/cawlr/target/release/train_ctrls_pipeline \
+	/cawlr/target/release/train-ctrls-pipeline \
 	/cawlr/target/release/filter_detection \
 	/tools/
 ENV PATH="/tools:${PATH}"
