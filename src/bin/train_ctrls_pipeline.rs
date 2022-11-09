@@ -12,7 +12,7 @@ use cawlr::{
     rank::RankOptions,
     score_model::Options,
     train::{Model, Train, TrainStrategy},
-    utils::{self, CawlrIO},
+    utils::{self, wrap_cmd, wrap_cmd_output, CawlrIO},
 };
 use clap::Parser;
 use eyre::Result;
@@ -162,78 +162,96 @@ fn main() -> eyre::Result<()> {
     let log_file = args.output_dir.join("log.txt");
     simple_logging::log_to_file(log_file, LevelFilter::Info)?;
 
-    np_index(
-        &nanopolish,
-        &args.pos_fast5s,
-        &args.pos_reads,
-        &args.pos_summary,
-    )?;
-    np_index(
-        &nanopolish,
-        &args.neg_fast5s,
-        &args.neg_reads,
-        &args.neg_summary,
-    )?;
+    wrap_cmd("nanopolish index for (+) ctrl", || {
+        np_index(
+            &nanopolish,
+            &args.pos_fast5s,
+            &args.pos_reads,
+            &args.pos_summary,
+        )
+    })?;
+    wrap_cmd("nanopolish index for (-) ctrl", || {
+        np_index(
+            &nanopolish,
+            &args.neg_fast5s,
+            &args.neg_reads,
+            &args.neg_summary,
+        )
+    })?;
 
     let pos_aln = args.output_dir.join("pos.bam");
-    aln_reads(
-        &minimap2,
-        &samtools,
-        &args.genome,
-        &args.pos_reads,
-        &pos_aln,
-    )?;
+    wrap_cmd("align (+) ctrl reads", || {
+        aln_reads(
+            &minimap2,
+            &samtools,
+            &args.genome,
+            &args.pos_reads,
+            &pos_aln,
+        )
+    })?;
     let neg_aln = args.output_dir.join("neg.bam");
-    aln_reads(
-        &minimap2,
-        &samtools,
-        &args.genome,
-        &args.neg_reads,
-        &neg_aln,
-    )?;
+    wrap_cmd("align (-) ctrl reads", || {
+        aln_reads(
+            &minimap2,
+            &samtools,
+            &args.genome,
+            &args.neg_reads,
+            &neg_aln,
+        )
+    })?;
 
     let pos_collapse = args.output_dir.join("pos_collapse.arrow");
-    eventalign_collapse(&nanopolish, &args.pos_reads, &pos_aln, &pos_collapse)?;
+    wrap_cmd("nanopolish eventalign (+) ctrl | cawlr collapse", || {
+        eventalign_collapse(&nanopolish, &args.pos_reads, &pos_aln, &pos_collapse)
+    })?;
 
     let neg_collapse = args.output_dir.join("neg_collapse.collapse.arrow");
-    eventalign_collapse(&nanopolish, &args.pos_reads, &neg_aln, &neg_collapse)?;
+    wrap_cmd("nanopolish eventalign (-) ctrl | cawlr collapse", || {
+        eventalign_collapse(&nanopolish, &args.pos_reads, &neg_aln, &neg_collapse)
+    })?;
 
     let pos_train = args.output_dir.join("pos_train.pickle");
     let neg_train = args.output_dir.join("neg_train.pickle");
 
-    let pos_model = train_npsmlr(&pos_collapse)?;
-    let neg_model = train_npsmlr(&neg_collapse)?;
+    let pos_model = wrap_cmd_output("Train (+) ctrl", || train_npsmlr(&pos_collapse))?;
     pos_model.save_as(pos_train)?;
+    let neg_model = wrap_cmd_output("Train (-) ctrl", || train_npsmlr(&neg_collapse))?;
     neg_model.save_as(neg_train)?;
 
     let rank_output = args.output_dir.join("ranks.pickle");
-    let ranks = rank_models(&rank_output, &pos_model, &neg_model)?;
+    let ranks = wrap_cmd_output("ranking model kmers", || {
+        rank_models(&rank_output, &pos_model, &neg_model)
+    })?;
 
     let score_opts = ScoreOptions::new(pos_model, neg_model, ranks, 10, 10.0, args.motifs.clone());
 
-    let pos_collapse = File::open(pos_collapse)?;
     let pos_scores_path = args.output_dir.join("pos_scored.arrow");
-    let pos_scores = File::create(&pos_scores_path)?;
-    score_opts.run(pos_collapse, pos_scores)?;
+    wrap_cmd("Scoring (+) ctrl", || {
+        let pos_collapse = File::open(&pos_collapse)?;
+        let pos_scores = File::create(&pos_scores_path)?;
+        score_opts.run(pos_collapse, &pos_scores)
+    })?;
 
-    let neg_collapse = File::open(&neg_collapse)?;
     let neg_scores_path = args.output_dir.join("neg_scored.arrow");
-    let neg_scores = File::create(&neg_scores_path)?;
-    score_opts.run(neg_collapse, neg_scores)?;
+    wrap_cmd("Scoring (-) ctrl", || {
+        let neg_collapse = File::open(&neg_collapse)?;
+        let neg_scores = File::create(&neg_scores_path)?;
+        score_opts.run(neg_collapse, neg_scores)
+    })?;
 
-    {
-        let pos_scores = File::open(pos_scores_path)?;
+    wrap_cmd("(+) model score dist", || {
+        let pos_scores = File::open(&pos_scores_path)?;
         let pos_bkde_path = args.output_dir.join("pos_model_scores.pickle");
         let pos_bkde = Options::default().run(pos_scores)?;
-        pos_bkde.save_as(pos_bkde_path)?;
-    }
+        pos_bkde.save_as(pos_bkde_path)
+    })?;
 
-    {
-        let neg_scores = File::open(neg_scores_path)?;
+    wrap_cmd("(-) model score dist", || {
+        let neg_scores = File::open(&neg_scores_path)?;
         let neg_bkde_path = args.output_dir.join("neg_model_scores.pickle");
         let neg_bkde = Options::default().run(neg_scores)?;
-        neg_bkde.save_as(neg_bkde_path)?;
-    }
+        neg_bkde.save_as(neg_bkde_path)
+    })?;
 
     Ok(())
 }

@@ -143,3 +143,26 @@ where
         Err(eyre::eyre!("Previous command failed, check log.txt"))
     }
 }
+
+pub fn wrap_cmd_output<F, U>(msg: &'static str, mut f: F) -> eyre::Result<U>
+where
+    F: FnMut() -> eyre::Result<U>,
+{
+    let p = ProgressBar::new_spinner()
+        .with_style(
+            ProgressStyle::with_template("{spinner:.green} [{elapsed_precise}] {msg}").unwrap(),
+        )
+        .with_message(msg);
+    p.enable_steady_tick(Duration::from_millis(100));
+    f()?;
+    // p.finish_with_message(format!("✅ \"{}\" complete", msg));
+    // Ok(())
+
+    if let Ok(u) = f() {
+        p.finish_with_message(format!("✅ \"{}\" complete", msg));
+        Ok(u)
+    } else {
+        p.finish_with_message(format!("❌ \"{}\" failed", msg));
+        Err(eyre::eyre!("Previous command failed, check log.txt"))
+    }
+}
