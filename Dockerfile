@@ -44,7 +44,7 @@ WORKDIR /samtools
 RUN ./configure && make && make install && cp ./samtools /tools/
 
 WORKDIR /cawlr
-RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain nightly --profile minimal
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable --profile minimal
 ENV PATH="/root/.cargo/bin:${PATH}"
 
 # For caching dependencies
