@@ -11,7 +11,7 @@ use cawlr::{
     npsmlr::{train::TrainOptions, ScoreOptions},
     rank::RankOptions,
     score_model::Options,
-    train::{Model, Train, TrainStrategy},
+    train::Model,
     utils::{self, wrap_cmd, wrap_cmd_output, CawlrIO},
 };
 use clap::Parser;
@@ -68,10 +68,11 @@ fn np_index(
     summary: &Option<PathBuf>,
 ) -> Result<()> {
     let mut cmd = Command::new(nanopolish);
-    cmd.arg("index").arg("-d").arg(fast5s).arg(reads);
+    cmd.arg("index").arg("-d").arg(fast5s);
     if let Some(summary) = summary {
         cmd.arg("-s").arg(summary);
     }
+    cmd.arg(reads);
     log::info!("{cmd:?}");
     cmd.output()?;
     Ok(())
@@ -111,13 +112,21 @@ fn aln_reads(
     Ok(())
 }
 
-fn eventalign_collapse(nanopolish: &Path, reads: &Path, bam: &Path, output: &Path) -> Result<()> {
+fn eventalign_collapse(
+    nanopolish: &Path,
+    reads: &Path,
+    bam: &Path,
+    genome: &Path,
+    output: &Path,
+) -> Result<()> {
     let cmd = Command::new(nanopolish)
         .arg("eventalign")
         .arg("-r")
         .arg(reads)
         .arg("-b")
         .arg(bam)
+        .arg("-g")
+        .arg(genome)
         .arg("-t")
         .arg("4")
         .arg("--print-read-names")
@@ -202,12 +211,24 @@ fn main() -> eyre::Result<()> {
 
     let pos_collapse = args.output_dir.join("pos_collapse.arrow");
     wrap_cmd("nanopolish eventalign (+) ctrl | cawlr collapse", || {
-        eventalign_collapse(&nanopolish, &args.pos_reads, &pos_aln, &pos_collapse)
+        eventalign_collapse(
+            &nanopolish,
+            &args.pos_reads,
+            &pos_aln,
+            &args.genome,
+            &pos_collapse,
+        )
     })?;
 
     let neg_collapse = args.output_dir.join("neg_collapse.collapse.arrow");
     wrap_cmd("nanopolish eventalign (-) ctrl | cawlr collapse", || {
-        eventalign_collapse(&nanopolish, &args.pos_reads, &neg_aln, &neg_collapse)
+        eventalign_collapse(
+            &nanopolish,
+            &args.pos_reads,
+            &neg_aln,
+            &args.genome,
+            &neg_collapse,
+        )
     })?;
 
     let pos_train = args.output_dir.join("pos_train.pickle");
