@@ -129,6 +129,7 @@ fn eventalign_collapse(
         .arg(genome)
         .arg("-t")
         .arg("4")
+        .arg("--scale-events")
         .arg("--print-read-names")
         .arg("--samples")
         .stdout(Stdio::piped())
