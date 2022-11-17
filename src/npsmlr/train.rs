@@ -84,7 +84,8 @@ impl TrainOptions {
     where
         R: Read + Seek,
     {
-        let db = sled::Config::new().temporary(true).open()?;
+        let tmp_dir = std::env::temp_dir().join("npsmlr.db");
+        let db = sled::Config::new().path(tmp_dir).temporary(true).open()?;
         let tree = Tree::open(&db, "npsmlr_train");
         tree.set_merge_operator(extend_merge);
         load_read_arrow(input, |eventaligns: Vec<Eventalign>| {
