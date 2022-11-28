@@ -3,7 +3,8 @@
 This script provides an example of reading a cawlr score file using pyarrow.
 
 In this example, we load an Arrow file passed via a command line. We change
-the name of the first read via its metadata, and save it to a new file.
+the name of the first read via its metadata, and save it to a new file. We
+then create a new file from scratch and then overwrite our previous example.
 """
 
 import argparse
@@ -70,9 +71,7 @@ def from_scratch():
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "-i", "--input", required=True, help="Scored Arrow file"
-    )
+    parser.add_argument("-i", "--input", required=True, help="Scored Arrow file")
     parser.add_argument(
         "-o", "--output", required=True, help="Output Scored Arrow file name"
     )
@@ -92,13 +91,19 @@ def main():
     # ...............................^ This returns a dictionary with several
     #                                  several pieces of info, one of which is
     #                                  the read name.
-    output = table.from_pydict(fdict, table.schema)
+
+    output = Table.from_pydict(fdict)
     feather.write_feather(output, args.output)
 
+    # Another example, creating it from scratch and overwriting the last output
+    # Comment out this portion if you want to do something with the modified
+    # version
     new_fdict = from_scratch()
     # Note: Currently this line will fail because pyarrow doesn't support
-    # dense_union. Currently fixing to resolve this issue.
-    output = Table.from_pydict(new_fdict, table.schema)
+    # dense_union. Currently fixing to resolve this issue, for now, don't pass
+    # table.schema
+    # output = Table.from_pydict(new_fdict, schema=table.schema)
+    output = Table.from_pydict(new_fdict)
     feather.write_feather(output, args.output)
 
 
