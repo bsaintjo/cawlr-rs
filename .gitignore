@@ -6,3 +6,4 @@ log.txt
 dist/
 .cargo/
 paper_data
+test/
