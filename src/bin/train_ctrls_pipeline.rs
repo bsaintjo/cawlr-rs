@@ -12,7 +12,7 @@ use cawlr::{
     rank::RankOptions,
     score_model::Options,
     train::Model,
-    utils::{self, wrap_cmd, wrap_cmd_output, CawlrIO},
+    utils::{self, wrap_cmd, CawlrIO, wrap_cmd_output},
 };
 use clap::Parser;
 use eyre::Result;
