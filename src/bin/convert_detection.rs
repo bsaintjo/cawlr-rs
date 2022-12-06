@@ -55,7 +55,7 @@ fn convert_to_read(dlines: &[DetectionLine]) -> ScoredRead {
         chrom,
         start,
         end - start + 1,
-        Strand::Unknown,
+        Strand::unknown(),
         String::new(),
     );
     let scores: Vec<Score> = dlines
@@ -106,9 +106,9 @@ pub fn run(input: &Path, bam: &Option<PathBuf>, output: &Path) -> eyre::Result<(
             let mut read = convert_to_read(&acc);
             if let Some(plus_stranded) = strand_map.get(read.name()) {
                 if plus_stranded {
-                    *read.strand_mut() = Strand::Plus;
+                    *read.strand_mut() = Strand::plus();
                 } else {
-                    *read.strand_mut() = Strand::Minus;
+                    *read.strand_mut() = Strand::minus();
                 }
             }
             save(&mut writer, &[read])?;

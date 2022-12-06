@@ -250,20 +250,25 @@ impl Signal {
 }
 
 /// Read orientation relative to a genome
+// #[derive(Debug, Copy, Clone, ArrowField, PartialEq, Eq)]
+// #[arrow_field(type = "sparse")]
+// pub enum Strand {
+//     /// (+) strand
+//     Plus,
+//     /// (-) strand
+//     Minus,
+//     /// Unable to determine strand
+//     Unknown,
+// }
+
 #[derive(Debug, Copy, Clone, ArrowField, PartialEq, Eq)]
-#[arrow_field(type = "dense")]
-pub enum Strand {
-    /// (+) strand
-    Plus,
-    /// (-) strand
-    Minus,
-    /// Unable to determine strand
-    Unknown,
+pub struct Strand {
+    strand: i8,
 }
 
 impl Default for Strand {
     fn default() -> Self {
-        Strand::Unknown
+        Strand::unknown()
     }
 }
 
@@ -274,40 +279,45 @@ impl Display for Strand {
 }
 
 impl Strand {
-    pub fn rgb_str(&self) -> &str {
-        match self {
-            Strand::Plus => "255,0,0",
-            Strand::Minus => "0,0,255",
-            Strand::Unknown => "0,0,0",
+    pub const fn new(strand: i8) -> Self {
+        Self { strand }
+    }
+
+    pub const fn rgb_str(&self) -> &str {
+        match self.strand {
+            s if s > 0 => "255,0,0",
+            s if s < 0 => "0,0,255",
+            0 => "0,0,0",
+            _ => panic!()
         }
     }
 
-    pub(crate) fn plus() -> Self {
-        // Strand { strand: 1i8 }
-        Strand::Plus
+    pub const fn plus() -> Self {
+        Strand::new(1)
     }
 
-    pub(crate) fn minus() -> Self {
-        Strand::Minus
+    pub const fn minus() -> Self {
+        Strand::new(-1)
     }
 
-    pub(crate) fn unknown() -> Self {
-        Strand::Unknown
+    pub const fn unknown() -> Self {
+        Strand::new(0)
     }
 
-    pub(crate) fn is_minus_strand(&self) -> bool {
-        matches!(self, Strand::Minus)
+    pub const fn is_minus_strand(&self) -> bool {
+        self.strand < 0
     }
 
-    pub(crate) fn is_unknown_strand(&self) -> bool {
-        matches!(self, Strand::Unknown)
+    pub const fn is_unknown_strand(&self) -> bool {
+        self.strand == 0
     }
 
-    pub(crate) fn as_str(&self) -> &'static str {
-        match self {
-            Self::Plus => "+",
-            Self::Minus => "-",
-            Self::Unknown => ".",
+    pub const fn as_str(&self) -> &'static str {
+        match self.strand {
+            s if s > 0 => "+",
+            s if s < 0 => "-",
+            0 => ".",
+            _ => panic!("Strand enum pattern")
         }
     }
 }
@@ -497,9 +507,8 @@ mod test {
     use arrow2_convert::deserialize::TryIntoCollection;
     use bio::io::fasta::IndexedReader;
 
-    use crate::{wrap_writer, save, arrow_utils::load};
-
     use super::*;
+    use crate::{arrow_utils::load, save, wrap_writer};
 
     #[test]
     fn test_single_read() {}

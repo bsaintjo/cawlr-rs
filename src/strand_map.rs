@@ -29,13 +29,13 @@ impl StrandMap {
 
             let plus_stranded = !record.flag().is_reverse_strand();
             let strand = if plus_stranded {
-                Strand::Plus
+                Strand::plus()
             } else {
-                Strand::Minus
+                Strand::minus()
             };
             let entry = acc.entry(read_name.to_owned()).or_insert(strand);
             if *entry != strand {
-                *entry = Strand::Unknown;
+                *entry = Strand::unknown();
                 log::warn!("Multimapped read has strand swap");
             }
         }
@@ -65,7 +65,7 @@ mod test {
         let psmap = StrandMap::from_bam_file(filepath).unwrap();
         let read_id: &[u8] = b"20d1aac0-29de-43ae-a0ef-aa8a6766eb70";
         assert!(psmap.0.contains_key(read_id));
-        assert_eq!(psmap.get(read_id), Some(Strand::Plus));
+        assert_eq!(psmap.get(read_id), Some(Strand::plus()));
     }
 
     #[test]
@@ -74,6 +74,6 @@ mod test {
         let psmap = StrandMap::from_bam_file(filepath).unwrap();
         let read_id: &[u8] = b"ca10c9e3-61d4-439b-abb3-078767d19f8c";
         assert!(psmap.0.contains_key(read_id));
-        assert_eq!(psmap.get(read_id), Some(Strand::Minus));
+        assert_eq!(psmap.get(read_id), Some(Strand::minus()));
     }
 }
