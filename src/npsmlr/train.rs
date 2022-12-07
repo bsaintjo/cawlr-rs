@@ -1,7 +1,7 @@
-use std::io::{Read, Seek, Write};
+use std::{io::{Read, Seek, Write}, collections::{HashMap, HashSet}};
 
 use eyre::Result;
-use itertools::Itertools;
+// use itertools::Itertools;
 use linfa::{
     traits::{Fit, Transformer},
     DatasetBase, ParamGuard,
@@ -18,13 +18,13 @@ use crate::{
     Eventalign,
 };
 
-fn all_kmers() -> Vec<String> {
-    ["A", "C", "G", "T"]
-        .iter()
-        .permutations(6)
-        .map(|xs| xs.iter().join(""))
-        .collect()
-}
+// fn all_kmers() -> Vec<String> {
+//     ["A", "C", "G", "T"]
+//         .iter()
+//         .permutations(6)
+//         .map(|xs| xs.iter().join(""))
+//         .collect()
+// }
 
 pub struct TrainOptions {
     n_samples: usize,
@@ -33,18 +33,18 @@ pub struct TrainOptions {
     motifs: Vec<Motif>,
 }
 
-fn extend_merge(
-    _key: String,
-    old_value: Option<Vec<f64>>,
-    mut new_value: Vec<f64>,
-) -> Option<Vec<f64>> {
-    if let Some(mut ov) = old_value {
-        ov.append(&mut new_value);
-        Some(ov)
-    } else {
-        Some(new_value)
-    }
-}
+// fn extend_merge(
+//     _key: String,
+//     old_value: Option<Vec<f64>>,
+//     mut new_value: Vec<f64>,
+// ) -> Option<Vec<f64>> {
+//     if let Some(mut ov) = old_value {
+//         ov.append(&mut new_value);
+//         Some(ov)
+//     } else {
+//         Some(new_value)
+//     }
+// }
 
 impl Default for TrainOptions {
     fn default() -> Self {
@@ -92,35 +92,46 @@ impl TrainOptions {
     where
         R: Read + Seek,
     {
-        let tmp_dir = std::env::temp_dir().join("npsmlr.db");
+        // let tmp_dir = std::env::temp_dir().join("npsmlr.db");
+        let mut tree = HashMap::new();
+        let mut finished: HashSet<String> = HashSet::new();
         // let db = sled::Config::new().path(tmp_dir).temporary(true).open()?;
         // let tree = Tree::open(&db, "npsmlr_train");
         // tree.set_merge_operator(extend_merge);
-        // load_read_arrow(input, |eventaligns: Vec<Eventalign>| {
-        //     for eventalign in eventaligns.into_iter() {
-        //         for signal in eventalign.signal_iter() {
-        //             let kmer = signal.kmer();
-        //             let samples = signal.samples();
-        //             tree.merge(&kmer.to_string(), &samples.to_vec())?;
-        //         }
-        //     }
-        //     Ok(())
-        // })?;
+        load_read_arrow(input, |eventaligns: Vec<Eventalign>| {
+            for eventalign in eventaligns.into_iter() {
+                if finished.len() > 4096 {
+                    break
+                }
 
-        // self.train_gmms(tree)
-        todo!()
+                for signal in eventalign.signal_iter() {
+                    let kmer = signal.kmer();
+                    if finished.contains(kmer) {
+                        continue
+                    }
+                    let mut samples = signal.samples().to_vec();
+                    let kmer_samples: &mut Vec<f64> = tree.entry(kmer.to_string()).or_default();
+                    kmer_samples.append(&mut samples);
+                    if kmer_samples.len() > self.n_samples {
+                        finished.insert(kmer.to_string());
+                    }
+                }
+            }
+            Ok(())
+        })?;
+
+        self.train_gmms(tree)
     }
 
-    // fn train_gmms(&self, tree: Tree<String, Vec<f64>>) -> Result<Model> {
-    //     let mut model = Model::default();
-    //     for item in tree.iter() {
-    //         let (kmer, samples) = item?;
-    //         if let Some(gmm) = self.train_gmm(samples) {
-    //             model.insert_gmm(kmer, gmm);
-    //         }
-    //     }
-    //     Ok(model)
-    // }
+    fn train_gmms(&self, tree: HashMap<String, Vec<f64>>) -> Result<Model> {
+        let mut model = Model::default();
+        for (kmer, samples) in tree.into_iter() {
+            if let Some(gmm) = self.train_gmm(samples) {
+                model.insert_gmm(kmer, gmm);
+            }
+        }
+        Ok(model)
+    }
 
     fn train_gmm(&self, samples: Vec<f64>) -> Option<Mixture<Gaussian>> {
         let len = samples.len();
@@ -182,13 +193,13 @@ impl TrainOptions {
     }
 }
 
-#[cfg(test)]
-mod test {
-    use super::*;
+// #[cfg(test)]
+// mod test {
+//     use super::*;
 
-    #[test]
-    fn test_all_kmers() {
-        let kmers = all_kmers();
-        assert_eq!(4096, kmers.len());
-    }
-}
+//     #[test]
+//     fn test_all_kmers() {
+//         let kmers = all_kmers();
+//         assert_eq!(4096, kmers.len());
+//     }
+// }
