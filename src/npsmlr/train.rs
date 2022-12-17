@@ -104,7 +104,7 @@ impl TrainOptions {
     fn train_gmms(&self, db: Db) -> Result<Model> {
         let mut model = Model::default();
         for kmer in all_kmers() {
-            let samples = db.get_kmer_samples(&kmer)?;
+            let samples = db.get_kmer_samples(&kmer, self.n_samples)?;
             if !samples.is_empty() {
                 if let Some(gmm) = self.train_gmm(samples) {
                     model.insert_gmm(kmer, gmm);
@@ -222,11 +222,11 @@ impl Db {
         Ok(())
     }
 
-    fn get_kmer_samples(&self, kmer: &str) -> eyre::Result<Vec<f64>> {
+    fn get_kmer_samples(&self, kmer: &str, n_samples: usize) -> eyre::Result<Vec<f64>> {
         let mut stmt = self
             .0
-            .prepare("SELECT sample FROM data where kmer = :kmer")?;
-        let rows = stmt.query_map(named_params! {":kmer": kmer}, |row| {
+            .prepare("SELECT sample FROM data where kmer = :kmer LIMIT :n")?;
+        let rows = stmt.query_map(named_params! {":kmer": kmer, ":n": n_samples}, |row| {
             row.get::<usize, f64>(0)
         })?;
         let mut samples = Vec::new();
