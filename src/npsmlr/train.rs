@@ -1,4 +1,7 @@
-use std::{io::{Read, Seek, Write}, collections::{HashMap, HashSet}};
+use std::{
+    collections::{HashMap, HashSet},
+    io::{Read, Seek, Write},
+};
 
 use eyre::Result;
 // use itertools::Itertools;
@@ -8,6 +11,7 @@ use linfa::{
 };
 use linfa_clustering::{Dbscan, GaussianMixtureModel};
 use ndarray::Array;
+use rusqlite::Connection;
 use rv::prelude::{Gaussian, Mixture};
 
 use crate::{
@@ -92,7 +96,8 @@ impl TrainOptions {
     where
         R: Read + Seek,
     {
-        // let tmp_dir = std::env::temp_dir().join("npsmlr.db");
+        let db_path = std::env::temp_dir().join("npsmlr.db");
+        let db = Db::open(db_path.as_os_str().to_str().unwrap())?;
         let mut tree = HashMap::new();
         let mut finished: HashSet<String> = HashSet::new();
         // let db = sled::Config::new().path(tmp_dir).temporary(true).open()?;
@@ -101,13 +106,13 @@ impl TrainOptions {
         load_read_arrow(input, |eventaligns: Vec<Eventalign>| {
             for eventalign in eventaligns.into_iter() {
                 if finished.len() > 4096 {
-                    break
+                    break;
                 }
 
                 for signal in eventalign.signal_iter() {
                     let kmer = signal.kmer();
                     if finished.contains(kmer) {
-                        continue
+                        continue;
                     }
                     let mut samples = signal.samples().to_vec();
                     let kmer_samples: &mut Vec<f64> = tree.entry(kmer.to_string()).or_default();
@@ -190,6 +195,41 @@ impl TrainOptions {
             .unwrap();
         let mm = mix_to_mix(&gmm);
         Some(mm)
+    }
+}
+
+struct Db(Connection);
+
+impl Db {
+    fn open(path: &str) -> eyre::Result<Self> {
+        Ok(Db(Connection::open(path)?))
+    }
+    fn init(&self) -> eyre::Result<()> {
+        self.0.execute(
+            "CREATE TABLE data (
+                id      INTEGER PRIMARY KEY,
+                kmer    TEXT NOT NULL,
+                sample  REAL NOT NULL
+            );",
+            (),
+        )?;
+        Ok(())
+    }
+
+    fn add_read(&mut self, eventalign: Eventalign) -> eyre::Result<()> {
+        let tx = self.0.transaction()?;
+        for signal in eventalign.signal_iter() {
+            let kmer = signal.kmer();
+            for sample in signal.samples() {
+                tx.execute(
+                    "INSERT INTO data (kmer, sample) VALUES (?1, ?2)",
+                    (kmer, sample),
+                )?;
+            }
+        }
+
+        tx.commit()?;
+        Ok(())
     }
 }
 

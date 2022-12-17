@@ -93,6 +93,7 @@ num_cpus = "1.13.1"
 # Finding binaries by default for pipeline tools
 which = "4.3.0"
 simple-logging = "2.0.2"
+rusqlite = { version = "0.28.0", features = ["bundled"] }
 
 # Embedded database for storing parsed samples
 # typed-sled = { version = "0.2.0", git = "https://github.com/bsaintjo/typed-sled", branch = "impl-mergeoperator"}
