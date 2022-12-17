@@ -40,7 +40,6 @@ fnv = "1.0.7"
 
 # Progress reporting
 indicatif = { version = "0.17.1", features = ["improved_unicode"] }
-
 itertools = "0.10.5"
 
 # Gaussian Mixture Mdoesl

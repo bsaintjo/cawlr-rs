@@ -42,7 +42,7 @@ impl Default for TrainOptions {
 fn all_kmers() -> Vec<String> {
     let mut kmers: Vec<String> = vec![String::new()];
     let bases = ["A", "C", "G", "T"];
-    for _ in 0 .. 6 {
+    for _ in 0..6 {
         let mut acc = Vec::new();
         for base in bases {
             for s in kmers.iter() {
@@ -94,9 +94,7 @@ impl TrainOptions {
         let db_path = std::env::temp_dir().join("npsmlr.db");
         let mut db = Db::open(db_path)?;
         load_read_arrow(input, |eventaligns: Vec<Eventalign>| {
-            for eventalign in eventaligns.into_iter() {
-                db.add_read(eventalign)?;
-            }
+            db.add_reads(eventaligns)?;
             Ok(())
         })?;
 
@@ -186,8 +184,10 @@ impl Db {
         }
         let db = Db(Connection::open(path)?);
         db.init()?;
+        db.create_idx()?;
         Ok(db)
     }
+
     fn init(&self) -> eyre::Result<()> {
         self.0.execute(
             "CREATE TABLE data (
@@ -200,17 +200,23 @@ impl Db {
         Ok(())
     }
 
-    fn add_read(&mut self, eventalign: Eventalign) -> eyre::Result<()> {
+    fn create_idx(&self) -> eyre::Result<()> {
+        self.0.execute("CREATE INDEX kmer_idx on data (kmer)", ())?;
+        Ok(())
+    }
+
+    fn add_reads(&mut self, es: Vec<Eventalign>) -> eyre::Result<()> {
         let tx = self.0.transaction()?;
-        for signal in eventalign.signal_iter() {
-            let kmer = signal.kmer();
-            for sample in signal.samples() {
-                tx.execute(
-                    "INSERT INTO data (kmer, sample) VALUES (?1, ?2)",
-                    (kmer, sample),
-                )?;
+        let mut stmt = tx.prepare("INSERT INTO data (kmer, sample) VALUES (?1, ?2)")?;
+        for eventalign in es.into_iter() {
+            for signal in eventalign.signal_iter() {
+                let kmer = signal.kmer();
+                for sample in signal.samples() {
+                    stmt.execute((kmer, sample))?;
+                }
             }
         }
+        stmt.finalize()?;
 
         tx.commit()?;
         Ok(())
@@ -251,7 +257,7 @@ mod test {
         let db_path = tmp_dir.join("test.db");
         let mut db = Db::open(db_path).expect("Failed to open database file");
         let eventalign = Eventalign::default();
-        db.add_read(eventalign).expect("Unable to add read");
+        db.add_reads(vec![eventalign]).expect("Unable to add read");
         let samples = db
             .get_kmer_samples("ABCDEF")
             .expect("Unable to get samples");
@@ -275,7 +281,7 @@ mod test {
             .collect::<Vec<_>>();
         let mut eventalign = Eventalign::default();
         *eventalign.signal_data_mut() = signal_data;
-        db.add_read(eventalign).expect("Unable to add read");
+        db.add_reads(vec![eventalign]).expect("Unable to add read");
 
         for (k, xs) in test_cases.into_iter() {
             let err_msg = format!("Unable to retrieve kmer values for {k}");
