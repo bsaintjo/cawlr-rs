@@ -1,17 +1,16 @@
 use std::{
-    collections::{HashMap, HashSet},
     io::{Read, Seek, Write},
+    path::Path,
 };
 
 use eyre::Result;
-// use itertools::Itertools;
 use linfa::{
     traits::{Fit, Transformer},
     DatasetBase, ParamGuard,
 };
 use linfa_clustering::{Dbscan, GaussianMixtureModel};
 use ndarray::Array;
-use rusqlite::Connection;
+use rusqlite::{named_params, Connection};
 use rv::prelude::{Gaussian, Mixture};
 
 use crate::{
@@ -22,33 +21,12 @@ use crate::{
     Eventalign,
 };
 
-// fn all_kmers() -> Vec<String> {
-//     ["A", "C", "G", "T"]
-//         .iter()
-//         .permutations(6)
-//         .map(|xs| xs.iter().join(""))
-//         .collect()
-// }
-
 pub struct TrainOptions {
     n_samples: usize,
     single: bool,
     dbscan: bool,
     motifs: Vec<Motif>,
 }
-
-// fn extend_merge(
-//     _key: String,
-//     old_value: Option<Vec<f64>>,
-//     mut new_value: Vec<f64>,
-// ) -> Option<Vec<f64>> {
-//     if let Some(mut ov) = old_value {
-//         ov.append(&mut new_value);
-//         Some(ov)
-//     } else {
-//         Some(new_value)
-//     }
-// }
 
 impl Default for TrainOptions {
     fn default() -> Self {
@@ -59,6 +37,23 @@ impl Default for TrainOptions {
             motifs: all_bases(),
         }
     }
+}
+
+fn all_kmers() -> Vec<String> {
+    let mut kmers: Vec<String> = vec![String::new()];
+    let bases = ["A", "C", "G", "T"];
+    for _ in 0 .. 6 {
+        let mut acc = Vec::new();
+        for base in bases {
+            for s in kmers.iter() {
+                let mut xs = s.clone();
+                xs.push_str(base);
+                acc.push(xs);
+            }
+        }
+        kmers = acc;
+    }
+    kmers
 }
 
 impl TrainOptions {
@@ -97,42 +92,25 @@ impl TrainOptions {
         R: Read + Seek,
     {
         let db_path = std::env::temp_dir().join("npsmlr.db");
-        let db = Db::open(db_path.as_os_str().to_str().unwrap())?;
-        let mut tree = HashMap::new();
-        let mut finished: HashSet<String> = HashSet::new();
-        // let db = sled::Config::new().path(tmp_dir).temporary(true).open()?;
-        // let tree = Tree::open(&db, "npsmlr_train");
-        // tree.set_merge_operator(extend_merge);
+        let mut db = Db::open(db_path)?;
         load_read_arrow(input, |eventaligns: Vec<Eventalign>| {
             for eventalign in eventaligns.into_iter() {
-                if finished.len() > 4096 {
-                    break;
-                }
-
-                for signal in eventalign.signal_iter() {
-                    let kmer = signal.kmer();
-                    if finished.contains(kmer) {
-                        continue;
-                    }
-                    let mut samples = signal.samples().to_vec();
-                    let kmer_samples: &mut Vec<f64> = tree.entry(kmer.to_string()).or_default();
-                    kmer_samples.append(&mut samples);
-                    if kmer_samples.len() > self.n_samples {
-                        finished.insert(kmer.to_string());
-                    }
-                }
+                db.add_read(eventalign)?;
             }
             Ok(())
         })?;
 
-        self.train_gmms(tree)
+        self.train_gmms(db)
     }
 
-    fn train_gmms(&self, tree: HashMap<String, Vec<f64>>) -> Result<Model> {
+    fn train_gmms(&self, db: Db) -> Result<Model> {
         let mut model = Model::default();
-        for (kmer, samples) in tree.into_iter() {
-            if let Some(gmm) = self.train_gmm(samples) {
-                model.insert_gmm(kmer, gmm);
+        for kmer in all_kmers() {
+            let samples = db.get_kmer_samples(&kmer)?;
+            if !samples.is_empty() {
+                if let Some(gmm) = self.train_gmm(samples) {
+                    model.insert_gmm(kmer, gmm);
+                }
             }
         }
         Ok(model)
@@ -201,8 +179,14 @@ impl TrainOptions {
 struct Db(Connection);
 
 impl Db {
-    fn open(path: &str) -> eyre::Result<Self> {
-        Ok(Db(Connection::open(path)?))
+    fn open<P: AsRef<Path>>(path: P) -> eyre::Result<Self> {
+        let path = path.as_ref();
+        if path.exists() {
+            std::fs::remove_file(path)?;
+        }
+        let db = Db(Connection::open(path)?);
+        db.init()?;
+        Ok(db)
     }
     fn init(&self) -> eyre::Result<()> {
         self.0.execute(
@@ -231,15 +215,72 @@ impl Db {
         tx.commit()?;
         Ok(())
     }
+
+    fn get_kmer_samples(&self, kmer: &str) -> eyre::Result<Vec<f64>> {
+        let mut stmt = self
+            .0
+            .prepare("SELECT sample FROM data where kmer = :kmer")?;
+        let rows = stmt.query_map(named_params! {":kmer": kmer}, |row| {
+            row.get::<usize, f64>(0)
+        })?;
+        let mut samples = Vec::new();
+        for sample in rows {
+            samples.push(sample?)
+        }
+        Ok(samples)
+    }
 }
 
-// #[cfg(test)]
-// mod test {
-//     use super::*;
+#[cfg(test)]
+mod test {
+    use assert_fs::TempDir;
 
-//     #[test]
-//     fn test_all_kmers() {
-//         let kmers = all_kmers();
-//         assert_eq!(4096, kmers.len());
-//     }
-// }
+    use crate::arrow::Signal;
+
+    use super::*;
+
+    #[test]
+    fn test_all_kmers() {
+        let kmers = all_kmers();
+        assert_eq!(kmers.len(), 4096);
+    }
+
+    #[test]
+    fn test_db_no_kmer() {
+        let tmp_dir = TempDir::new().unwrap();
+        let db_path = tmp_dir.join("test.db");
+        let mut db = Db::open(db_path).expect("Failed to open database file");
+        let eventalign = Eventalign::default();
+        db.add_read(eventalign).expect("Unable to add read");
+        let samples = db
+            .get_kmer_samples("ABCDEF")
+            .expect("Unable to get samples");
+        assert!(samples.is_empty());
+    }
+
+    #[test]
+    fn test_db() {
+        let tmp_dir = TempDir::new().unwrap();
+        let db_path = tmp_dir.join("test.db");
+        let test_cases = vec![
+            ("AAAAAA", vec![1.0; 3]),
+            ("GGGGGG", vec![2.0; 4]),
+            ("CCCCCC", vec![3.0; 2]),
+        ];
+        let mut db = Db::open(db_path).expect("Failed to open database file");
+        let signal_data = test_cases
+            .iter()
+            .enumerate()
+            .map(|(i, (k, xs))| Signal::new(i as u64, k.to_string(), 1.0, 0.5, xs.clone()))
+            .collect::<Vec<_>>();
+        let mut eventalign = Eventalign::default();
+        *eventalign.signal_data_mut() = signal_data;
+        db.add_read(eventalign).expect("Unable to add read");
+
+        for (k, xs) in test_cases.into_iter() {
+            let err_msg = format!("Unable to retrieve kmer values for {k}");
+            let samples = db.get_kmer_samples(k).expect(&err_msg);
+            assert_eq!(samples, xs)
+        }
+    }
+}

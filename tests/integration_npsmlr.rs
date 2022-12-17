@@ -5,7 +5,7 @@ use assert_fs::TempDir;
 use escargot::CargoBuild;
 
 #[test]
-fn integration() -> Result<(), Box<dyn Error>> {
+fn integration_npsmlr() -> Result<(), Box<dyn Error>> {
     let temp_dir = TempDir::new()?.into_persistent_if(std::env::var("TEST_PERSIST").is_ok());
 
     eprintln!("Building release cawlr");
