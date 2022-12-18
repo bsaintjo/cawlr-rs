@@ -225,7 +225,7 @@ impl Db {
     fn get_kmer_samples(&self, kmer: &str, n_samples: usize) -> eyre::Result<Vec<f64>> {
         let mut stmt = self
             .0
-            .prepare("SELECT sample FROM data where kmer = :kmer ORDER BY RANDOM()LIMIT :n")?;
+            .prepare("SELECT sample FROM data where kmer = :kmer ORDER BY RANDOM() LIMIT :n")?;
         let rows = stmt.query_map(named_params! {":kmer": kmer, ":n": n_samples}, |row| {
             row.get::<usize, f64>(0)
         })?;
