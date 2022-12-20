@@ -19,6 +19,7 @@ use arrow2_convert::{
     serialize::{ArrowSerialize, TryIntoArrow},
 };
 use eyre::Result;
+use indicatif::ProgressBar;
 use itertools::Itertools;
 
 use crate::{Eventalign, ScoredRead};
@@ -272,6 +273,32 @@ where
     Ok(())
 }
 
+pub fn load_read_arrow_measured<R, F, T>(mut reader: R, mut func: F) -> Result<()>
+where
+    R: Read + Seek,
+    F: FnMut(Vec<T>) -> eyre::Result<()>,
+    T: ArrowField<Type = T> + ArrowDeserialize + 'static,
+    for<'a> &'a <T as ArrowDeserialize>::ArrayType: IntoIterator,
+{
+    let metadata = read_file_metadata(&mut reader)?;
+    let n_blocks = metadata.blocks.len();
+    let pb = ProgressBar::new(n_blocks as u64);
+    let feather = load(reader)?;
+    for read in feather {
+        if let Ok(chunk) = read {
+            for arr in chunk.into_arrays().into_iter() {
+                let eventaligns: Vec<T> = arr.try_into_collection()?;
+                func(eventaligns)?;
+            }
+        } else {
+            log::error!("Failed to load arrow chunk");
+            return Err(eyre::eyre!("Failed to load arrow chunk"));
+        }
+        pb.inc(1);
+    }
+    pb.finish();
+    Ok(())
+}
 // TODO Refactor multiple maps
 #[cfg(test)]
 pub(crate) fn load_iter<R>(

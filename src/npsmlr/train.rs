@@ -14,7 +14,7 @@ use rusqlite::{named_params, Connection};
 use rv::prelude::{Gaussian, Mixture};
 
 use crate::{
-    arrow_utils::load_read_arrow,
+    arrow_utils::load_read_arrow_measured,
     motif::{all_bases, Motif},
     train::{mix_to_mix, Model},
     utils::CawlrIO,
@@ -93,7 +93,7 @@ impl TrainOptions {
     {
         let db_path = std::env::temp_dir().join("npsmlr.db");
         let mut db = Db::open(db_path)?;
-        load_read_arrow(input, |eventaligns: Vec<Eventalign>| {
+        load_read_arrow_measured(input, |eventaligns: Vec<Eventalign>| {
             db.add_reads(eventaligns)?;
             Ok(())
         })?;
@@ -202,6 +202,9 @@ impl Db {
 
     fn create_idx(&self) -> eyre::Result<()> {
         self.0.execute("CREATE INDEX kmer_idx on data (kmer)", ())?;
+        self.0.pragma_update(None, "journal_mode", "WAL")?;
+        self.0.pragma_update(None, "synchronous", "NORMAL")?;
+        self.0.pragma_update(None, "cache_size", -64000)?;
         Ok(())
     }
 
