@@ -262,7 +262,7 @@ mod test {
         let eventalign = Eventalign::default();
         db.add_reads(vec![eventalign]).expect("Unable to add read");
         let samples = db
-            .get_kmer_samples("ABCDEF")
+            .get_kmer_samples("ABCDEF", 5000)
             .expect("Unable to get samples");
         assert!(samples.is_empty());
     }
@@ -288,7 +288,7 @@ mod test {
 
         for (k, xs) in test_cases.into_iter() {
             let err_msg = format!("Unable to retrieve kmer values for {k}");
-            let samples = db.get_kmer_samples(k).expect(&err_msg);
+            let samples = db.get_kmer_samples(k, 5000).expect(&err_msg);
             assert_eq!(samples, xs)
         }
     }

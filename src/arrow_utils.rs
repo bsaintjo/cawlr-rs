@@ -273,17 +273,16 @@ where
     Ok(())
 }
 
-pub fn load_read_arrow_measured<R, F, T>(mut reader: R, mut func: F) -> Result<()>
+pub fn load_read_arrow_measured<R, F, T>(reader: R, mut func: F) -> Result<()>
 where
     R: Read + Seek,
     F: FnMut(Vec<T>) -> eyre::Result<()>,
     T: ArrowField<Type = T> + ArrowDeserialize + 'static,
     for<'a> &'a <T as ArrowDeserialize>::ArrayType: IntoIterator,
 {
-    let metadata = read_file_metadata(&mut reader)?;
-    let n_blocks = metadata.blocks.len();
-    let pb = ProgressBar::new(n_blocks as u64);
     let feather = load(reader)?;
+    let n_blocks = feather.metadata().blocks.len();
+    let pb = ProgressBar::new(n_blocks as u64);
     for read in feather {
         if let Ok(chunk) = read {
             for arr in chunk.into_arrays().into_iter() {
