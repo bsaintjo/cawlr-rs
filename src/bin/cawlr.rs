@@ -38,6 +38,19 @@ fn parse_strategy(src: &str) -> Result<TrainStrategy, String> {
 }
 
 #[derive(Debug, Subcommand)]
+enum QCCmd {
+    Score {
+        #[clap(short, long)]
+        input: PathBuf,
+    },
+
+    Eventalign {
+        #[clap(short, long)]
+        input: PathBuf,
+    },
+}
+
+#[derive(Debug, Subcommand)]
 enum NpsmlrCmd {
     /// Train using algorithm adapted from NP-SMLR
     Train {
@@ -117,6 +130,9 @@ struct Args {
 
 #[derive(Subcommand, Debug)]
 enum Commands {
+    #[clap(subcommand)]
+    QuickCheck(QCCmd),
+
     #[clap(subcommand)]
     Npsmlr(NpsmlrCmd),
 
@@ -476,6 +492,11 @@ fn main() -> Result<()> {
             }
             sma.run(input)?;
         }
+        Commands::QuickCheck(cmd) => match cmd {
+            QCCmd::Score { input } => todo!(),
+            QCCmd::Eventalign { input } => todo!(),
+        },
+
         Commands::Npsmlr(cmd) => match cmd {
             NpsmlrCmd::Train {
                 input,
