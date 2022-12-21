@@ -19,7 +19,7 @@ use arrow2_convert::{
     serialize::{ArrowSerialize, TryIntoArrow},
 };
 use eyre::Result;
-use indicatif::ProgressBar;
+use indicatif::{ProgressBar, ProgressStyle};
 use itertools::Itertools;
 
 use crate::{Eventalign, ScoredRead};
@@ -273,6 +273,13 @@ where
     Ok(())
 }
 
+fn block_bar(n_blocks: u64) -> eyre::Result<ProgressBar> {
+    let style = ProgressStyle::default_bar().template("[{elapsed}] [[{eta}]] {bar}")?;
+    let pb = ProgressBar::new(n_blocks).with_style(style);
+
+    Ok(pb)
+}
+
 pub fn load_read_arrow_measured<R, F, T>(reader: R, mut func: F) -> Result<()>
 where
     R: Read + Seek,
@@ -282,7 +289,7 @@ where
 {
     let feather = load(reader)?;
     let n_blocks = feather.metadata().blocks.len();
-    let pb = ProgressBar::new(n_blocks as u64);
+    let pb = block_bar(n_blocks as u64)?;
     for read in feather {
         if let Ok(chunk) = read {
             for arr in chunk.into_arrays().into_iter() {
@@ -293,7 +300,7 @@ where
             log::error!("Failed to load arrow chunk");
             return Err(eyre::eyre!("Failed to load arrow chunk"));
         }
-        pb.inc(1);
+        pb.tick();
     }
     pb.finish();
     Ok(())
