@@ -104,6 +104,7 @@ impl TrainOptions {
     fn train_gmms(&self, db: Db) -> Result<Model> {
         let mut model = Model::default();
         for kmer in all_kmers() {
+            log::info!("Training on kmer {kmer}");
             let samples = db.get_kmer_samples(&kmer, self.n_samples)?;
             if !samples.is_empty() {
                 if let Some(gmm) = self.train_gmm(samples) {
@@ -140,7 +141,7 @@ impl TrainOptions {
                 .zip(targets.iter())
                 .filter_map(
                     |(&x, cluster)| {
-                        if cluster.is_some() {
+                        if cluster.is_some() && x.is_finite() {
                             Some(x)
                         } else {
                             None
@@ -212,6 +213,7 @@ impl Db {
         let tx = self.0.transaction()?;
         let mut stmt = tx.prepare("INSERT INTO data (kmer, sample) VALUES (?1, ?2)")?;
         for eventalign in es.into_iter() {
+            log::debug!("Processing {:?}", eventalign.metadata());
             for signal in eventalign.signal_iter() {
                 let kmer = signal.kmer();
                 for sample in signal.samples() {
