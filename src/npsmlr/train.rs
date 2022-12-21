@@ -140,7 +140,7 @@ impl TrainOptions {
                 .iter()
                 .zip(targets.iter())
                 .filter_map(|(&x, cluster)| {
-                    if cluster.is_some() && x.is_finite() {
+                    if cluster.is_some() {
                         Some(x)
                     } else {
                         None
@@ -215,7 +215,9 @@ impl Db {
             for signal in eventalign.signal_iter() {
                 let kmer = signal.kmer();
                 for sample in signal.samples() {
-                    stmt.execute((kmer, sample))?;
+                    if sample.is_finite() {
+                        stmt.execute((kmer, sample))?;
+                    }
                 }
             }
         }
