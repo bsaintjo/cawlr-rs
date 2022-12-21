@@ -314,7 +314,11 @@ mod test {
     use assert_fs::TempDir;
 
     use super::*;
-    use crate::{arrow::{Metadata, MetadataExt, Strand}, wrap_writer, arrow_utils::load_iter, load_apply};
+    use crate::{
+        arrow::{Metadata, MetadataExt, Strand},
+        arrow_utils::load_iter,
+        load_apply, wrap_writer,
+    };
 
     #[test]
     fn test_collapse() -> Result<()> {

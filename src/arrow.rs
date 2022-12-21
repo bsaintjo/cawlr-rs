@@ -1,28 +1,7 @@
-use std::{
-    borrow::Borrow,
-    fmt::Display,
-    io::{Read, Seek, Write},
-    ops::Index,
-    slice::SliceIndex,
-};
+use std::{fmt::Display, ops::Index, slice::SliceIndex};
 
-use arrow2::{
-    array::Array,
-    chunk::Chunk,
-    datatypes::{Field, Schema},
-    io::ipc::{
-        read::{read_file_metadata, FileReader},
-        write::{Compression, FileWriter, WriteOptions},
-    },
-};
-use arrow2_convert::{
-    deserialize::{arrow_array_deserialize_iterator, ArrowDeserialize, TryIntoCollection},
-    field::ArrowField,
-    serialize::{ArrowSerialize, TryIntoArrow},
-    ArrowField,
-};
-use eyre::Result;
-use itertools::Itertools;
+use arrow2::datatypes::{Field, Schema};
+use arrow2_convert::{field::ArrowField, ArrowField};
 use rv::traits::ContinuousDistr;
 
 /// Trait for getting read information
@@ -288,7 +267,7 @@ impl Strand {
             s if s > 0 => "255,0,0",
             s if s < 0 => "0,0,255",
             0 => "0,0,0",
-            _ => panic!()
+            _ => panic!(),
         }
     }
 
@@ -317,7 +296,7 @@ impl Strand {
             s if s > 0 => "+",
             s if s < 0 => "-",
             0 => ".",
-            _ => panic!("Strand enum pattern")
+            _ => panic!("Strand enum pattern"),
         }
     }
 }

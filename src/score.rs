@@ -428,7 +428,7 @@ mod test {
     use float_eq::assert_float_eq;
 
     use super::*;
-    use crate::{collapse::CollapseOptions, motif::Motif, arrow_utils::load_iter};
+    use crate::{arrow_utils::load_iter, collapse::CollapseOptions, motif::Motif};
 
     #[test]
     fn test_score_signal() {

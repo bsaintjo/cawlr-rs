@@ -139,15 +139,13 @@ impl TrainOptions {
             let filtered: Vec<f64> = recs
                 .iter()
                 .zip(targets.iter())
-                .filter_map(
-                    |(&x, cluster)| {
-                        if cluster.is_some() && x.is_finite() {
-                            Some(x)
-                        } else {
-                            None
-                        }
-                    },
-                )
+                .filter_map(|(&x, cluster)| {
+                    if cluster.is_some() && x.is_finite() {
+                        Some(x)
+                    } else {
+                        None
+                    }
+                })
                 .collect();
             if filtered.len() < 2 {
                 log::warn!("Not enough values left in observations");
@@ -246,9 +244,8 @@ impl Db {
 mod test {
     use assert_fs::TempDir;
 
-    use crate::arrow::Signal;
-
     use super::*;
+    use crate::arrow::Signal;
 
     #[test]
     fn test_all_kmers() {

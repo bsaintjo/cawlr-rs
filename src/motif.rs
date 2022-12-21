@@ -170,7 +170,7 @@ mod test {
         let pos = 504;
         assert_eq!(
             m.surrounding_idxs(pos).collect::<Vec<_>>(),
-            (499 ..= 504).collect::<Vec<_>>()
+            (499..=504).collect::<Vec<_>>()
         );
 
         let m = Motif::from_str("2:GC").unwrap();
