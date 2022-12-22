@@ -274,7 +274,7 @@ where
 }
 
 fn block_bar(n_blocks: u64) -> eyre::Result<ProgressBar> {
-    let style = ProgressStyle::default_bar().template("[{elapsed}] [[{eta}]] {bar}")?;
+    let style = ProgressStyle::default_bar().template("[{elapsed}] - {percent}% - {bar}")?;
     let pb = ProgressBar::new(n_blocks).with_style(style);
 
     Ok(pb)
