@@ -293,4 +293,14 @@ mod test {
             assert_eq!(samples, xs)
         }
     }
+
+    #[test]
+    fn test_train() {
+        let cases = vec![
+        1.0, 2.0, 3.0, 4.0, f64::NAN,
+        ];
+        let opts = TrainOptions::default();
+        let xs = opts.train_gmm(cases);
+        assert!(xs.is_some())
+    }
 }
