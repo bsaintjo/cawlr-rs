@@ -118,6 +118,9 @@ impl TrainOptions {
 
     fn train_gmm(&self, samples: Vec<f64>) -> Option<Mixture<Gaussian>> {
         let samples = samples.into_iter().filter(|x| x.is_finite()).collect_vec();
+        if samples.is_empty() {
+            return None;
+        }
         let len = samples.len();
         let shape = (len, 1);
         let means = Array::from_shape_vec(shape, samples).unwrap();
@@ -300,10 +303,14 @@ mod test {
     #[test]
     fn test_train() {
         let cases = vec![
-        1.0, 2.0, 3.0, 4.0, f64::NAN,
+        1.0, 2.0, 3.0, 4.0, 1.2, 1.3, 2.3, 2.2, 3.3, f64::NAN, f64::NEG_INFINITY, f64::INFINITY
         ];
         let opts = TrainOptions::default();
         let xs = opts.train_gmm(cases);
-        assert!(xs.is_some())
+        assert!(xs.is_some());
+
+        let case = Vec::new();
+        let xs = opts.train_gmm(case);
+        assert!(xs.is_none());
     }
 }
