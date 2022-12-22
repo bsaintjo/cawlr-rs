@@ -4,6 +4,7 @@ use std::{
 };
 
 use eyre::Result;
+use itertools::Itertools;
 use linfa::{
     traits::{Fit, Transformer},
     DatasetBase, ParamGuard,
@@ -116,6 +117,7 @@ impl TrainOptions {
     }
 
     fn train_gmm(&self, samples: Vec<f64>) -> Option<Mixture<Gaussian>> {
+        let samples = samples.into_iter().filter(|x| x.is_finite()).collect_vec();
         let len = samples.len();
         let shape = (len, 1);
         let means = Array::from_shape_vec(shape, samples).unwrap();
@@ -151,6 +153,7 @@ impl TrainOptions {
                 log::warn!("Not enough values left in observations");
                 return None;
             }
+
 
             let len = filtered.len();
             let shape = (len, 1);
