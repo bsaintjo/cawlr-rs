@@ -9,7 +9,7 @@ use linfa::{
     traits::{Fit, Transformer},
     DatasetBase, ParamGuard,
 };
-use linfa_clustering::{Dbscan, GaussianMixtureModel};
+use linfa_clustering::{Dbscan, GaussianMixtureModel, GmmError, GmmInitMethod};
 use ndarray::Array;
 use rusqlite::{named_params, Connection};
 use rv::prelude::{Gaussian, Mixture};
@@ -17,7 +17,7 @@ use rv::prelude::{Gaussian, Mixture};
 use crate::{
     arrow_utils::load_read_arrow_measured,
     motif::{all_bases, Motif},
-    train::{mix_to_mix, Model},
+    train::{mix_to_mix, Model, mix_to_mix_f32},
     utils::CawlrIO,
     Eventalign,
 };
@@ -107,8 +107,10 @@ impl TrainOptions {
         for kmer in all_kmers() {
             log::info!("Training on kmer {kmer}");
             let samples = db.get_kmer_samples(&kmer, self.n_samples)?;
+            log::info!("n samples: {}", samples.len());
             if !samples.is_empty() {
                 if let Some(gmm) = self.train_gmm(samples) {
+                    log::info!("Training successful!");
                     model.insert_gmm(kmer, gmm);
                 }
             }
@@ -117,7 +119,11 @@ impl TrainOptions {
     }
 
     fn train_gmm(&self, samples: Vec<f64>) -> Option<Mixture<Gaussian>> {
-        let samples = samples.into_iter().filter(|x| x.is_finite()).collect_vec();
+        let samples = samples
+            .into_iter()
+            .map(|x| x as f32)
+            .filter(|x| x.is_finite())
+            .collect_vec();
         if samples.is_empty() {
             return None;
         }
@@ -141,22 +147,23 @@ impl TrainOptions {
                 .as_slice()
                 .expect("Getting targets failed after DBSCAN");
 
-            let filtered: Vec<f64> = recs
+            let filtered: Vec<f32> = recs
                 .iter()
                 .zip(targets.iter())
-                .filter_map(|(&x, cluster)| {
-                    if cluster.is_some() {
-                        Some(x)
-                    } else {
-                        None
-                    }
-                })
+                .filter_map(
+                    |(&x, cluster)| {
+                        if cluster.is_some() {
+                            Some(x)
+                        } else {
+                            None
+                        }
+                    },
+                )
                 .collect();
             if filtered.len() < 2 {
                 log::warn!("Not enough values left in observations");
                 return None;
             }
-
 
             let len = filtered.len();
             let shape = (len, 1);
@@ -166,15 +173,20 @@ impl TrainOptions {
 
         let n_clusters = if self.single { 1 } else { 2 };
         let n_runs = 10;
-        let tolerance = 1e-4f64;
+        let tolerance = 1e-4f32;
         let gmm = GaussianMixtureModel::params(n_clusters)
             .n_runs(n_runs)
             .tolerance(tolerance)
+            .init_method(GmmInitMethod::Random)
             .check()
             .unwrap()
-            .fit(&data)
-            .unwrap();
-        let mm = mix_to_mix(&gmm);
+            .fit(&data);
+        if let Err(GmmError::MinMaxError(_)) = gmm {
+            let data = data.records.into_raw_vec();
+            log::error!("Failed with MinMaxError, raw data \n{data:?}");
+            panic!("MinMaxError, check logs");
+        }
+        let mm = mix_to_mix_f32(&gmm.unwrap());
         Some(mm)
     }
 }
@@ -221,6 +233,9 @@ impl Db {
             for signal in eventalign.signal_iter() {
                 let kmer = signal.kmer();
                 for sample in signal.samples() {
+                    if !(&0.0..=&200.0).contains(&sample) {
+                        log::warn!("Uncharacteristic signal measurement {sample}");
+                    }
                     if sample.is_finite() {
                         stmt.execute((kmer, sample))?;
                     }
@@ -251,6 +266,7 @@ impl Db {
 #[cfg(test)]
 mod test {
     use assert_fs::TempDir;
+    use quickcheck::quickcheck;
 
     use super::*;
     use crate::arrow::Signal;
@@ -303,7 +319,18 @@ mod test {
     #[test]
     fn test_train() {
         let cases = vec![
-        1.0, 2.0, 3.0, 4.0, 1.2, 1.3, 2.3, 2.2, 3.3, f64::NAN, f64::NEG_INFINITY, f64::INFINITY
+            1.0,
+            2.0,
+            3.0,
+            4.0,
+            1.2,
+            1.3,
+            2.3,
+            2.2,
+            3.3,
+            f64::NAN,
+            f64::NEG_INFINITY,
+            f64::INFINITY,
         ];
         let opts = TrainOptions::default();
         let xs = opts.train_gmm(cases);
@@ -312,5 +339,34 @@ mod test {
         let case = Vec::new();
         let xs = opts.train_gmm(case);
         assert!(xs.is_none());
+
+        let case = vec![f64::NAN; 10];
+        let xs = opts.train_gmm(case);
+        assert!(xs.is_none());
+
+        let case = vec![f64::INFINITY; 10];
+        let xs = opts.train_gmm(case);
+        assert!(xs.is_none());
+
+        let case = vec![f64::NEG_INFINITY; 100];
+        let xs = opts.train_gmm(case);
+        assert!(xs.is_none());
+
+        let case = vec![100.0, 100.0, 0.0, -0.0];
+        let xs = opts.train_gmm(case);
+        assert!(xs.is_some());
+
+        let case = vec![1.5028554895297472e233, 0.0];
+        let xs = opts.train_gmm(case);
+        assert!(xs.is_some());
+    }
+
+    quickcheck! {
+        fn valid_prop(xs: Vec<f32>) -> bool {
+            let opts = TrainOptions::default();
+            let xs = xs.into_iter().map(|x| x as f64).collect();
+            let res = opts.train_mix(xs);
+            !matches!(res, Some(Err(GmmError::MinMaxError(_))))
+        }
     }
 }
