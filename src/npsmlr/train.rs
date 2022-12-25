@@ -119,11 +119,6 @@ impl TrainOptions {
     }
 
     fn train_gmm(&self, samples: Vec<f64>) -> Option<Mixture<Gaussian>> {
-        let samples = samples
-            .into_iter()
-            .map(|x| x as f32)
-            .filter(|x| x.is_finite())
-            .collect_vec();
         if samples.is_empty() {
             return None;
         }
@@ -147,7 +142,7 @@ impl TrainOptions {
                 .as_slice()
                 .expect("Getting targets failed after DBSCAN");
 
-            let filtered: Vec<f32> = recs
+            let filtered: Vec<f64> = recs
                 .iter()
                 .zip(targets.iter())
                 .filter_map(
@@ -173,7 +168,7 @@ impl TrainOptions {
 
         let n_clusters = if self.single { 1 } else { 2 };
         let n_runs = 10;
-        let tolerance = 1e-4f32;
+        let tolerance = 1e-4f64;
         let gmm = GaussianMixtureModel::params(n_clusters)
             .n_runs(n_runs)
             .tolerance(tolerance)
@@ -186,7 +181,7 @@ impl TrainOptions {
             log::error!("Failed with MinMaxError, raw data \n{data:?}");
             panic!("MinMaxError, check logs");
         }
-        let mm = mix_to_mix_f32(&gmm.unwrap());
+        let mm = mix_to_mix(&gmm.unwrap());
         Some(mm)
     }
 }
@@ -233,8 +228,9 @@ impl Db {
             for signal in eventalign.signal_iter() {
                 let kmer = signal.kmer();
                 for sample in signal.samples() {
-                    if !(&0.0..=&200.0).contains(&sample) {
+                    if !(&40.0..=&170.0).contains(&sample) {
                         log::warn!("Uncharacteristic signal measurement {sample}");
+                        continue
                     }
                     if sample.is_finite() {
                         stmt.execute((kmer, sample))?;
