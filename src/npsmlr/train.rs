@@ -4,7 +4,6 @@ use std::{
 };
 
 use eyre::Result;
-use itertools::Itertools;
 use linfa::{
     traits::{Fit, Transformer},
     DatasetBase, ParamGuard,
@@ -17,7 +16,7 @@ use rv::prelude::{Gaussian, Mixture};
 use crate::{
     arrow_utils::load_read_arrow_measured,
     motif::{all_bases, Motif},
-    train::{mix_to_mix, Model, mix_to_mix_f32},
+    train::{mix_to_mix, Model},
     utils::CawlrIO,
     Eventalign,
 };
@@ -230,7 +229,7 @@ impl Db {
                 for sample in signal.samples() {
                     if !(&40.0..=&170.0).contains(&sample) {
                         log::warn!("Uncharacteristic signal measurement {sample}");
-                        continue
+                        continue;
                     }
                     if sample.is_finite() {
                         stmt.execute((kmer, sample))?;
@@ -262,7 +261,7 @@ impl Db {
 #[cfg(test)]
 mod test {
     use assert_fs::TempDir;
-    use quickcheck::quickcheck;
+    // use quickcheck::quickcheck;
 
     use super::*;
     use crate::arrow::Signal;
@@ -357,12 +356,12 @@ mod test {
         assert!(xs.is_some());
     }
 
-    quickcheck! {
-        fn valid_prop(xs: Vec<f32>) -> bool {
-            let opts = TrainOptions::default();
-            let xs = xs.into_iter().map(|x| x as f64).collect();
-            let res = opts.train_mix(xs);
-            !matches!(res, Some(Err(GmmError::MinMaxError(_))))
-        }
-    }
+    // quickcheck! {
+    //     fn valid_prop(xs: Vec<f32>) -> bool {
+    //         let opts = TrainOptions::default();
+    //         let xs = xs.into_iter().map(|x| x as f64).collect();
+    //         let res = opts.train_gmm(xs);
+    //         !matches!(res, Some(Err(GmmError::MinMaxError(_))))
+    //     }
+    // }
 }

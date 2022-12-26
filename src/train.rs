@@ -414,22 +414,6 @@ pub(crate) fn mix_to_mix(gmm: &GaussianMixtureModel<f64>) -> Mixture<Gaussian> {
     Mixture::new_unchecked(weights, gausses)
 }
 
-pub(crate) fn mix_to_mix_f32(gmm: &GaussianMixtureModel<f32>) -> Mixture<Gaussian> {
-    let weights = gmm
-        .weights()
-        .iter()
-        .cloned()
-        .map(|x| x as f64)
-        .collect::<Vec<f64>>();
-    let means = gmm.means().iter().map(|&x| x as f64);
-    let covs = gmm.covariances().iter().map(|&x| x as f64);
-    let gausses = means
-        .zip(covs)
-        .map(|(mean, sigma)| Gaussian::new_unchecked(mean, sigma.sqrt()))
-        .collect::<Vec<Gaussian>>();
-    Mixture::new_unchecked(weights, gausses)
-}
-
 fn insufficient<K, V, S>(dict: &HashMap<K, Vec<V>, S>, n: usize) -> bool {
     dict.values().any(|f| f.len() < n)
 }
