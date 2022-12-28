@@ -15,7 +15,6 @@ use crate::{
     Eventalign, Score, ScoredRead,
 };
 
-#[derive(Debug)]
 pub struct ScoreOptions {
     pos_model: Model,
     neg_model: Model,
@@ -23,6 +22,16 @@ pub struct ScoreOptions {
     freq_thresh: usize,
     cutoff: f64,
     motifs: Vec<Motif>,
+}
+
+impl std::fmt::Debug for ScoreOptions {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ScoreOptions")
+            .field("freq_thresh", &self.freq_thresh)
+            .field("cutoff", &self.cutoff)
+            .field("motifs", &self.motifs)
+            .finish_non_exhaustive()
+    }
 }
 
 fn count_motif_in_kmer(kmer: &str, motif: &Motif) -> usize {
