@@ -133,6 +133,7 @@ fn cluster_region_cmd<S: AsRef<OsStr>>(
     cmd
 }
 
+#[allow(dead_code)]
 fn main() -> eyre::Result<()> {
     let args = Args::parse();
 

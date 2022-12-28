@@ -13,6 +13,7 @@ use crate::Strand;
 #[derive(Default)]
 pub struct StrandMap(FnvHashMap<Vec<u8>, Strand>);
 
+#[allow(dead_code)]
 impl StrandMap {
     fn new(db: FnvHashMap<Vec<u8>, Strand>) -> Self {
         Self(db)
@@ -41,18 +42,6 @@ impl StrandMap {
         }
         Ok(StrandMap::new(acc))
     }
-
-    pub fn get<B>(&self, read_id: B) -> Option<Strand>
-    where
-        B: AsRef<[u8]>,
-    {
-        let read_id = read_id.as_ref();
-        self.0.get(read_id).cloned()
-    }
-
-    pub(crate) fn insert<K: Into<Vec<u8>>>(&mut self, k: K, v: Strand) -> Option<Strand> {
-        self.0.insert(k.into(), v)
-    }
 }
 
 #[cfg(test)]
@@ -65,7 +54,7 @@ mod test {
         let psmap = StrandMap::from_bam_file(filepath).unwrap();
         let read_id: &[u8] = b"20d1aac0-29de-43ae-a0ef-aa8a6766eb70";
         assert!(psmap.0.contains_key(read_id));
-        assert_eq!(psmap.get(read_id), Some(Strand::plus()));
+        assert_eq!(psmap.0.get(read_id), Some(&Strand::plus()));
     }
 
     #[test]
@@ -74,6 +63,6 @@ mod test {
         let psmap = StrandMap::from_bam_file(filepath).unwrap();
         let read_id: &[u8] = b"ca10c9e3-61d4-439b-abb3-078767d19f8c";
         assert!(psmap.0.contains_key(read_id));
-        assert_eq!(psmap.get(read_id), Some(Strand::minus()));
+        assert_eq!(psmap.0.get(read_id), Some(&Strand::minus()));
     }
 }

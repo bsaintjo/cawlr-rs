@@ -124,6 +124,7 @@ pub fn run(input: &Path, bam: &Option<PathBuf>, output: &Path) -> eyre::Result<(
     Ok(())
 }
 
+#[allow(dead_code)]
 fn main() -> Result<(), Box<dyn Error>> {
     let args = Args::parse();
 

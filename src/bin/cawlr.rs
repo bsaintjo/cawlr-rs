@@ -16,7 +16,7 @@ use cawlr::{
     score_model,
     sma::SmaOptions,
     train::{self, Model, Train, TrainStrategy},
-    utils::{self, CawlrIO},
+    utils::{self, CawlrIO}, load_apply, ScoredRead, Eventalign,
 };
 use clap::{error::ErrorKind, CommandFactory, Parser, Subcommand};
 use clap_verbosity_flag::Verbosity;
@@ -131,7 +131,7 @@ struct Args {
 #[derive(Subcommand, Debug)]
 enum Commands {
     #[clap(subcommand)]
-    QuickCheck(QCCmd),
+    QC(QCCmd),
 
     #[clap(subcommand)]
     Npsmlr(NpsmlrCmd),
@@ -492,9 +492,15 @@ fn main() -> Result<()> {
             }
             sma.run(input)?;
         }
-        Commands::QuickCheck(cmd) => match cmd {
-            QCCmd::Score { input } => todo!(),
-            QCCmd::Eventalign { input } => todo!(),
+        Commands::QC(cmd) => match cmd {
+            QCCmd::Score { input } => {
+                let reader = File::open(input)?;
+                load_apply(reader, |_xs: Vec<ScoredRead>| Ok(()))?;
+            }
+            QCCmd::Eventalign { input } => {
+                let reader = File::open(input)?;
+                load_apply(reader, |_xs: Vec<Eventalign>| Ok(()))?;
+            }
         },
 
         Commands::Npsmlr(cmd) => match cmd {

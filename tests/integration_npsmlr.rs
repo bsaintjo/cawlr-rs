@@ -3,21 +3,25 @@ use std::{error::Error, process::Command};
 use assert_cmd::prelude::OutputAssertExt;
 use assert_fs::TempDir;
 use escargot::CargoBuild;
+use log::LevelFilter;
 
 #[test]
 fn integration_npsmlr() -> Result<(), Box<dyn Error>> {
+    env_logger::builder()
+        .filter_level(LevelFilter::Info)
+        .filter_module("escargot::format", LevelFilter::Off)
+        .try_init()?;
     let temp_dir = TempDir::new()?.into_persistent_if(std::env::var("TEST_PERSIST").is_ok());
 
-    eprintln!("Building release cawlr");
+    log::info!("Building release cawlr");
     let run = CargoBuild::new()
         .bin("cawlr")
         .release()
         .no_default_features()
         .run()?;
     let cawlr = run.path().as_os_str();
-    // let genome = "extra/sacCer3.fa";
 
-    eprintln!("Preprocessing positive control");
+    log::info!("Preprocessing positive control");
     let pos_output = temp_dir.path().join("pos_control.output");
     Command::new(cawlr)
         .arg("collapse")
@@ -31,7 +35,7 @@ fn integration_npsmlr() -> Result<(), Box<dyn Error>> {
         .assert()
         .success();
 
-    eprintln!("Preprocessing negative control");
+    log::info!("Preprocessing negative control");
     let neg_output = temp_dir.path().join("neg_control.output");
     Command::new(cawlr)
         .arg("collapse")
@@ -45,7 +49,7 @@ fn integration_npsmlr() -> Result<(), Box<dyn Error>> {
         .assert()
         .success();
 
-    eprintln!("Preprocessing single read.");
+    log::info!("Preprocessing single read.");
     let single_read_output = temp_dir.path().join("single_read.output");
     Command::new(cawlr)
         .arg("collapse")
@@ -58,8 +62,16 @@ fn integration_npsmlr() -> Result<(), Box<dyn Error>> {
         .env("RUST_BACKTRACE", "full")
         .assert()
         .success();
+    
+    Command::new(cawlr)
+        .arg("qc")
+        .arg("eventalign")
+        .arg("-i")
+        .arg(&single_read_output)
+        .assert()
+        .success();
 
-    eprintln!("Training on positive control");
+    log::info!("Training on positive control");
     let pos_train = temp_dir.path().join("pos_control.train");
     Command::new(cawlr)
         .arg("npsmlr")
@@ -72,7 +84,7 @@ fn integration_npsmlr() -> Result<(), Box<dyn Error>> {
         .assert()
         .success();
 
-    eprintln!("Training on negative control");
+    log::info!("Training on negative control");
     let neg_train = temp_dir.path().join("neg_control.train");
     Command::new(cawlr)
         .arg("npsmlr")
@@ -86,7 +98,7 @@ fn integration_npsmlr() -> Result<(), Box<dyn Error>> {
         .assert()
         .success();
 
-    eprintln!("Ranking kmers");
+    log::info!("Ranking kmers");
     let ranks = temp_dir.path().join("ranks");
     Command::new(cawlr)
         .arg("rank")
@@ -100,7 +112,7 @@ fn integration_npsmlr() -> Result<(), Box<dyn Error>> {
         .assert()
         .success();
 
-    eprintln!("Scoring single read");
+    log::info!("Scoring single read");
     let scores = temp_dir.path().join("single_scores");
     Command::new(cawlr)
         .arg("npsmlr")
@@ -121,7 +133,16 @@ fn integration_npsmlr() -> Result<(), Box<dyn Error>> {
         .assert()
         .success();
 
-    eprintln!("Scoring positive controls");
+    log::info!("Validating score output format");
+    Command::new(cawlr)
+        .arg("qc")
+        .arg("score")
+        .arg("-i")
+        .arg(&scores)
+        .assert()
+        .success();
+
+    log::info!("Scoring positive controls");
     let pos_scores = temp_dir.path().join("pos_scores");
     Command::new(cawlr)
         .arg("npsmlr")
@@ -142,7 +163,7 @@ fn integration_npsmlr() -> Result<(), Box<dyn Error>> {
         .assert()
         .success();
 
-    eprintln!("Scoring negative controls");
+    log::info!("Scoring negative controls");
     let neg_scores = temp_dir.path().join("neg_scores");
     Command::new(cawlr)
         .arg("npsmlr")
@@ -163,7 +184,7 @@ fn integration_npsmlr() -> Result<(), Box<dyn Error>> {
         .assert()
         .success();
 
-    eprintln!("Compute pos ctrl kernel density estimate");
+    log::info!("Compute pos ctrl kernel density estimate");
     let pos_bkde_model = temp_dir.path().join("pos_bkde_model");
     Command::new(cawlr)
         .arg("model-scores")
@@ -177,7 +198,7 @@ fn integration_npsmlr() -> Result<(), Box<dyn Error>> {
         .assert()
         .success();
 
-    eprintln!("Compute neg ctrl kernel density estimate");
+    log::info!("Compute neg ctrl kernel density estimate");
     let neg_bkde_model = temp_dir.path().join("neg_bkde_model");
     Command::new(cawlr)
         .arg("model-scores")
@@ -191,7 +212,7 @@ fn integration_npsmlr() -> Result<(), Box<dyn Error>> {
         .assert()
         .success();
 
-    eprintln!("Single molecule analysis");
+    log::info!("Single molecule analysis");
     let sma_bed = temp_dir.path().join("sma_bed");
     Command::new(cawlr)
         .arg("sma")
@@ -207,6 +228,7 @@ fn integration_npsmlr() -> Result<(), Box<dyn Error>> {
         .assert()
         .success();
 
+    log::info!("Cleaning up");
     temp_dir.close()?;
     Ok(())
 }

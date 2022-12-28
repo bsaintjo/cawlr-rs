@@ -4,6 +4,7 @@ use std::{
 };
 
 use eyre::Result;
+use itertools::Itertools;
 use linfa::{
     traits::{Fit, Transformer},
     DatasetBase, ParamGuard,
@@ -118,6 +119,7 @@ impl TrainOptions {
     }
 
     fn train_gmm(&self, samples: Vec<f64>) -> Option<Mixture<Gaussian>> {
+        let samples = samples.into_iter().filter(|x| x.is_finite()).collect_vec();
         if samples.is_empty() {
             return None;
         }
@@ -178,7 +180,7 @@ impl TrainOptions {
         if let Err(GmmError::MinMaxError(_)) = gmm {
             let data = data.records.into_raw_vec();
             log::error!("Failed with MinMaxError, raw data \n{data:?}");
-            panic!("MinMaxError, check logs");
+            return None;
         }
         let mm = mix_to_mix(&gmm.unwrap());
         Some(mm)
@@ -290,24 +292,28 @@ mod test {
         let tmp_dir = TempDir::new().unwrap();
         let db_path = tmp_dir.join("test.db");
         let test_cases = vec![
-            ("AAAAAA", vec![1.0; 3]),
-            ("GGGGGG", vec![2.0; 4]),
-            ("CCCCCC", vec![3.0; 2]),
+            ("AAAAAA", vec![100.0; 3], true),
+            ("GGGGGG", vec![20.0; 4], false),
+            ("CCCCCC", vec![300.0; 2], false),
         ];
         let mut db = Db::open(db_path).expect("Failed to open database file");
         let signal_data = test_cases
             .iter()
             .enumerate()
-            .map(|(i, (k, xs))| Signal::new(i as u64, k.to_string(), 1.0, 0.5, xs.clone()))
+            .map(|(i, (k, xs, _))| Signal::new(i as u64, k.to_string(), 1.0, 0.5, xs.clone()))
             .collect::<Vec<_>>();
         let mut eventalign = Eventalign::default();
         *eventalign.signal_data_mut() = signal_data;
         db.add_reads(vec![eventalign]).expect("Unable to add read");
 
-        for (k, xs) in test_cases.into_iter() {
+        for (k, xs, unfiltered) in test_cases.into_iter() {
             let err_msg = format!("Unable to retrieve kmer values for {k}");
             let samples = db.get_kmer_samples(k, 5000).expect(&err_msg);
-            assert_eq!(samples, xs)
+            if unfiltered {
+                assert_eq!(samples, xs);
+            } else {
+                assert!(samples.is_empty(), "{k}");
+            }
         }
     }
 
@@ -329,31 +335,31 @@ mod test {
         ];
         let opts = TrainOptions::default();
         let xs = opts.train_gmm(cases);
-        assert!(xs.is_some());
+        assert!(xs.is_some(), "first");
 
         let case = Vec::new();
         let xs = opts.train_gmm(case);
-        assert!(xs.is_none());
+        assert!(xs.is_none(), "empty");
 
         let case = vec![f64::NAN; 10];
         let xs = opts.train_gmm(case);
-        assert!(xs.is_none());
+        assert!(xs.is_none(), "NAN");
 
         let case = vec![f64::INFINITY; 10];
         let xs = opts.train_gmm(case);
-        assert!(xs.is_none());
+        assert!(xs.is_none(), "INFINITY");
 
         let case = vec![f64::NEG_INFINITY; 100];
         let xs = opts.train_gmm(case);
-        assert!(xs.is_none());
+        assert!(xs.is_none(), "NEG_INFINITY");
 
         let case = vec![100.0, 100.0, 0.0, -0.0];
         let xs = opts.train_gmm(case);
-        assert!(xs.is_some());
+        assert!(xs.is_some(), "hundreds");
 
         let case = vec![1.5028554895297472e233, 0.0];
         let xs = opts.train_gmm(case);
-        assert!(xs.is_some());
+        assert!(xs.is_none(), "overflow");
     }
 
     // quickcheck! {

@@ -129,8 +129,8 @@ fn sma<W: Write>(
     let shift = read.start_0b() - 1;
     let mut in_nucleosome = false;
     let mut nucs = Vec::new();
-    for i in 0..backtrack_vec.len() {
-        if backtrack_vec[i] > 0 {
+    for (i, bt_idx) in backtrack_vec.into_iter().enumerate() {
+        if bt_idx > 0 {
             if !in_nucleosome {
                 ncls_start = i + 1 + (shift as usize);
                 in_nucleosome = true;
