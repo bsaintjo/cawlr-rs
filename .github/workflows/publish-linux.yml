@@ -26,6 +26,9 @@ jobs:
           toolchain: nightly
           override: true
           profile: minimal
+      
+      - name: Check cache
+        uses: Swatinem/rust-cache@v2
 
       - name: Run cargo build
         uses: actions-rs/cargo@v1
