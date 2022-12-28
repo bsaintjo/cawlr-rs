@@ -1,4 +1,4 @@
-use std::{fmt::Display, ops::Index, slice::SliceIndex};
+use std::fmt::Display;
 
 use arrow2::datatypes::{Field, Schema};
 use arrow2_convert::{field::ArrowField, ArrowField};
@@ -446,37 +446,6 @@ impl ScoredRead {
     pub fn scores(&self) -> &[Score] {
         &self.scores
     }
-
-    pub(crate) fn to_expanded_scores(&self) -> ExpandedScores {
-        let n = self.np_length() as usize;
-        let mut acc = vec![None; n];
-        for score in self.scores.iter() {
-            let rel_pos = score.pos - self.metadata.start;
-            if rel_pos >= self.np_length() {
-                log::warn!(
-                    "Read contains data outside length, {}, start+length is {}+{} but score at {}",
-                    self.metadata.name,
-                    self.metadata.start,
-                    self.metadata.length,
-                    score.pos
-                );
-                continue;
-            } else {
-                acc[rel_pos as usize] = Some(score);
-            }
-        }
-        ExpandedScores(acc)
-    }
-}
-
-pub(crate) struct ExpandedScores<'a>(Vec<Option<&'a Score>>);
-
-impl<'a, I: SliceIndex<[Option<&'a Score>]>> Index<I> for ExpandedScores<'a> {
-    type Output = I::Output;
-
-    fn index(&self, index: I) -> &Self::Output {
-        self.0.index(index)
-    }
 }
 
 #[cfg(test)]
@@ -524,59 +493,6 @@ mod test {
                 let _: Vec<Eventalign> = row.try_into_collection().unwrap();
             }
         }
-    }
-
-    #[test]
-    fn test_expanded_scores() {
-        let metadata = Metadata {
-            start: 100,
-            length: 10,
-            ..Default::default()
-        };
-        let scores = vec![
-            Score {
-                pos: 101,
-                ..Default::default()
-            },
-            Score {
-                pos: 105,
-                ..Default::default()
-            },
-        ];
-
-        let read = ScoredRead::new(metadata, scores);
-        let expanded = read.to_expanded_scores();
-        assert_eq!(expanded.0.len(), 10);
-        assert!(expanded.0[0].is_none());
-        assert!(expanded.0[1].is_some());
-        assert!(expanded.0[5].is_some());
-        assert!(expanded.0.get(10).is_none());
-    }
-
-    #[test]
-    fn test_expanded_scores_outside() {
-        let metadata = Metadata {
-            start: 100,
-            length: 10,
-            ..Default::default()
-        };
-        let scores = vec![
-            Score {
-                pos: 100,
-                ..Default::default()
-            },
-            Score {
-                pos: 110,
-                ..Default::default()
-            },
-        ];
-
-        let read = ScoredRead::new(metadata, scores);
-        let expanded = read.to_expanded_scores();
-        assert_eq!(expanded.0.len(), 10);
-        assert!(expanded.0[0].is_some());
-        assert!(expanded.0[1].is_none());
-        assert!(expanded.0[9].is_none());
     }
 
     #[allow(clippy::read_zero_byte_vec)]
