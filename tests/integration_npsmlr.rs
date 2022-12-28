@@ -62,7 +62,7 @@ fn integration_npsmlr() -> Result<(), Box<dyn Error>> {
         .env("RUST_BACKTRACE", "full")
         .assert()
         .success();
-    
+
     Command::new(cawlr)
         .arg("qc")
         .arg("eventalign")

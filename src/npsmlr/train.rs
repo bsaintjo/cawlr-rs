@@ -263,8 +263,8 @@ impl Db {
 #[cfg(test)]
 mod test {
     use assert_fs::TempDir;
-    // use quickcheck::quickcheck;
 
+    // use quickcheck::quickcheck;
     use super::*;
     use crate::arrow::Signal;
 

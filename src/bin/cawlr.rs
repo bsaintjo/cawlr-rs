@@ -8,7 +8,7 @@ use cawlr::{
     bkde::BinnedKde,
     collapse::CollapseOptions,
     filter::Region,
-    index,
+    index, load_apply,
     motif::{all_bases, Motif},
     npsmlr::{self, train::TrainOptions},
     rank::RankOptions,
@@ -16,7 +16,8 @@ use cawlr::{
     score_model,
     sma::SmaOptions,
     train::{self, Model, Train, TrainStrategy},
-    utils::{self, CawlrIO}, load_apply, ScoredRead, Eventalign,
+    utils::{self, CawlrIO},
+    Eventalign, ScoredRead,
 };
 use clap::{error::ErrorKind, CommandFactory, Parser, Subcommand};
 use clap_verbosity_flag::Verbosity;
