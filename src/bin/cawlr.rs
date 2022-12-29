@@ -5,9 +5,10 @@ use std::{
 };
 
 use cawlr::{
+    arrow_utils::load_read_write_arrow,
     bkde::BinnedKde,
     collapse::CollapseOptions,
-    filter::Region,
+    filter::{FilterOptions, Region},
     index, load_apply,
     motif::{all_bases, Motif},
     npsmlr::{self, train::TrainOptions},
@@ -48,6 +49,33 @@ enum QCCmd {
     Eventalign {
         #[clap(short, long)]
         input: PathBuf,
+    },
+}
+
+#[derive(Debug, Subcommand)]
+enum FilterCmd {
+    Score {
+        #[clap(short, long)]
+        input: PathBuf,
+
+        /// Arrow file output
+        #[clap(short, long)]
+        output: PathBuf,
+
+        #[clap(short, long, num_args = 1..)]
+        region: Vec<Region>,
+    },
+
+    Eventalign {
+        #[clap(short, long)]
+        input: PathBuf,
+
+        /// Arrow file output
+        #[clap(short, long)]
+        output: PathBuf,
+
+        #[clap(short, long, num_args = 1..)]
+        region: Vec<Region>,
     },
 }
 
@@ -168,19 +196,8 @@ enum Commands {
     },
 
     /// Filter Arrow output file based on genomic coordinates
-    // TODO unimplemented
-    Filter {
-        /// Arrow file from collapse or score
-        #[clap(short, long)]
-        input: PathBuf,
-
-        /// Arrow file output
-        #[clap(short, long)]
-        output: PathBuf,
-
-        #[clap(short, long)]
-        region: Option<Vec<Region>>,
-    },
+    #[clap(subcommand)]
+    Filter(FilterCmd),
 
     /// For each kmer, train a two-component gaussian mixture model and save
     /// models to a file
@@ -364,9 +381,32 @@ fn main() -> Result<()> {
         Commands::Index { input } => {
             index::index(input)?;
         }
-        Commands::Filter { .. } => {
-            todo!()
+        Commands::Filter(FilterCmd::Eventalign {
+            input,
+            output,
+            region,
+        }) => {
+            let filters = FilterOptions::new(region);
+            let reader = File::open(input)?;
+            let writer = File::create(output)?;
+            load_read_write_arrow(reader, writer, |xs: Vec<Eventalign>| {
+                Ok(xs.into_iter().filter(|x| filters.any_valid(x)).collect())
+            })?;
         }
+
+        Commands::Filter(FilterCmd::Score {
+            input,
+            output,
+            region,
+        }) => {
+            let filters = FilterOptions::new(region);
+            let reader = File::open(input)?;
+            let writer = File::create(output)?;
+            load_read_write_arrow(reader, writer, |xs: Vec<ScoredRead>| {
+                Ok(xs.into_iter().filter(|x| filters.any_valid(x)).collect())
+            })?;
+        }
+
         Commands::Train {
             input,
             output,

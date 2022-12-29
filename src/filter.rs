@@ -55,8 +55,9 @@ impl Region {
         Ok(Region::new(chrom, start, end))
     }
 
-    fn valid<M: MetadataExt>(&self, meta: &M) -> bool {
-        (meta.chrom() == self.chrom) && todo!()
+    fn valid<M: MetadataExt + ?Sized>(&self, meta: &M) -> bool {
+        (meta.chrom() == self.chrom)
+            && overlaps(self.start, self.end, meta.start_0b(), meta.end_1b_excl())
     }
 }
 
@@ -85,18 +86,25 @@ impl FromStr for Region {
     }
 }
 
-struct FilterOptions {
+pub struct FilterOptions {
     regions: Vec<Region>,
 }
 
 impl FilterOptions {
-    fn any_valid<M: MetadataExt>(&self, meta: M) -> bool {
-        self.regions.iter().any(|r| r.valid(&meta))
+    pub fn new(regions: Vec<Region>) -> Self {
+        Self { regions }
+    }
+
+    pub fn any_valid<M: MetadataExt + ?Sized>(&self, meta: &M) -> bool {
+        self.regions.iter().any(|r| r.valid(meta))
     }
 }
 
-fn overlaps(a_start: u64, a_end: u64, b_start: u64) -> bool {
-    (a_start <= b_start) && (a_end >= b_start)
+fn overlaps(a_start: u64, a_end: u64, b_start: u64, b_end: u64) -> bool {
+    ((b_start <= a_start) && (a_start <= b_end)) || // End overlaps
+        ((b_start <= a_end) && (a_end <= b_end)) || // Other end overlaps
+        ((b_start <= a_start) && (a_end <= b_end)) || // a inside b
+        ((a_start <= b_start) && (b_end <= a_end))
 }
 
 #[cfg(test)]
@@ -107,9 +115,15 @@ mod test {
     fn test_overlap() {
         let a = (10, 15);
         let b = (12, 20);
-        assert!(overlaps(a.0, a.1, b.0));
+        assert!(overlaps(a.0, a.1, b.0, b.1));
 
         let c = (20, 30);
-        assert!(!overlaps(a.0, a.1, c.0));
+        assert!(!overlaps(a.0, a.1, c.0, c.1));
+
+        let inside_a = (12, 14);
+        assert!(overlaps(a.0, a.1, inside_a.0, inside_a.1));
+
+        let outside_a = (9, 16);
+        assert!(overlaps(a.0, a.1, outside_a.0, outside_a.1));
     }
 }
