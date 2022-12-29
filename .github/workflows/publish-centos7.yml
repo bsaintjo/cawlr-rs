@@ -15,7 +15,8 @@ jobs:
   centos7:
     name: Compile and upload release binary
     runs-on: ubuntu-latest
-    container: "centos:7"
+    container:
+      image: "centos:7"
 
     steps:
       - name: Install build dependencies
@@ -49,5 +50,7 @@ jobs:
         if: ${{ github.ref != 'refs/heads/main'}}
         uses: svenstaro/upload-release-action@v2
         with:
+          repo_token: ${{ secrets.GITHUB_TOKEN}}
+          tag: ${{ github.ref }}
           file: ${{ env.COMPRESSED }}
           overwrite: true
