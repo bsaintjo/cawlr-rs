@@ -94,6 +94,10 @@ which = "4.3.0"
 simple-logging = "2.0.2"
 rusqlite = { version = "0.28.0", features = ["bundled"] }
 
+# Fix problem with older gcc?
+# Related issue: https://github.com/gyscos/zstd-rs/issues/177
+zstd-sys = "=2.0.4"
+
 # Embedded database for storing parsed samples
 # typed-sled = { version = "0.2.0", git = "https://github.com/bsaintjo/typed-sled", branch = "impl-mergeoperator"}
 # sled = "0.34.7"

@@ -409,7 +409,6 @@ dependencies = [
  "linfa-clustering",
  "log",
  "mimalloc",
- "nalgebra 0.31.4",
  "ndarray",
  "num_cpus",
  "openblas-src",
@@ -429,6 +428,7 @@ dependencies = [
  "test-log",
  "thiserror",
  "which",
+ "zstd-sys",
 ]
 
 [[package]]
@@ -1543,22 +1543,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "nalgebra"
-version = "0.31.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "20bd243ab3dbb395b39ee730402d2e5405e448c75133ec49cc977762c4cba3d1"
-dependencies = [
- "approx 0.5.1",
- "matrixmultiply",
- "nalgebra-macros",
- "num-complex 0.4.2",
- "num-rational 0.4.1",
- "num-traits",
- "simba 0.7.3",
- "typenum",
-]
-
-[[package]]
 name = "nalgebra-macros"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2401,19 +2385,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "simba"
-version = "0.7.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2f3fd720c48c53cace224ae62bef1bbff363a70c68c4802a78b5cc6159618176"
-dependencies = [
- "approx 0.5.1",
- "num-complex 0.4.2",
- "num-traits",
- "paste",
- "wide",
-]
-
-[[package]]
 name = "simdutf8"
 version = "0.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2944,9 +2915,9 @@ dependencies = [
 
 [[package]]
 name = "zstd-sys"
-version = "2.0.2+zstd.1.5.2"
+version = "2.0.4+zstd.1.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "24faa29d97c8ddca9b37b680e3bd2d5439d864a9cac3a0640d086b71c908bb83"
+checksum = "4fa202f2ef00074143e219d15b62ffc317d17cc33909feac471c044087cad7b0"
 dependencies = [
  "cc",
  "libc",
