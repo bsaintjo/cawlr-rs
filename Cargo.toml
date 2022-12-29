@@ -54,7 +54,7 @@ env_logger = "0.9.1"
 mimalloc = { version = "0.1.29", default-features = false, optional = true }
 
 # Arrays for ML and DP Alignment
-nalgebra = "0.31.1"
+# nalgebra = "0.31.1"
 ndarray = { version = "0.15.6", features = ["blas"] }
 openblas-src = { version = "0.10.5", features = ["static"] }
 
