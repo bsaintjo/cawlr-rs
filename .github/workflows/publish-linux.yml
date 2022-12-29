@@ -37,6 +37,7 @@ jobs:
           args: --release --bin cawlr --all-features --target x86_64-unknown-linux-gnu --locked
 
       - name: Strip binary and create archive
+        if: ${{ github.ref != 'refs/heads/main'}}
         run: |
           strip ${{ env.RELEASE_BINARY }}
           mkdir ${{ env.DIST_DIR }}
@@ -47,5 +48,7 @@ jobs:
         if: ${{ github.ref != 'refs/heads/main'}}
         uses: svenstaro/upload-release-action@v2
         with:
+          repo_token: ${{ secrets.GITHUB_TOKEN}}
+          tag: ${{ github.ref }}
           file: ${{ env.COMPRESSED }}
           overwrite: true
