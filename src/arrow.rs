@@ -208,23 +208,31 @@ impl Signal {
         &self.samples
     }
 
-    pub(crate) fn score_lnsum<M, N>(&self, pm: &M, nm: &N) -> (f64, f64)
+    pub(crate) fn score_lnsum<M, N>(&self, pm: &M, nm: &N) -> Option<(f64, f64)>
     where
         M: ContinuousDistr<f64>,
         N: ContinuousDistr<f64>,
     {
-        self.samples()
+        let mut samples = self
+            .samples()
             .iter()
-            .flat_map(|x| {
-                let likelihood_neg = nm.ln_pdf(x);
-                let likelihood_pos = pm.ln_pdf(x);
-                if likelihood_neg > -10.0 && likelihood_pos > -10.0 {
-                    Some((likelihood_pos, likelihood_neg))
-                } else {
-                    None
-                }
-            })
-            .fold((0.0, 0.0), |acc, elem| (acc.0 + elem.0, acc.1 + elem.1))
+            .filter(|&x| (&40.0..=&170.0).contains(&x))
+            .peekable();
+        // If iterator is empty, we just return None
+        samples.peek()?;
+        Some(
+            samples
+                .flat_map(|x| {
+                    let likelihood_neg = nm.ln_pdf(x);
+                    let likelihood_pos = pm.ln_pdf(x);
+                    if likelihood_neg > -10.0 && likelihood_pos > -10.0 {
+                        Some((likelihood_pos, likelihood_neg))
+                    } else {
+                        None
+                    }
+                })
+                .fold((0.0, 0.0), |acc, elem| (acc.0 + elem.0, acc.1 + elem.1)),
+        )
     }
 }
 
