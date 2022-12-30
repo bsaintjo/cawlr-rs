@@ -173,7 +173,6 @@ impl TrainOptions {
         let gmm = GaussianMixtureModel::params(n_clusters)
             .n_runs(n_runs)
             .tolerance(tolerance)
-            .init_method(GmmInitMethod::Random)
             .check()
             .unwrap()
             .fit(&data);
