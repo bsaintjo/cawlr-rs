@@ -9,7 +9,7 @@ use linfa::{
     traits::{Fit, Transformer},
     DatasetBase, ParamGuard,
 };
-use linfa_clustering::{Dbscan, GaussianMixtureModel, GmmError, GmmInitMethod};
+use linfa_clustering::{Dbscan, GaussianMixtureModel, GmmError};
 use ndarray::Array;
 use rusqlite::{named_params, Connection};
 use rv::prelude::{Gaussian, Mixture};
