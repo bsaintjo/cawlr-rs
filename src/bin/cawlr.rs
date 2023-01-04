@@ -1,11 +1,11 @@
 use std::{
     fs::File,
-    io::{self, BufWriter, Read},
+    io::{self, BufReader, BufWriter, Read},
     path::{Path, PathBuf},
 };
 
 use cawlr::{
-    arrow_utils::load_read_write_arrow,
+    arrow_utils::{load_apply2, load_read_write_arrow},
     bkde::BinnedKde,
     collapse::CollapseOptions,
     filter::{FilterOptions, Region},
@@ -107,6 +107,9 @@ enum NpsmlrCmd {
         /// Filter outliers with DBSCAN algorithm
         #[clap(long)]
         dbscan: bool,
+
+        #[clap(long)]
+        db_path: Option<PathBuf>,
     },
 
     /// Score using algorithm adapted from NP-SMLR
@@ -535,12 +538,12 @@ fn main() -> Result<()> {
         }
         Commands::QC(cmd) => match cmd {
             QCCmd::Score { input } => {
-                let reader = File::open(input)?;
-                load_apply(reader, |_xs: Vec<ScoredRead>| Ok(()))?;
+                let reader = BufReader::new(File::open(input)?);
+                load_apply2(reader, |_xs: ScoredRead| Ok(()))?;
             }
             QCCmd::Eventalign { input } => {
-                let reader = File::open(input)?;
-                load_apply(reader, |_xs: Vec<Eventalign>| Ok(()))?;
+                let reader = BufReader::with_capacity(1024 * 32, File::open(input)?);
+                load_apply2(reader, |_xs: Eventalign| Ok(()))?;
             }
         },
 
@@ -552,11 +555,13 @@ fn main() -> Result<()> {
                 samples,
                 single,
                 dbscan,
+                db_path,
             } => {
-                let reader = File::open(input)?;
+                let reader = BufReader::new(File::open(input)?);
                 let writer = File::create(output)?;
                 TrainOptions::default()
                     .n_samples(samples)
+                    .db_path(db_path)
                     .single(single)
                     .dbscan(dbscan)
                     .motifs(motif)
@@ -572,7 +577,7 @@ fn main() -> Result<()> {
                 freq_thresh,
                 motif,
             } => {
-                let reader = File::open(input)?;
+                let reader = BufReader::new(File::open(input)?);
                 let writer = File::create(output)?;
                 let mut score_options = npsmlr::ScoreOptions::load(pos_ctrl, neg_ctrl, ranks)?;
                 score_options

@@ -1,6 +1,6 @@
 use std::{
     io::{Read, Seek, Write},
-    path::Path,
+    path::{Path, PathBuf},
 };
 
 use eyre::Result;
@@ -27,6 +27,7 @@ pub struct TrainOptions {
     single: bool,
     dbscan: bool,
     motifs: Vec<Motif>,
+    db_path: Option<PathBuf>,
 }
 
 impl Default for TrainOptions {
@@ -36,6 +37,7 @@ impl Default for TrainOptions {
             single: false,
             dbscan: false,
             motifs: all_bases(),
+            db_path: None,
         }
     }
 }
@@ -78,6 +80,11 @@ impl TrainOptions {
         self
     }
 
+    pub fn db_path(mut self, db_path: Option<PathBuf>) -> Self {
+        self.db_path = db_path;
+        self
+    }
+
     pub fn run<R, W>(self, input: R, mut writer: W) -> Result<()>
     where
         R: Read + Seek,
@@ -92,7 +99,12 @@ impl TrainOptions {
     where
         R: Read + Seek,
     {
-        let db_path = std::env::temp_dir().join("npsmlr.db");
+        let db_path = {
+            match &self.db_path {
+                Some(db_path) => db_path.clone(),
+                None => std::env::temp_dir().join("npsmlr.db"),
+            }
+        };
         let mut db = Db::open(db_path)?;
         load_read_arrow_measured(input, |eventaligns: Vec<Eventalign>| {
             db.add_reads(eventaligns)?;

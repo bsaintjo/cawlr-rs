@@ -166,6 +166,25 @@ where
     Ok(())
 }
 
+pub fn load_apply2<R, F, T>(reader: R, mut func: F) -> Result<()>
+where
+    R: Read + Seek,
+    F: FnMut(T) -> Result<()>,
+    T: ArrowField<Type = T> + ArrowDeserialize + 'static,
+    for<'a> &'a <T as ArrowDeserialize>::ArrayType: IntoIterator,
+{
+    let feather = load(reader)?;
+    for chunk in feather {
+        for arr in chunk?.arrays() {
+            let iter = arrow_array_deserialize_iterator(arr.as_ref())?;
+            for x in iter {
+                func(x)?;
+            }
+        }
+    }
+    Ok(())
+}
+
 /// Trying different ways if iterating over files, can be deleted safely
 pub fn load_apply_indy<R, F, T>(reader: R, mut func: F) -> Result<()>
 where
