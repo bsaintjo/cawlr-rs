@@ -144,7 +144,9 @@ impl ScoreOptions {
                                     let pos_model = pm.mixture();
                                     let neg_model = nm.single();
 
-                                    if let Some((pos_sum, neg_sum)) = s.score_lnsum(&pos_model, &neg_model) {
+                                    if let Some((pos_sum, neg_sum)) =
+                                        s.score_lnsum(&pos_model, &neg_model)
+                                    {
                                         kmers.push(SignalScore::new(s, pos_sum, neg_sum));
                                     }
                                 }

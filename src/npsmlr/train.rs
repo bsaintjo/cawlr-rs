@@ -9,7 +9,7 @@ use linfa::{
     traits::{Fit, Transformer},
     DatasetBase, ParamGuard,
 };
-use linfa_clustering::{Dbscan, GaussianMixtureModel, GmmError, GmmInitMethod};
+use linfa_clustering::{Dbscan, GaussianMixtureModel, GmmError};
 use ndarray::Array;
 use rusqlite::{named_params, Connection};
 use rv::prelude::{Gaussian, Mixture};
@@ -107,7 +107,7 @@ impl TrainOptions {
         };
         let mut db = Db::open(db_path)?;
         load_read_arrow_measured(input, |eventaligns: Vec<Eventalign>| {
-            db.add_reads(eventaligns)?;
+            db.add_reads(eventaligns, &self.motifs)?;
             Ok(())
         })?;
 
@@ -185,7 +185,6 @@ impl TrainOptions {
         let gmm = GaussianMixtureModel::params(n_clusters)
             .n_runs(n_runs)
             .tolerance(tolerance)
-            .init_method(GmmInitMethod::Random)
             .check()
             .unwrap()
             .fit(&data);
@@ -233,13 +232,19 @@ impl Db {
         Ok(())
     }
 
-    fn add_reads(&mut self, es: Vec<Eventalign>) -> eyre::Result<()> {
+    fn add_reads(&mut self, es: Vec<Eventalign>, motifs: &[Motif]) -> eyre::Result<()> {
         let tx = self.0.transaction()?;
         let mut stmt = tx.prepare("INSERT INTO data (kmer, sample) VALUES (?1, ?2)")?;
         for eventalign in es.into_iter() {
             log::debug!("Processing {:?}", eventalign.metadata());
             for signal in eventalign.signal_iter() {
                 let kmer = signal.kmer();
+
+                // Skip if kmer doesn't match any of the kmers
+                if !motifs.iter().any(|m| kmer.starts_with(m.motif())) {
+                    continue;
+                }
+
                 for sample in signal.samples() {
                     if !(&40.0..=&170.0).contains(&sample) {
                         log::warn!("Uncharacteristic signal measurement {sample}");
@@ -292,11 +297,41 @@ mod test {
         let db_path = tmp_dir.join("test.db");
         let mut db = Db::open(db_path).expect("Failed to open database file");
         let eventalign = Eventalign::default();
-        db.add_reads(vec![eventalign]).expect("Unable to add read");
+        db.add_reads(vec![eventalign], &all_bases())
+            .expect("Unable to add read");
         let samples = db
             .get_kmer_samples("ABCDEF", 5000)
             .expect("Unable to get samples");
         assert!(samples.is_empty());
+    }
+    #[test]
+    fn test_db_motif() {
+        let tmp_dir = TempDir::new().unwrap();
+        let db_path = tmp_dir.join("test.db");
+        let test_cases = vec![
+            ("AAAAAA", vec![100.0; 3], true),
+            ("AACCCC", vec![100.0; 3], false),
+        ];
+        let mut db = Db::open(db_path).expect("Failed to open database file");
+        let signal_data = test_cases
+            .iter()
+            .enumerate()
+            .map(|(i, (k, xs, _))| Signal::new(i as u64, k.to_string(), 1.0, 0.5, xs.clone()))
+            .collect::<Vec<_>>();
+        let mut eventalign = Eventalign::default();
+        *eventalign.signal_data_mut() = signal_data;
+        db.add_reads(vec![eventalign], &[Motif::new("AAA", 2)])
+            .expect("Unable to add read");
+
+        for (k, xs, unfiltered) in test_cases.into_iter() {
+            let err_msg = format!("Unable to retrieve kmer values for {k}");
+            let samples = db.get_kmer_samples(k, 5000).expect(&err_msg);
+            if unfiltered {
+                assert_eq!(samples, xs);
+            } else {
+                assert!(samples.is_empty(), "{k}");
+            }
+        }
     }
 
     #[test]
@@ -316,7 +351,8 @@ mod test {
             .collect::<Vec<_>>();
         let mut eventalign = Eventalign::default();
         *eventalign.signal_data_mut() = signal_data;
-        db.add_reads(vec![eventalign]).expect("Unable to add read");
+        db.add_reads(vec![eventalign], &all_bases())
+            .expect("Unable to add read");
 
         for (k, xs, unfiltered) in test_cases.into_iter() {
             let err_msg = format!("Unable to retrieve kmer values for {k}");
