@@ -236,7 +236,7 @@ impl Db {
         let tx = self.0.transaction()?;
         let mut stmt = tx.prepare("INSERT INTO data (kmer, sample) VALUES (?1, ?2)")?;
         for eventalign in es.into_iter() {
-            log::debug!("Processing {:?}", eventalign.metadata());
+            log::info!("Processing Read: {}", eventalign.name());
             for signal in eventalign.signal_iter() {
                 let kmer = signal.kmer();
 
