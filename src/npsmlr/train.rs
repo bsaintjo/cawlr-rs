@@ -22,6 +22,7 @@ use crate::{
     Eventalign,
 };
 
+#[derive(Debug)]
 pub struct TrainOptions {
     n_samples: usize,
     single: bool,
@@ -99,6 +100,7 @@ impl TrainOptions {
     where
         R: Read + Seek,
     {
+        log::info!("{self:?}");
         let db_path = {
             match &self.db_path {
                 Some(db_path) => db_path.clone(),
@@ -106,6 +108,7 @@ impl TrainOptions {
             }
         };
         let mut db = Db::open(db_path)?;
+        log::debug!("Database: {db:?}");
         load_read_arrow_measured(input, |eventaligns: Vec<Eventalign>| {
             db.add_reads(eventaligns, &self.motifs)?;
             Ok(())
@@ -198,6 +201,7 @@ impl TrainOptions {
     }
 }
 
+#[derive(Debug)]
 struct Db(Connection);
 
 impl Db {
@@ -239,9 +243,11 @@ impl Db {
             log::info!("Processing Read: {}", eventalign.name());
             for signal in eventalign.signal_iter() {
                 let kmer = signal.kmer();
+                log::debug!("Processing signal kmer: {kmer}");
 
                 // Skip if kmer doesn't match any of the kmers
                 if !motifs.iter().any(|m| kmer.starts_with(m.motif())) {
+                    log::debug!("Kmer skipped, doesn't match any motifs");
                     continue;
                 }
 
