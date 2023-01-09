@@ -48,9 +48,9 @@ fn rank(pos_ctrl: &Model, neg_ctrl: &Model, output: &Path) -> Result<Ranks> {
 }
 
 fn score(
-    pos_model: Model,
-    neg_model: Model,
-    ranks: FnvHashMap<String, f64>,
+    pos_model: &Model,
+    neg_model: &Model,
+    ranks: &FnvHashMap<String, f64>,
     reader: &Path,
     writer: &Path,
 ) -> Result<()> {
@@ -60,7 +60,14 @@ fn score(
         Motif::from_str("2:AT").unwrap(),
         Motif::from_str("1:TA").unwrap(),
     ];
-    let score_opts = npsmlr::ScoreOptions::new(pos_model, neg_model, ranks, 10, 10.0, motifs);
+    let score_opts = npsmlr::ScoreOptions::new(
+        pos_model.clone(),
+        neg_model.clone(),
+        ranks.clone(),
+        10,
+        10.0,
+        motifs,
+    );
     score_opts.run(reader, writer)?;
     Ok(())
 }
@@ -101,7 +108,29 @@ fn main() -> Result<()> {
     let ranks = rank(&pos_model, &neg_model, &rank_path)?;
 
     let read_score_path = output_dir.join("read_scores");
-    score(pos_model, neg_model, ranks, &read_output, &read_score_path)?;
+    let pos_score_path = output_dir.join("pos_scores");
+    let neg_score_path = output_dir.join("neg_scores");
+    score(
+        &pos_model,
+        &neg_model,
+        &ranks,
+        &read_output,
+        &read_score_path,
+    )?;
+    score(
+        &pos_model,
+        &neg_model,
+        &ranks,
+        &pos_output,
+        &pos_score_path,
+    )?;
+    score(
+        &pos_model,
+        &neg_model,
+        &ranks,
+        &neg_output,
+        &neg_score_path,
+    )?;
 
     Ok(())
 }
