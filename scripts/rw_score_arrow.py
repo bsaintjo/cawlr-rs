@@ -15,17 +15,23 @@ def from_scratch():
     """This function gives an example of constructing a dictionary for
     creating a scored Arrow file from scratch."""
 
+    # +1 is positive strand, -1 is negative strand, 0 is unknown
+    strand = {
+        "strand": 1,
+    }
+
     # metadata gives information about the read, chromosome, position, length,
     # etc.
     metadata = {
         "chrom": "chrI",
         "length": 100,
         "name": "example",
-        # seq will always be an empty string
-        "seq": "",
+        # Must be a string with at least one character
+        # Doesn't matter what is actually inside the string as long as it
+        #   isn't empty
+        "seq": " ",
         "start": 100,
-        # +1 is positive strand, -1 is negative strand, 0 is unknown
-        "strand": 1,
+        "strand": strand,
     }
 
     # scores is a list of dictionaries, each item represents a position within
@@ -72,16 +78,14 @@ def from_scratch():
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "-e", "--example-score-file", required=True,
-        help="Example Scored Arrow file"
+        "-e", "--example-score-file", required=True, help="Example Scored Arrow file"
     )
     parser.add_argument(
-        "-o", "--output", required=True, required=True,
-        help="Output Scored Arrow file name"
+        "-o", "--output", required=True, help="Output Scored Arrow file name"
     )
     args = parser.parse_args()
 
-    table = feather.read_table(args.input)
+    table = feather.read_table(args.example_score_file)
     # fdict is a dictionary with one key "scored",
     # whose value is a list of dictionaries
     # fdict = table.to_pydict()
