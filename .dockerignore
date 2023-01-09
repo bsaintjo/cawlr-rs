@@ -30,3 +30,4 @@ paper_data
 tests
 .github
 .devcontainer
+.venv
