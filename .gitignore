@@ -7,3 +7,4 @@ dist/
 .cargo/
 paper_data
 test/
+test_data/

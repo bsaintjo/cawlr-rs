@@ -24,8 +24,8 @@ def from_scratch():
         # seq will always be an empty string
         "seq": "",
         "start": 100,
-        # True is positive strand, False is negative strand
-        "strand": True,
+        # +1 is positive strand, -1 is negative strand, 0 is unknown
+        "strand": 1,
     }
 
     # scores is a list of dictionaries, each item represents a position within
@@ -71,18 +71,22 @@ def from_scratch():
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("-i", "--input", required=True, help="Scored Arrow file")
     parser.add_argument(
-        "-o", "--output", required=True, help="Output Scored Arrow file name"
+        "-e", "--example-score-file", required=True,
+        help="Example Scored Arrow file"
+    )
+    parser.add_argument(
+        "-o", "--output", required=True, required=True,
+        help="Output Scored Arrow file name"
     )
     args = parser.parse_args()
 
     table = feather.read_table(args.input)
     # fdict is a dictionary with one key "scored",
     # whose value is a list of dictionaries
-    fdict = table.to_pydict()
+    # fdict = table.to_pydict()
 
-    fdict["scored"][0]["metadata"]["name"] = "new_read_name"
+    # fdict["scored"][0]["metadata"]["name"] = "new_read_name"
     # ......^ Access the list of dictionaries
     # ..............^ Each item in the list is a read, lets just take the
     #                 first one in this example.
@@ -92,8 +96,8 @@ def main():
     #                                  several pieces of info, one of which is
     #                                  the read name.
 
-    output = Table.from_pydict(fdict)
-    feather.write_feather(output, args.output)
+    # output = Table.from_pydict(fdict)
+    # feather.write_feather(output, args.output)
 
     # Another example, creating it from scratch and overwriting the last output
     # Comment out this portion if you want to do something with the modified
@@ -103,7 +107,7 @@ def main():
     # dense_union. Currently fixing to resolve this issue, for now, don't pass
     # table.schema
     # output = Table.from_pydict(new_fdict, schema=table.schema)
-    output = Table.from_pydict(new_fdict)
+    output = Table.from_pydict(new_fdict, schema=table.schema)
     feather.write_feather(output, args.output)
 
 
