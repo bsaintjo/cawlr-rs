@@ -9,7 +9,7 @@ use cawlr::{
     bkde::BinnedKde,
     collapse::CollapseOptions,
     filter::{FilterOptions, Region},
-    index, load_apply,
+    index,
     motif::{all_bases, Motif},
     npsmlr::{self, train::TrainOptions},
     rank::RankOptions,
