@@ -19,7 +19,8 @@ def main():
     parser.add_argument(
         "-i", "--input", nargs="+", help="Score files to plot distribution"
     )
-    parser.add_argument("-o", "--output", required=True, help="Output filename")
+    parser.add_argument("-o", "--output", help="Output filename")
+    parser.add_argument("-t", "--title", help="Title of the output figure")
 
     args = parser.parse_args()
 
@@ -46,7 +47,14 @@ def main():
     plt.legend()
     plt.xlabel("Score")
     plt.ylabel("Density")
-    plt.savefig(args.output)
+
+    if args.title is not None:
+        plt.title(args.title)
+
+    if args.output is None:
+        plt.show()
+    else:
+        plt.savefig(args.output)
 
 
 if __name__ == "__main__":
