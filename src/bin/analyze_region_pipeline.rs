@@ -201,15 +201,15 @@ fn main() -> eyre::Result<()> {
 
     let scored = args.output_dir.join("score.arrow");
     wrap_cmd("cawlr score", || {
-        let mut scoring = ScoreOptions::try_new(
+        let mut scoring = cawlr::npsmlr::ScoreOptions::load(
             &args.pos_model,
             &args.neg_model,
-            &args.genome,
             &args.ranks,
-            &scored,
         )?;
         scoring.motifs(motifs.clone());
-        scoring.run(&collapse)
+        let collapse_file = File::open(&collapse)?;
+        let score_file = File::create(&scored)?;
+        scoring.run(collapse_file, score_file)
     })?;
 
     let track_name = format!("{}.cawlr.sma", name);
