@@ -10,7 +10,6 @@ use cawlr::{
     collapse::CollapseOptions,
     filter::Region,
     motif::{all_bases, Motif},
-    score::ScoreOptions,
     sma::SmaOptions,
     utils::{self, wrap_cmd},
 };
