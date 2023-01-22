@@ -117,20 +117,8 @@ fn main() -> Result<()> {
         &read_output,
         &read_score_path,
     )?;
-    score(
-        &pos_model,
-        &neg_model,
-        &ranks,
-        &pos_output,
-        &pos_score_path,
-    )?;
-    score(
-        &pos_model,
-        &neg_model,
-        &ranks,
-        &neg_output,
-        &neg_score_path,
-    )?;
+    score(&pos_model, &neg_model, &ranks, &pos_output, &pos_score_path)?;
+    score(&pos_model, &neg_model, &ranks, &neg_output, &neg_score_path)?;
 
     Ok(())
 }

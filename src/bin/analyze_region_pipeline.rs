@@ -200,11 +200,8 @@ fn main() -> eyre::Result<()> {
 
     let scored = args.output_dir.join("score.arrow");
     wrap_cmd("cawlr score", || {
-        let mut scoring = cawlr::npsmlr::ScoreOptions::load(
-            &args.pos_model,
-            &args.neg_model,
-            &args.ranks,
-        )?;
+        let mut scoring =
+            cawlr::npsmlr::ScoreOptions::load(&args.pos_model, &args.neg_model, &args.ranks)?;
         scoring.motifs(motifs.clone());
         let collapse_file = File::open(&collapse)?;
         let score_file = File::create(&scored)?;
