@@ -167,3 +167,5 @@ TODO
 ### `plot_scores_with_inference.py`
 
 ## Citations
+
+Parts of the code have been adapted from [NP-SMLR](https://github.com/imatrm/NP-SMLR) package

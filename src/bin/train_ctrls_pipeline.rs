@@ -21,42 +21,58 @@ use log::LevelFilter;
 
 #[derive(Parser)]
 struct Args {
+    /// Path to genome fasta file
     #[clap(short, long)]
     genome: PathBuf,
 
+    /// Directory containing fast5s for positive control
     #[clap(long)]
     pos_fast5s: PathBuf,
 
+    /// Path to single fasta/q file of reads from the positive control
     #[clap(long)]
     pos_reads: PathBuf,
 
+    /// Optional path to sequencing_summary.txt file for positive control,
+    /// speeds up nanopolish indexing
     #[clap(long)]
     pos_summary: Option<PathBuf>,
 
+    /// Directory containing fast5s for negative control
     #[clap(long)]
     neg_fast5s: PathBuf,
 
+    /// Path to single fasta/q file of reads from the negative control
     #[clap(long)]
     neg_reads: PathBuf,
 
+    /// Optional path to sequencing_summary.txt file for negative control,
+    /// speeds up nanopolish indexing
     #[clap(long)]
     neg_summary: Option<PathBuf>,
 
+    /// Output directory for pipeline
     #[clap(short, long)]
     output_dir: PathBuf,
 
+    /// Path to nanopolish tool, optional if in docker container or in PATH
     #[clap(long)]
     nanopolish_path: Option<PathBuf>,
 
+    /// Path to minimap2 tool, optional if in docker container or in PATH
     #[clap(long)]
     minimap2_path: Option<PathBuf>,
 
+    /// Path to samtools tool, optional if in docker container or in PATH
     #[clap(long)]
     samtools_path: Option<PathBuf>,
 
+    /// Number of threads to use
     #[clap(short = 'j', long, default_value_t = 4)]
     n_threads: usize,
 
+    /// Motifs of modification to filter on, format is "{position}:{motif}"
+    /// ie for GpC motif, motif is "2:GC"
     #[clap(short, long, num_args=1..)]
     motifs: Vec<Motif>,
 }
@@ -142,8 +158,8 @@ fn eventalign_collapse(
     Ok(())
 }
 
-fn train_npsmlr(collapse_file: &Path) -> Result<Model> {
-    let train_opts = TrainOptions::default();
+fn train_npsmlr(collapse_file: &Path, single: bool) -> Result<Model> {
+    let train_opts = TrainOptions::default().dbscan(true).single(single);
     let reader = File::open(collapse_file)?;
     let model = train_opts.run_model(reader)?;
     Ok(model)
@@ -225,7 +241,7 @@ fn main() -> eyre::Result<()> {
     wrap_cmd("nanopolish eventalign (-) ctrl | cawlr collapse", || {
         eventalign_collapse(
             &nanopolish,
-            &args.pos_reads,
+            &args.neg_reads,
             &neg_aln,
             &args.genome,
             &neg_collapse,
@@ -235,9 +251,9 @@ fn main() -> eyre::Result<()> {
     let pos_train = args.output_dir.join("pos_train.pickle");
     let neg_train = args.output_dir.join("neg_train.pickle");
 
-    let pos_model = wrap_cmd_output("Train (+) ctrl", || train_npsmlr(&pos_collapse))?;
+    let pos_model = wrap_cmd_output("Train (+) ctrl", || train_npsmlr(&pos_collapse, false))?;
     pos_model.save_as(pos_train)?;
-    let neg_model = wrap_cmd_output("Train (-) ctrl", || train_npsmlr(&neg_collapse))?;
+    let neg_model = wrap_cmd_output("Train (-) ctrl", || train_npsmlr(&neg_collapse, true))?;
     neg_model.save_as(neg_train)?;
 
     let rank_output = args.output_dir.join("ranks.pickle");
