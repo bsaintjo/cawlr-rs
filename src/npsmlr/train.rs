@@ -4,12 +4,11 @@ use std::{
 };
 
 use eyre::Result;
-use itertools::Itertools;
 use linfa::{
     traits::{Fit, Transformer},
     DatasetBase, ParamGuard,
 };
-use linfa_clustering::{Dbscan, GaussianMixtureModel, GmmError};
+use linfa_clustering::{Dbscan, GaussianMixtureModel};
 use ndarray::Array;
 use rusqlite::{named_params, Connection};
 use rv::prelude::{Gaussian, Mixture};
@@ -19,6 +18,7 @@ use crate::{
     motif::{all_bases, Motif},
     train::{mix_to_mix, Model},
     utils::CawlrIO,
+    validated::{self, ValidSampleData},
     Eventalign,
 };
 
@@ -123,21 +123,27 @@ impl TrainOptions {
             log::info!("Training on kmer {kmer}");
             let samples = db.get_kmer_samples(&kmer, self.n_samples)?;
             log::info!("n samples: {}", samples.len());
-            if !samples.is_empty() {
-                if let Some(gmm) = self.train_gmm(samples) {
-                    log::info!("Training successful!");
-                    model.insert_gmm(kmer, gmm);
+            if let Some(validated) = validated::ValidSampleData::validated(samples) {
+                match self.train_gmm(validated) {
+                    Ok(gmm) => {
+                        log::info!("Training successful!");
+                        model.insert_gmm(kmer, gmm);
+                    }
+                    Err(e) => {
+                        log::warn!("kmer {kmer} failed to train with error {e}");
+                    }
                 }
             }
         }
-        Ok(model)
+        if model.gmms().is_empty() {
+            Err(eyre::eyre!("Not gmms trained due to error. Check logs"))
+        } else {
+            Ok(model)
+        }
     }
 
-    fn train_gmm(&self, samples: Vec<f64>) -> Option<Mixture<Gaussian>> {
-        let samples = samples.into_iter().filter(|x| x.is_finite()).collect_vec();
-        if samples.is_empty() {
-            return None;
-        }
+    fn train_gmm(&self, samples: ValidSampleData) -> Result<Mixture<Gaussian>> {
+        let samples = samples.inner();
         let len = samples.len();
         let shape = (len, 1);
         let means = Array::from_shape_vec(shape, samples).unwrap();
@@ -173,7 +179,7 @@ impl TrainOptions {
                 .collect();
             if filtered.len() < 2 {
                 log::warn!("Not enough values left in observations");
-                return None;
+                return Err(eyre::eyre!("Not enough values after filtering"));
             }
 
             let len = filtered.len();
@@ -188,16 +194,10 @@ impl TrainOptions {
         let gmm = GaussianMixtureModel::params(n_clusters)
             .n_runs(n_runs)
             .tolerance(tolerance)
-            .check()
-            .unwrap()
-            .fit(&data);
-        if let Err(GmmError::MinMaxError(_)) = gmm {
-            let data = data.records.into_raw_vec();
-            log::error!("Failed with MinMaxError, raw data \n{data:?}");
-            return None;
-        }
-        let mm = mix_to_mix(&gmm.unwrap());
-        Some(mm)
+            .check()?
+            .fit(&data)?;
+        let mm = mix_to_mix(&gmm);
+        Ok(mm)
     }
 }
 
@@ -292,6 +292,15 @@ mod test {
     use crate::arrow::Signal;
 
     #[test]
+    fn test_empty_model() {
+        let tmp_dir = TempDir::new().unwrap();
+        let db_path = tmp_dir.join("test.db");
+        let db = Db::open(db_path).expect("Failed to open database file");
+        let opts = TrainOptions::default();
+        assert!(opts.train_gmms(db).is_err());
+    }
+
+    #[test]
     fn test_all_kmers() {
         let kmers = all_kmers();
         assert_eq!(kmers.len(), 4096);
@@ -374,54 +383,28 @@ mod test {
     #[test]
     fn test_train() {
         let cases = vec![
-            1.0,
-            2.0,
-            3.0,
-            4.0,
-            1.2,
-            1.3,
-            2.3,
-            2.2,
-            3.3,
+            100.0,
+            200.0,
+            300.0,
+            400.0,
+            100.2,
+            100.3,
+            110.0,
+            200.3,
+            200.2,
+            300.3,
             f64::NAN,
             f64::NEG_INFINITY,
             f64::INFINITY,
         ];
         let opts = TrainOptions::default();
-        let xs = opts.train_gmm(cases);
-        assert!(xs.is_some(), "first");
-
-        let case = Vec::new();
-        let xs = opts.train_gmm(case);
-        assert!(xs.is_none(), "empty");
-
-        let case = vec![f64::NAN; 10];
-        let xs = opts.train_gmm(case);
-        assert!(xs.is_none(), "NAN");
-
-        let case = vec![f64::INFINITY; 10];
-        let xs = opts.train_gmm(case);
-        assert!(xs.is_none(), "INFINITY");
-
-        let case = vec![f64::NEG_INFINITY; 100];
-        let xs = opts.train_gmm(case);
-        assert!(xs.is_none(), "NEG_INFINITY");
+        let vs = ValidSampleData::validated(cases).unwrap();
+        let xs = opts.train_gmm(vs);
+        assert!(xs.is_ok(), "first");
 
         let case = vec![100.0, 100.0, 0.0, -0.0];
-        let xs = opts.train_gmm(case);
-        assert!(xs.is_some(), "hundreds");
-
-        let case = vec![1.5028554895297472e233, 0.0];
-        let xs = opts.train_gmm(case);
-        assert!(xs.is_none(), "overflow");
+        let vs = ValidSampleData::validated(case).unwrap();
+        let xs = opts.train_gmm(vs);
+        assert!(xs.is_err(), "not enough different values");
     }
-
-    // quickcheck! {
-    //     fn valid_prop(xs: Vec<f32>) -> bool {
-    //         let opts = TrainOptions::default();
-    //         let xs = xs.into_iter().map(|x| x as f64).collect();
-    //         let res = opts.train_gmm(xs);
-    //         !matches!(res, Some(Err(GmmError::MinMaxError(_))))
-    //     }
-    // }
 }

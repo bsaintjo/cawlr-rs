@@ -16,6 +16,7 @@ pub mod sma;
 mod strand_map;
 pub mod train;
 pub mod utils;
+pub mod validated;
 
 pub use arrow::{Eventalign, Metadata, MetadataExt, MetadataMutExt, Score, ScoredRead, Strand};
 pub use arrow_utils::{load_apply, load_read_write, save, wrap_writer};
