@@ -5,7 +5,11 @@ use std::{
 };
 
 use cawlr::{
-    arrow_utils::{load_apply2, load_read_write_arrow},
+    arrow::{
+        arrow_utils::{load_apply2, load_read_write_arrow},
+        eventalign::Eventalign,
+        scored_read::ScoredRead,
+    },
     bkde::BinnedKde,
     collapse::CollapseOptions,
     filter::{FilterOptions, Region},
@@ -18,7 +22,6 @@ use cawlr::{
     sma::SmaOptions,
     train::{self, Model, Train, TrainStrategy},
     utils::{self, CawlrIO},
-    Eventalign, ScoredRead,
 };
 use clap::{error::ErrorKind, CommandFactory, Parser, Subcommand};
 use clap_verbosity_flag::Verbosity;

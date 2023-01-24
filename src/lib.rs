@@ -1,6 +1,5 @@
 pub mod agg_blocks;
-mod arrow;
-pub mod arrow_utils;
+pub mod arrow;
 pub mod bkde;
 pub mod collapse;
 pub mod context;
@@ -17,6 +16,3 @@ mod strand_map;
 pub mod train;
 pub mod utils;
 pub mod validated;
-
-pub use arrow::{Eventalign, Metadata, MetadataExt, MetadataMutExt, Score, ScoredRead, Strand};
-pub use arrow_utils::{load_apply, load_read_write, save, wrap_writer};

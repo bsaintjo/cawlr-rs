@@ -19,9 +19,10 @@ use rayon::prelude::{IntoParallelIterator, ParallelIterator};
 use rv::prelude::{Gaussian, Mixture};
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    arrow::{Eventalign, MetadataExt},
-    load_apply,
+use crate::arrow::{
+    arrow_utils::load_apply,
+    eventalign::Eventalign,
+    metadata::{MetadataExt, Strand},
 };
 
 pub(crate) type ModelDB = FnvHashMap<String, ModelParams>;
@@ -282,31 +283,30 @@ impl Train {
 
     fn read_to_kmer_means(&mut self, read: &Eventalign) {
         for signal in read.signal_iter() {
-            let kmer = signal.kmer().to_owned();
+            let kmer = signal.kmer.clone();
             let entry = self.acc.entry(kmer).or_default();
             if entry.len() > self.samples {
                 continue;
             }
-            entry.push(signal.mean());
+            entry.push(signal.signal_mean);
         }
     }
 
     fn read_to_kmer_samples(&mut self, read: &Eventalign) {
         for signal in read.signal_iter() {
-            let kmer = signal.kmer().to_owned();
+            let kmer = signal.kmer.clone();
             let entry = self.acc.entry(kmer).or_default();
             if entry.len() > self.samples {
                 continue;
             }
-            let samples = signal.samples();
-            entry.extend_from_slice(samples);
+            entry.extend_from_slice(&signal.samples);
         }
     }
 
     fn read_to_skip_counts(&mut self, read: &Eventalign) -> Result<()> {
         let mut pos_scores = FnvHashSet::default();
         for signal in read.signal_iter() {
-            pos_scores.insert(signal.pos());
+            pos_scores.insert(signal.pos);
         }
         let read_seq = self.get_read_seq(read)?;
         for (kmer, pos) in read_seq.windows(6).zip(read.start_0b()..) {
@@ -334,7 +334,7 @@ impl Train {
             .fetch(chrom, start, read.seq_stop_1b_excl())?;
         let mut seq = Vec::new();
         self.genome_mut().read(&mut seq)?;
-        let seq = if strand == crate::arrow::Strand::plus() {
+        let seq = if strand == Strand::plus() {
             seq
         } else {
             bio::alphabets::dna::revcomp(seq)

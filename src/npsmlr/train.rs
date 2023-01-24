@@ -14,12 +14,11 @@ use rusqlite::{named_params, Connection};
 use rv::prelude::{Gaussian, Mixture};
 
 use crate::{
-    arrow_utils::load_read_arrow_measured,
+    arrow::{arrow_utils::load_read_arrow_measured, eventalign::Eventalign, metadata::MetadataExt},
     motif::{all_bases, Motif},
     train::{mix_to_mix, Model},
     utils::CawlrIO,
     validated::{self, ValidSampleData},
-    Eventalign,
 };
 
 #[derive(Debug)]
@@ -242,7 +241,7 @@ impl Db {
         for eventalign in es.into_iter() {
             log::info!("Processing Read: {}", eventalign.name());
             for signal in eventalign.signal_iter() {
-                let kmer = signal.kmer();
+                let kmer = &signal.kmer;
                 log::debug!("Processing signal kmer: {kmer}");
 
                 // Skip if kmer doesn't match any of the kmers
@@ -251,8 +250,8 @@ impl Db {
                     continue;
                 }
 
-                for sample in signal.samples() {
-                    if !(&40.0..=&170.0).contains(&sample) {
+                for sample in signal.samples.iter() {
+                    if !(40.0..=170.0).contains(sample) {
                         log::warn!("Uncharacteristic signal measurement {sample}");
                         continue;
                     }
@@ -289,7 +288,7 @@ mod test {
 
     // use quickcheck::quickcheck;
     use super::*;
-    use crate::arrow::Signal;
+    use crate::arrow::signal::Signal;
 
     #[test]
     fn test_empty_model() {

@@ -14,8 +14,12 @@ use serde_with::{formats::CommaSeparator, serde_as, StringWithSeparator};
 use statrs::statistics::Statistics;
 
 use crate::{
-    arrow::{self, Eventalign, Metadata, Signal, Strand},
-    arrow_utils::{self, save},
+    arrow::{
+        arrow_utils::{self, save},
+        eventalign::Eventalign,
+        metadata::{Metadata, MetadataExt, Strand},
+        signal::Signal,
+    },
     plus_strand_map::PlusStrandMap,
 };
 
@@ -65,12 +69,7 @@ fn nprs_to_eventalign(
     // Update strand from bam file results
     let strand = strand_map.get(eventalign.name());
     if let Some(b) = strand {
-        let strand_ptr = eventalign.strand_mut();
-        *strand_ptr = if b {
-            arrow::Strand::plus()
-        } else {
-            arrow::Strand::minus()
-        }
+        eventalign.metadata.strand = if b { Strand::plus() } else { Strand::minus() };
     } else {
         log::warn!("Read {} could not find strand", eventalign.name())
     }
@@ -78,7 +77,7 @@ fn nprs_to_eventalign(
     // Handle last edge case with multi-mapped reads, throwing away the read if
     // length calculation leads to overflow
     if let Some(len) = stop.checked_sub(eventalign.start_0b()) {
-        *eventalign.length_mut() = len + 1;
+        eventalign.metadata.length = len + 1;
     } else {
         return Ok(None);
     }
@@ -91,9 +90,9 @@ fn nprs_to_eventalign(
     // Reverse kmer
     if eventalign.strand().is_minus_strand() {
         for signal in eventalign.signal_data_mut().iter_mut() {
-            let rev_kmer = revcomp(signal.kmer().as_bytes());
+            let rev_kmer = revcomp(signal.kmer.as_bytes());
             let rev_kmer = String::from_utf8(rev_kmer)?;
-            signal.set_kmer(rev_kmer)
+            signal.kmer = rev_kmer;
         }
     }
     log::debug!("Parsed Eventalign: {eventalign:.2?} ");
@@ -161,7 +160,7 @@ impl<W: Write> CollapseOptions<W> {
         R: AsRef<Path>,
     {
         let strand_db = PlusStrandMap::from_bam_file(bam_file)?;
-        let schema = arrow::Eventalign::schema();
+        let schema = Eventalign::schema();
         let writer = arrow_utils::wrap_writer(writer, &schema)?;
         Ok(CollapseOptions::new(writer, strand_db))
     }
@@ -314,11 +313,7 @@ mod test {
     use assert_fs::TempDir;
 
     use super::*;
-    use crate::{
-        arrow::{Metadata, MetadataExt, Strand},
-        arrow_utils::load_iter,
-        load_apply, wrap_writer,
-    };
+    use crate::arrow::arrow_utils::{load_apply, load_iter, wrap_writer};
 
     #[test]
     fn test_collapse() -> Result<()> {
@@ -334,7 +329,7 @@ mod test {
         let x = load_iter(output).next().unwrap().unwrap();
         assert_eq!(x.len(), 1);
         let read = &x[0];
-        assert_eq!(read.strand(), arrow::Strand::plus());
+        assert_eq!(read.strand(), Strand::plus());
         assert_eq!(read.chrom(), "chrXIII");
         assert_eq!(read.start_0b(), 182504);
         assert_eq!(read.end_1b_excl(), 182682);
@@ -403,7 +398,7 @@ chr1	199403040	ATATAA	c25d27a8-0eec-4e7d-96f9-b8e730a25832	t	3918	87.01		72.4013
         let mut strand_db = PlusStrandMap::default();
         strand_db.insert(b"c25d27a8-0eec-4e7d-96f9-b8e730a25832" as &[u8], true);
 
-        let schema = arrow::Eventalign::schema();
+        let schema = Eventalign::schema();
         let writer = wrap_writer(Vec::new(), &schema).unwrap();
         let mut opts = CollapseOptions::new(writer, strand_db);
         let res = opts.run(lines);
@@ -443,7 +438,7 @@ chr1	199403041	GATATA	c25d27a8-0eec-4e7d-96f9-b8e730a25832	t	3917	106.85	4.255	0
         let mut strand_db = PlusStrandMap::default();
         strand_db.insert(b"c25d27a8-0eec-4e7d-96f9-b8e730a25832" as &[u8], true);
 
-        let schema = arrow::Eventalign::schema();
+        let schema = Eventalign::schema();
         let writer = wrap_writer(Vec::new(), &schema).unwrap();
         let mut opts = CollapseOptions::new(writer, strand_db);
         let res = opts.run(lines);

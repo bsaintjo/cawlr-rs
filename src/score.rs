@@ -13,13 +13,17 @@ use rv::{
 use statrs::statistics::Statistics;
 
 use crate::{
-    arrow::{Eventalign, MetadataExt, Score, ScoredRead, Signal},
-    context, load_apply,
+    arrow::{
+        arrow_utils::{load_apply, save, wrap_writer},
+        eventalign::Eventalign,
+        metadata::MetadataExt,
+        scored_read::{Score, ScoredRead},
+        signal::Signal,
+    },
+    context,
     motif::{all_bases, Motif},
-    save,
     train::{Model, ModelDB},
     utils::{chrom_lens, CawlrIO},
-    wrap_writer,
 };
 
 pub struct ScoreOptions {
@@ -213,8 +217,8 @@ impl ScoreOptions {
         log::debug!("Best signal: {best_signal:.3?}");
 
         best_signal.and_then(|sig| {
-            let mean = sig.mean();
-            let kmer = sig.kmer();
+            let mean = sig.signal_mean;
+            let kmer = &sig.kmer;
             let pos_mix = self.pos_ctrl.gmms().get(kmer);
             let neg_mix = self.neg_ctrl.gmms().get(kmer);
             match (pos_mix, neg_mix) {
@@ -310,7 +314,7 @@ where
             // Only use kmers with z-test p-values less than 0.05
             .filter(|&s| {
                 log::debug!("Signal: {s:.3?}");
-                let kmer = s.kmer();
+                let kmer = &s.kmer;
                 if !neg_gmms.contains_key(kmer) || !pos_gmms.contains_key(kmer) {
                     false
                 } else {
@@ -325,8 +329,8 @@ where
             })
             // Of the ones the best, choose the one with the best ranking
             .reduce(|x, y| {
-                let x_rank = ranks.get(x.kmer());
-                let y_rank = ranks.get(y.kmer());
+                let x_rank = ranks.get(&x.kmer);
+                let y_rank = ranks.get(&y.kmer);
                 match (x_rank, y_rank) {
                     (None, _) => y,
                     (_, None) => x,
@@ -348,7 +352,7 @@ where
 fn pos_with_data(read: &Eventalign) -> FnvHashMap<u64, &Signal> {
     let mut avail_pos = FnvHashMap::default();
     for signal in read.signal_iter() {
-        avail_pos.insert(signal.pos(), signal);
+        avail_pos.insert(signal.pos, signal);
     }
     avail_pos
 }
@@ -428,7 +432,7 @@ mod test {
     use float_eq::assert_float_eq;
 
     use super::*;
-    use crate::{arrow_utils::load_iter, collapse::CollapseOptions, motif::Motif};
+    use crate::{arrow::arrow_utils::load_iter, collapse::CollapseOptions, motif::Motif};
 
     #[test]
     fn test_score_signal() {

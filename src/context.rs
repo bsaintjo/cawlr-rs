@@ -5,7 +5,7 @@ use bio::{alphabets::dna, io::fasta::IndexedReader};
 use eyre::Result;
 use fnv::FnvHashMap;
 
-use crate::{arrow::MetadataExt, motif::Motif};
+use crate::{arrow::metadata::MetadataExt, motif::Motif};
 
 /// Contains the genomic bases for a given position including additional
 /// metadata to handle positions near the end of the genome.

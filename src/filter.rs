@@ -2,7 +2,7 @@ use std::{fmt::Display, str::FromStr};
 
 use thiserror::Error;
 
-use crate::arrow::MetadataExt;
+use crate::arrow::metadata::MetadataExt;
 
 #[derive(Error, Debug)]
 pub enum FilterError {

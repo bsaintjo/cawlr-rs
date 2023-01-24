@@ -1,6 +1,10 @@
 use std::{fs::File, path::PathBuf};
 
-use cawlr::{load_read_write, wrap_writer, MetadataExt, Score, ScoredRead};
+use cawlr::arrow::{
+    arrow_utils::{load_read_write, wrap_writer},
+    metadata::MetadataExt,
+    scored_read::{Score, ScoredRead},
+};
 use clap::Parser;
 use eyre::Result;
 
@@ -65,7 +69,7 @@ fn percent_mod(scores: &[Score], threshold: f64) -> f64 {
     if scores.is_empty() {
         0.0
     } else {
-        let above = scores.iter().filter(|s| s.score() >= threshold).count() as f64;
+        let above = scores.iter().filter(|s| s.score >= threshold).count() as f64;
         above / scores.len() as f64
     }
 }
@@ -112,7 +116,10 @@ mod test {
     fn test_percent_mod() {
         let scores = [10.0, 20.0, 30.0]
             .into_iter()
-            .map(|s| Score::default().with_score(s))
+            .map(|s| Score {
+                score: s,
+                ..Default::default()
+            })
             .collect::<Vec<_>>();
         let pmod = percent_mod(&scores, 25.0);
         assert_eq!(pmod, (1. / 3.));
@@ -127,7 +134,10 @@ mod test {
 
         let scores = [0.0, 100.0]
             .into_iter()
-            .map(|s| Score::default().with_score(s))
+            .map(|s| Score {
+                score: s,
+                ..Default::default()
+            })
             .collect::<Vec<_>>();
 
         let pmod = percent_mod(&scores, 0.0);

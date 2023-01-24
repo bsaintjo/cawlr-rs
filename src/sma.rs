@@ -8,9 +8,8 @@ use eyre::Result;
 use itertools::Itertools;
 
 use crate::{
-    arrow::{MetadataExt, ScoredRead},
+    arrow::{arrow_utils::load_apply, metadata::MetadataExt, scored_read::ScoredRead},
     bkde::BinnedKde,
-    load_apply,
     motif::Motif,
     utils::CawlrIO,
 };
@@ -19,8 +18,8 @@ fn make_scoring_vec(read: &ScoredRead) -> Vec<f64> {
     let mut calling_vec = Vec::new();
     (0..=(read.end_1b_excl() - read.start_0b() + 1)).for_each(|_| calling_vec.push(-1.0));
     (0..read.scores().len()).for_each(|i| {
-        let idx = read.scores()[i].pos() - read.start_0b() + 1;
-        calling_vec[idx as usize] = read.scores()[i].score();
+        let idx = read.scores()[i].pos - read.start_0b() + 1;
+        calling_vec[idx as usize] = read.scores()[i].score;
     });
     calling_vec
 }
@@ -243,66 +242,3 @@ impl SmaOptions {
         })
     }
 }
-// #[cfg(test)]
-// mod test {
-//     use nalgebra::dmatrix;
-
-//     use super::*;
-//     use crate::arrow::Strand;
-
-//     #[test]
-//     fn test_backtrack() {
-//         use States::*;
-
-//         let val_matrix = dmatrix![
-//             -0.5, -0.1, -0.9, -0.9;
-//             -0.5, -0.2, -0.3, -0.4;
-//             -0.5, -0.9, -0.0, -0.0;
-//         ];
-//         let ptr_matrix = dmatrix![
-//             None, Some(0), Some(0), Some(1);
-//             None, Some(0), Some(0), Some(1);
-//             None, Some(0), Some(0), Some(1);
-//         ];
-//         let sma_matrix = SmaMatrix::new(val_matrix, ptr_matrix);
-//         assert_eq!(sma_matrix.val_matrix[(0, 0)], -0.5);
-
-//         let answer: VecDeque<States> = VecDeque::from([Linker, Nucleosome,
-// Nucleosome]);         assert_eq!(sma_matrix.backtrack(), answer);
-//     }
-
-//     #[test]
-//     fn test_sma_output() {
-//         use States::*;
-//         let metadata = Metadata::new(
-//             "test".to_string(),
-//             "chrI".to_string(),
-//             100,
-//             50,
-//             Strand::plus(),
-//             "".to_string(),
-//         );
-
-//         let states_rle = vec![
-//             (Linker, 5),
-//             (Nucleosome, 20),
-//             (Linker, 5),
-//             (Nucleosome, 10),
-//             (Linker, 100),
-//         ];
-
-//         let sma_output = SmaOutput::new(&metadata, states_rle);
-//         let formatted = format!("{}", sma_output);
-//         let answer =
-// "chrI\t100\t150\ttest\t0\t+\t105\t140\t255,0,0\t4\t1,20,10,1\t0,5,30,49";
-//         pretty_assertions::assert_eq!(formatted, answer);
-//     }
-
-//     #[test]
-//     fn test_states_to_rle() {
-//         use States::*;
-//         let states = VecDeque::from([Linker, Linker, Linker, Nucleosome,
-// Nucleosome, Linker]);         let rle = states_to_rle(&states);
-//         assert_eq!(rle, [(Linker, 3), (Nucleosome, 2), (Linker, 1)]);
-//     }
-// }

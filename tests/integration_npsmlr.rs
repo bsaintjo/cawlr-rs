@@ -5,6 +5,7 @@ use assert_fs::TempDir;
 use escargot::CargoBuild;
 use log::LevelFilter;
 
+#[ignore = "Need bigger test dataset"]
 #[test]
 fn integration_npsmlr() -> Result<(), Box<dyn Error>> {
     env_logger::builder()

@@ -19,10 +19,10 @@ use arrow2_convert::{
     serialize::{ArrowSerialize, TryIntoArrow},
 };
 use eyre::Result;
-use indicatif::{ProgressBar, ProgressStyle};
+use indicatif::{style::TemplateError, ProgressBar, ProgressStyle};
 use itertools::Itertools;
 
-use crate::{Eventalign, ScoredRead};
+use super::{eventalign::Eventalign, scored_read::ScoredRead};
 
 // pub struct ArrowWriter<W: Write>(FileWriter<W>);
 pub struct ArrowWriter<W: Write, T> {
@@ -125,10 +125,10 @@ where
 /// # use std::fs::File;
 /// # use std::error::Error;
 /// # use std::io::Cursor;
-/// # use cawlr::Eventalign;
-/// # use cawlr::load_apply;
-/// # use cawlr::wrap_writer;
-/// # use cawlr::save;
+/// # use cawlr::arrow::eventalign::Eventalign;
+/// # use cawlr::arrow::arrow_utils::load_apply;
+/// # use cawlr::arrow::arrow_utils::wrap_writer;
+/// # use cawlr::arrow::arrow_utils::save;
 /// # fn main() -> Result<(), Box<dyn Error>> {
 /// #
 /// # let e = Eventalign::default();
@@ -292,7 +292,7 @@ where
     Ok(())
 }
 
-fn block_bar(n_blocks: u64) -> eyre::Result<ProgressBar> {
+fn block_bar(n_blocks: u64) -> Result<ProgressBar, TemplateError> {
     let style = ProgressStyle::default_bar().template("[{elapsed}] - {percent}% - {bar}")?;
     let pb = ProgressBar::new(n_blocks).with_style(style);
 

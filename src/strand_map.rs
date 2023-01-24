@@ -8,7 +8,7 @@ use bam::BamReader;
 use eyre::Result;
 use fnv::FnvHashMap;
 
-use crate::Strand;
+use crate::arrow::metadata::Strand;
 
 #[derive(Default)]
 pub struct StrandMap(FnvHashMap<Vec<u8>, Strand>);

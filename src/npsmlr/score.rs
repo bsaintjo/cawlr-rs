@@ -7,12 +7,15 @@ use eyre::Result;
 use fnv::FnvHashMap;
 
 use crate::{
-    arrow::Signal,
-    arrow_utils::load_read_write_arrow,
+    arrow::{
+        arrow_utils::load_read_write_arrow,
+        eventalign::Eventalign,
+        scored_read::{Score, ScoredRead},
+        signal::Signal,
+    },
     motif::{all_bases, Motif},
     train::Model,
     utils::CawlrIO,
-    Eventalign, Score, ScoredRead,
 };
 
 pub struct ScoreOptions {
@@ -113,27 +116,27 @@ impl ScoreOptions {
                 let mut scores = Vec::new();
                 let data_map = eventalign
                     .signal_iter()
-                    .map(|s| (s.pos(), s))
+                    .map(|s| (s.pos, s))
                     .collect::<FnvHashMap<_, _>>();
                 for signal in eventalign.signal_iter() {
                     log::debug!("signal {signal:?}");
-                    let kmer = signal.kmer();
+                    let kmer = &signal.kmer;
                     if let Some(m) = self.motifs.iter().find(|m| kmer.starts_with(m.motif())) {
                         log::debug!("Kmer motif matches {m:?}");
                         let mut kmers = Vec::new();
-                        let surrounding = m.surrounding_idxs(signal.pos());
+                        let surrounding = m.surrounding_idxs(signal.pos);
                         for surr in surrounding {
                             log::debug!("Surrounding idx {surr}");
                             if let Some(&s) = data_map.get(&surr) {
                                 log::debug!("Surrounding signal: {s:?}");
-                                if signal.samples().len() > self.freq_thresh {
+                                if signal.samples.len() > self.freq_thresh {
                                     log::debug!(
                                         "n samples greater than frequency threshold, skipping"
                                     );
                                     continue;
                                 }
 
-                                let kmer = s.kmer();
+                                let kmer = &s.kmer;
                                 if count_motif_in_kmer(kmer, m) > 1 {
                                     log::debug!("Count of motifs in kmer greater than 1, skipping");
                                     continue;
@@ -155,7 +158,7 @@ impl ScoreOptions {
                         let mut best_signal = None;
                         let mut diff = f64::NEG_INFINITY;
                         for ss in kmers.into_iter() {
-                            if let Some(&rank) = self.ranks.get(ss.signal.kmer()) {
+                            if let Some(&rank) = self.ranks.get(&ss.signal.kmer) {
                                 log::debug!("signal score: {ss:?}");
                                 if rank > diff {
                                     diff = rank;
@@ -177,8 +180,8 @@ impl ScoreOptions {
                             log::debug!("rate: {rate}");
 
                             let score = Score::new(
-                                signal.pos(),
-                                signal.kmer().to_string(),
+                                signal.pos,
+                                signal.kmer.to_string(),
                                 false,
                                 Some(rate),
                                 0.0,

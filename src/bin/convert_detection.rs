@@ -6,8 +6,12 @@ use std::{
 };
 
 use cawlr::{
-    plus_strand_map::PlusStrandMap, save, wrap_writer, Metadata, MetadataExt, MetadataMutExt,
-    Score, ScoredRead, Strand,
+    arrow::{
+        arrow_utils::{save, wrap_writer},
+        metadata::{Metadata, MetadataExt, Strand},
+        scored_read::{Score, ScoredRead},
+    },
+    plus_strand_map::PlusStrandMap,
 };
 use clap::Parser;
 use indicatif::{ProgressBar, ProgressStyle};
@@ -105,11 +109,11 @@ pub fn run(input: &Path, bam: &Option<PathBuf>, output: &Path) -> eyre::Result<(
         } else {
             let mut read = convert_to_read(&acc);
             if let Some(plus_stranded) = strand_map.get(read.name()) {
-                if plus_stranded {
-                    *read.strand_mut() = Strand::plus();
+                read.metadata.strand = if plus_stranded {
+                    Strand::plus()
                 } else {
-                    *read.strand_mut() = Strand::minus();
-                }
+                    Strand::minus()
+                };
             }
             save(&mut writer, &[read])?;
             curr_read = dline.read_name().to_owned();

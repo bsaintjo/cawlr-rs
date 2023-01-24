@@ -7,7 +7,10 @@ use criterion_stats::univariate::{
 use eyre::Result;
 use rand::{rngs::SmallRng, seq::SliceRandom, SeedableRng};
 
-use crate::{arrow::ScoredRead, bkde::BinnedKde, load_apply};
+use crate::{
+    arrow::{arrow_utils::load_apply, scored_read::ScoredRead},
+    bkde::BinnedKde,
+};
 
 pub struct Options {
     samples: usize,
@@ -86,9 +89,8 @@ pub fn extract_samples(reads: &[ScoredRead]) -> Vec<f64> {
         .flat_map(|lr| {
             lr.scores()
                 .iter()
-                .flat_map(|score| score.signal_score())
+                .flat_map(|score| score.signal_score)
                 .filter(|x| !x.is_nan())
-                .copied()
                 .collect::<Vec<_>>()
         })
         .collect()
