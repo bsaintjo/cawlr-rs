@@ -161,11 +161,17 @@ TODO: Point out the models that are provided by `cawlr`
 ### `training-ctrls-pipeline`
 
 Pipeline takes directories containing the fast5,
-```
+Example:
+
+```bash
 $ training-ctrls-pipeline - g /path/to/genome.fa \
   --pos-reads /path/to/pos-reads.fa \
   --pos-fast5s /path/to/pos-fas5-dir \
-  --pos-summary /path/∏
+  --pos-summary /path/to/sequencing_summary.txt
+  --neg-reads /path/to/neg-reads.fa \
+  --neg-fast5s /path/to/neg-fas5-dir \
+  --neg-summary /path/to/sequencing_summary.txt
+  --output output_dir
 ```
 
 ## Example `cawlr` vignette
