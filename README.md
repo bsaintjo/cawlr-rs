@@ -26,6 +26,8 @@
     - [Python dependencies](#python-dependencies)
   - [Nanopore data preparation](#nanopore-data-preparation)
   - [Models](#models)
+  - [Pipelines](#pipelines)
+    - [`training-ctrls-pipeline`](#training-ctrls-pipeline)
   - [Example `cawlr` vignette](#example-cawlr-vignette)
   - [QC Scripts](#qc-scripts)
     - [`plot_gmm_models.py`](#plot_gmm_modelspy)
@@ -153,6 +155,18 @@ samtools flagstats filtered.aln.sorted.bam
 ## Models
 
 TODO: Point out the models that are provided by `cawlr`
+
+## Pipelines
+
+### `training-ctrls-pipeline`
+
+Pipeline takes directories containing the fast5,
+```
+$ training-ctrls-pipeline - g /path/to/genome.fa \
+  --pos-reads /path/to/pos-reads.fa \
+  --pos-fast5s /path/to/pos-fas5-dir \
+  --pos-summary /path/∏
+```
 
 ## Example `cawlr` vignette
 

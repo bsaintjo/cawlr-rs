@@ -29,7 +29,7 @@ struct Args {
     #[clap(long)]
     pos_fast5s: PathBuf,
 
-    /// Path to single fasta/q file of reads from the positive control
+    /// Path to single fasta/q file or directory of fasta/q of reads from the positive control
     #[clap(long)]
     pos_reads: PathBuf,
 
@@ -42,7 +42,7 @@ struct Args {
     #[clap(long)]
     neg_fast5s: PathBuf,
 
-    /// Path to single fasta/q file of reads from the negative control
+    /// Path to single fasta/q file or directory of fasta/q of reads from the negative control
     #[clap(long)]
     neg_reads: PathBuf,
 
@@ -176,6 +176,26 @@ fn rank_models(
     Ok(ranks)
 }
 
+// Takes a path reads and checks if it is a directory. If its a directory, find all the fastqs
+// and concatenate them all into a single file.
+fn reads_to_single_reads(reads: &Path, name: &str, output_dir: &Path) -> Result<PathBuf> {
+    if reads.is_dir() {
+        log::info!("detected directory for neg-reads, cat-ing into a single file");
+        let output_filepath = output_dir.join(name);
+        let output_file = File::create(&output_filepath)?;
+        let glob = format!(
+            "{}/*fastq",
+            reads.as_os_str().to_str().ok_or(eyre::eyre!(
+                "Failed to convert path into str, unicdoe issue?"
+            ))?
+        );
+        Command::new("cat").arg(glob).stdout(output_file);
+        Ok(output_filepath)
+    } else {
+        Ok(reads.to_path_buf())
+    }
+}
+
 fn main() -> eyre::Result<()> {
     let args = Args::parse();
 
@@ -188,60 +208,41 @@ fn main() -> eyre::Result<()> {
     let log_file = args.output_dir.join("log.txt");
     simple_logging::log_to_file(log_file, LevelFilter::Info)?;
 
+    let neg_reads = reads_to_single_reads(&args.neg_reads, "neg_reads.fastq", &args.output_dir)?;
+    let pos_reads = reads_to_single_reads(&args.pos_reads, "pos_reads.fastq", &args.output_dir)?;
+
     wrap_cmd("nanopolish index for (+) ctrl", || {
-        np_index(
-            &nanopolish,
-            &args.pos_fast5s,
-            &args.pos_reads,
-            &args.pos_summary,
-        )
+        np_index(&nanopolish, &args.pos_fast5s, &pos_reads, &args.pos_summary)
     })?;
     wrap_cmd("nanopolish index for (-) ctrl", || {
-        np_index(
-            &nanopolish,
-            &args.neg_fast5s,
-            &args.neg_reads,
-            &args.neg_summary,
-        )
+        np_index(&nanopolish, &args.neg_fast5s, &neg_reads, &args.neg_summary)
     })?;
 
     let pos_aln = args.output_dir.join("pos.bam");
     wrap_cmd("align (+) ctrl reads", || {
-        aln_reads(
-            &minimap2,
-            &samtools,
-            &args.genome,
-            &args.pos_reads,
-            &pos_aln,
-        )
+        aln_reads(&minimap2, &samtools, &args.genome, &pos_reads, &pos_aln)
     })?;
     let neg_aln = args.output_dir.join("neg.bam");
     wrap_cmd("align (-) ctrl reads", || {
-        aln_reads(
-            &minimap2,
-            &samtools,
-            &args.genome,
-            &args.neg_reads,
-            &neg_aln,
-        )
+        aln_reads(&minimap2, &samtools, &args.genome, &neg_reads, &neg_aln)
     })?;
 
     let pos_collapse = args.output_dir.join("pos_collapse.arrow");
     wrap_cmd("nanopolish eventalign (+) ctrl | cawlr collapse", || {
         eventalign_collapse(
             &nanopolish,
-            &args.pos_reads,
+            &pos_reads,
             &pos_aln,
             &args.genome,
             &pos_collapse,
         )
     })?;
 
-    let neg_collapse = args.output_dir.join("neg_collapse.collapse.arrow");
+    let neg_collapse = args.output_dir.join("neg_collapse.arrow");
     wrap_cmd("nanopolish eventalign (-) ctrl | cawlr collapse", || {
         eventalign_collapse(
             &nanopolish,
-            &args.neg_reads,
+            &neg_reads,
             &neg_aln,
             &args.genome,
             &neg_collapse,
