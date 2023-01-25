@@ -13,6 +13,7 @@ fn integration_npsmlr() -> Result<(), Box<dyn Error>> {
         .filter_module("escargot::format", LevelFilter::Off)
         .try_init()?;
     let temp_dir = TempDir::new()?.into_persistent_if(std::env::var("TEST_PERSIST").is_ok());
+    log::info!("temp_dir: {}", temp_dir.path().display());
 
     log::info!("Building release cawlr");
     let run = CargoBuild::new()
