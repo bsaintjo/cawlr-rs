@@ -8,8 +8,8 @@ use std::{
 use cawlr::{
     agg_blocks,
     collapse::CollapseOptions,
-    filter::Region,
     motif::{all_bases, Motif},
+    region::Region,
     sma::SmaOptions,
     utils::{self, wrap_cmd},
 };

@@ -29,7 +29,8 @@ struct Args {
     #[clap(long)]
     pos_fast5s: PathBuf,
 
-    /// Path to single fasta/q file or directory of fasta/q of reads from the positive control
+    /// Path to single fasta/q file or directory of fasta/q of reads from the
+    /// positive control
     #[clap(long)]
     pos_reads: PathBuf,
 
@@ -42,7 +43,8 @@ struct Args {
     #[clap(long)]
     neg_fast5s: PathBuf,
 
-    /// Path to single fasta/q file or directory of fasta/q of reads from the negative control
+    /// Path to single fasta/q file or directory of fasta/q of reads from the
+    /// negative control
     #[clap(long)]
     neg_reads: PathBuf,
 
@@ -176,8 +178,8 @@ fn rank_models(
     Ok(ranks)
 }
 
-// Takes a path reads and checks if it is a directory. If its a directory, find all the fastqs
-// and concatenate them all into a single file.
+// Takes a path reads and checks if it is a directory. If its a directory, find
+// all the fastqs and concatenate them all into a single file.
 fn reads_to_single_reads(reads: &Path, name: &str, output_dir: &Path) -> Result<PathBuf> {
     if reads.is_dir() {
         log::info!("detected directory for neg-reads, cat-ing into a single file");

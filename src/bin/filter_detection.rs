@@ -4,7 +4,7 @@ use std::{
     path::PathBuf,
 };
 
-use cawlr::filter::Region;
+use cawlr::region::Region;
 use clap::Parser;
 use indicatif::{ProgressBar, ProgressStyle};
 
