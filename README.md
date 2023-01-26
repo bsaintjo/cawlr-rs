@@ -161,10 +161,35 @@ TODO: Point out the models that are provided by `cawlr`
 ### `training-ctrls-pipeline`
 
 Pipeline takes directories containing the fast5,
+
+```
+Usage: train-ctrls-pipeline [OPTIONS] --genome <GENOME> --pos-fast5s <POS_FAST5S> --pos-reads <POS_READS> --neg-fast5s <NEG_FAST5S> --neg-reads <NEG_READS> --output-dir <OUTPUT_DIR>
+
+Options:
+  -g, --genome <GENOME>
+          Path to genome fasta file
+      --pos-fast5s <POS_FAST5S>
+          Directory containing fast5s for positive control
+      --pos-reads <POS_READS>
+          Path to single fasta/q file or directory of fasta/q of reads from the positive control
+      --pos-summary <POS_SUMMARY>
+          Optional path to sequencing_summary.txt file for positive control, speeds up nanopolish indexing
+      --neg-fast5s <NEG_FAST5S>
+          Directory containing fast5s for negative control
+      --neg-reads <NEG_READS>
+          Path to single fasta/q file or directory of fasta/q of reads from the negative control
+      --neg-summary <NEG_SUMMARY>
+          Optional path to sequencing_summary.txt file for negative control, speeds up nanopolish indexing
+  -o, --output-dir <OUTPUT_DIR>
+          Output directory for pipeline
+  -m, --motifs <MOTIFS>...
+          Motifs of modification to filter on, format is "{position}:{motif}" ie for GpC motif, motif is "2:GC"
+```
+
 Example:
 
 ```bash
-$ training-ctrls-pipeline - g /path/to/genome.fa \
+$ train-ctrls-pipeline - g /path/to/genome.fa \
   --pos-reads /path/to/pos-reads.fa \
   --pos-fast5s /path/to/pos-fas5-dir \
   --pos-summary /path/to/sequencing_summary.txt
