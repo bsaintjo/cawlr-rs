@@ -14,7 +14,7 @@ env:
 
 jobs:
   compile:
-    runs-on: self-hosted
+    runs-on: macos-latest
 
     steps:
       - name: Checkout main
