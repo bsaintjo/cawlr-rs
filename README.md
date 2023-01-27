@@ -189,7 +189,7 @@ Options:
 Example:
 
 ```bash
-$ train-ctrls-pipeline - g /path/to/genome.fa \
+$ train-ctrls-pipeline -g /path/to/genome.fa \
   --pos-reads /path/to/pos-reads.fa \
   --pos-fast5s /path/to/pos-fas5-dir \
   --pos-summary /path/to/sequencing_summary.txt
