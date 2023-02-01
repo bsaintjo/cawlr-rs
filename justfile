@@ -6,7 +6,7 @@ docker:
     @echo "Image successfully pushed"
 
 musl:
-    docker build --pull -f "musl.Dockerfile" -t rust-musl-builder:latest "."
+    docker build --pull -f "dockerfiles/musl.Dockerfile" -t rust-musl-builder:latest "."
     docker run \
         --rm -it \
         -u "$(id -u)":"$(id -g)" \
