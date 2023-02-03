@@ -11,6 +11,9 @@ license = "BSD-3-Clause"
 rust-version = "1.56.1"
 categories = ["science", "command-line-utilities"]
 
+[workspace]
+members = ["analyze-region-pipeline"]
+
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
@@ -97,6 +100,7 @@ rusqlite = { version = "0.28.0", features = ["bundled"] }
 # Fix problem with older gcc?
 # Related issue: https://github.com/gyscos/zstd-rs/issues/177
 zstd-sys = "=2.0.4"
+glob = "0.3.1"
 
 # Embedded database for storing parsed samples
 # typed-sled = { version = "0.2.0", git = "https://github.com/bsaintjo/typed-sled", branch = "impl-mergeoperator"}

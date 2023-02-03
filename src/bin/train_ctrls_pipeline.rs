@@ -1,8 +1,8 @@
 use std::{
     fs::{self, File},
-    io::BufReader,
+    io::{BufRead, BufReader, BufWriter, Write},
     path::{Path, PathBuf},
-    process::{Command, Stdio},
+    process::{Command, Output, Stdio},
 };
 
 use cawlr::{
@@ -79,6 +79,18 @@ struct Args {
     motifs: Vec<Motif>,
 }
 
+fn check_if_failed(output: Output) -> eyre::Result<()> {
+    log::info!("{}", String::from_utf8_lossy(&output.stderr));
+    if output.status.success() {
+        Ok(())
+    } else {
+        Err(eyre::eyre!(
+            "Command failed with exit status {}",
+            output.status
+        ))
+    }
+}
+
 fn np_index(
     nanopolish: &Path,
     fast5s: &Path,
@@ -91,9 +103,10 @@ fn np_index(
         cmd.arg("-s").arg(summary);
     }
     cmd.arg(reads);
+    cmd.stderr(Stdio::piped());
     log::info!("{cmd:?}");
-    cmd.output()?;
-    Ok(())
+    let output = cmd.output()?;
+    check_if_failed(output)
 }
 
 fn aln_reads(
@@ -126,8 +139,8 @@ fn aln_reads(
         .arg(output)
         .stdin(map_output.stdout.unwrap());
     log::info!("{sam_cmd:?}");
-    sam_cmd.output()?;
-    Ok(())
+    let output = sam_cmd.output()?;
+    check_if_failed(output)
 }
 
 fn eventalign_collapse(
@@ -136,6 +149,7 @@ fn eventalign_collapse(
     bam: &Path,
     genome: &Path,
     output: &Path,
+    log_file: File,
 ) -> Result<()> {
     let cmd = Command::new(nanopolish)
         .arg("eventalign")
@@ -151,10 +165,12 @@ fn eventalign_collapse(
         .arg("--print-read-names")
         .arg("--samples")
         .stdout(Stdio::piped())
-        .spawn()?
+        .stderr(log_file)
+        .spawn()?;
+    let stdout = cmd
         .stdout
         .ok_or_else(|| eyre::eyre!("Could not capture stdout"))?;
-    let reader = BufReader::new(cmd);
+    let reader = BufReader::new(stdout);
     let mut collapse = CollapseOptions::try_new(bam, output)?;
     collapse.run(reader)?;
     Ok(())
@@ -185,16 +201,42 @@ fn rank_models(
 // all the fastqs and concatenate them all into a single file.
 fn reads_to_single_reads(reads: &Path, name: &str, output_dir: &Path) -> Result<PathBuf> {
     if reads.is_dir() {
-        log::info!("detected directory for neg-reads, cat-ing into a single file");
+        log::info!("Detected directory, concatenating into a single fastq file.");
         let output_filepath = output_dir.join(name);
-        let output_file = File::create(&output_filepath)?;
-        let glob = format!(
-            "{}/*fastq",
+        let mut output_file = BufWriter::new(File::create(&output_filepath)?);
+        let fastq_matcher = format!(
+            "{}/**/*fastq",
             reads.as_os_str().to_str().ok_or(eyre::eyre!(
                 "Failed to convert path into str, unicdoe issue?"
             ))?
         );
-        Command::new("cat").arg(glob).stdout(output_file);
+        let mut n_fastq_files = 0;
+        for fastq in glob::glob(&fastq_matcher)? {
+            let fastq = fastq?;
+            n_fastq_files += 1;
+            log::info!("Found fastq: {}", fastq.display());
+            let mut fastq_file = BufReader::new(File::open(fastq)?);
+            loop {
+                let buf_len = {
+                    let buf = fastq_file.fill_buf()?;
+                    if buf.is_empty() {
+                        break;
+                    }
+                    output_file.write_all(buf)?;
+                    buf.len()
+                };
+                fastq_file.consume(buf_len);
+            }
+        }
+
+        if n_fastq_files == 0 {
+            return Err(eyre::eyre!(
+                "No fastq files processed, check if directory contained files ending with .fastq"
+            ));
+        } else {
+            log::info!("Processed {n_fastq_files} fastq files");
+        }
+
         Ok(output_filepath)
     } else {
         Ok(reads.to_path_buf())
@@ -210,8 +252,9 @@ fn main() -> eyre::Result<()> {
 
     fs::create_dir_all(&args.output_dir)?;
 
-    let log_file = args.output_dir.join("log.txt");
-    simple_logging::log_to_file(log_file, LevelFilter::Info)?;
+    let log_file_path = args.output_dir.join("log.txt");
+    let log_file = File::create(log_file_path)?;
+    simple_logging::log_to(log_file.try_clone()?, LevelFilter::Info);
 
     let neg_reads = reads_to_single_reads(&args.neg_reads, "neg_reads.fastq", &args.output_dir)?;
     let pos_reads = reads_to_single_reads(&args.pos_reads, "pos_reads.fastq", &args.output_dir)?;
@@ -240,6 +283,7 @@ fn main() -> eyre::Result<()> {
             &pos_aln,
             &args.genome,
             &pos_collapse,
+            log_file.try_clone()?,
         )
     })?;
 
@@ -251,6 +295,7 @@ fn main() -> eyre::Result<()> {
             &neg_aln,
             &args.genome,
             &neg_collapse,
+            log_file.try_clone()?,
         )
     })?;
 
@@ -258,9 +303,13 @@ fn main() -> eyre::Result<()> {
     let neg_train = args.output_dir.join("neg_train.pickle");
     let db_file = args.output_dir.join("db.sqlite3");
 
-    let pos_model = wrap_cmd_output("Train (+) ctrl", || train_npsmlr(&pos_collapse, &db_file, false))?;
+    let pos_model = wrap_cmd_output("Train (+) ctrl", || {
+        train_npsmlr(&pos_collapse, &db_file, false)
+    })?;
     pos_model.save_as(pos_train)?;
-    let neg_model = wrap_cmd_output("Train (-) ctrl", || train_npsmlr(&neg_collapse, &db_file, true))?;
+    let neg_model = wrap_cmd_output("Train (-) ctrl", || {
+        train_npsmlr(&neg_collapse, &db_file, true)
+    })?;
     neg_model.save_as(neg_train)?;
 
     let rank_output = args.output_dir.join("ranks.pickle");
