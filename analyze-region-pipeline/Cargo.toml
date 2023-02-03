@@ -1,0 +1,16 @@
+[package]
+name = "analyze-region-pipeline"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+cawlr = { path = ".."}
+clap = "4.1.4"
+eyre = "0.6.8"
+fnv = "1.0.7"
+glob = "0.3.1"
+log = "0.4.17"
+miette = { version = "5.5.0", features = ["fancy"] }
+simple-logging = "2.0.2"

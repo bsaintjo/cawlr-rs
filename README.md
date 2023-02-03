@@ -28,6 +28,8 @@
   - [Models](#models)
   - [Pipelines](#pipelines)
     - [`training-ctrls-pipeline`](#training-ctrls-pipeline)
+    - [`analyze-region-pipeline`](#analyze-region-pipeline)
+      - [Command usage](#command-usage)
   - [Example `cawlr` vignette](#example-cawlr-vignette)
   - [QC Scripts](#qc-scripts)
     - [`plot_gmm_models.py`](#plot_gmm_modelspy)
@@ -198,6 +200,10 @@ $ train-ctrls-pipeline -g /path/to/genome.fa \
   --neg-summary /path/to/sequencing_summary.txt
   --output output_dir
 ```
+
+### `analyze-region-pipeline`
+
+#### Command usage
 
 ## Example `cawlr` vignette
 

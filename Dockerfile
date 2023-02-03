@@ -43,6 +43,11 @@ RUN make && cp ./minimap2 /tools/
 WORKDIR /samtools
 RUN ./configure && make && make install && cp ./samtools /tools/
 
+WORKDIR /vbz
+RUN wget https://github.com/nanoporetech/vbz_compression/releases/download/v1.0.1/ont-vbz-hdf-plugin-1.0.1-Linux-x86_64.tar.gz && \
+	tar -xzf ont-vbz-hdf-plugin-1.0.1-Linux-x86_64.tar.gz
+ENV HDF5_PLUGIN_PATH=/vbz/ont-vbz-hdf-plugin-1.0.1-Linux/usr/local/hdf5/lib/plugin/
+
 WORKDIR /cawlr
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain 1.66 --profile minimal
 ENV PATH="/root/.cargo/bin:${PATH}"
@@ -75,6 +80,8 @@ COPY --from=builder /tools /cawlr/target/release/cawlr \
 	/tools/
 ENV PATH="/tools:${PATH}"
 ENV PATH="/root/.local/bin:${PATH}"
+
+RUN dnf install 
 
 WORKDIR /
 CMD ["/bin/bash"]
