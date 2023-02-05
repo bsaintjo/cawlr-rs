@@ -4,9 +4,9 @@ use std::{
     path::PathBuf,
 };
 
-use libcawlr::region::Region;
 use clap::Parser;
 use indicatif::{ProgressBar, ProgressStyle};
+use libcawlr::region::Region;
 
 #[derive(Parser)]
 struct Args {

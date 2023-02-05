@@ -4,6 +4,8 @@ use std::{
     str::FromStr,
 };
 
+use eyre::Result;
+use fnv::FnvHashMap;
 use libcawlr::{
     collapse::CollapseOptions,
     motif::Motif,
@@ -12,8 +14,6 @@ use libcawlr::{
     train::Model,
     utils::CawlrIO,
 };
-use eyre::Result;
-use fnv::FnvHashMap;
 
 const POS_CTRL: &str = "extra/pos_control.eventalign.txt";
 const POS_CTRL_BAM: &str = "extra/pos_control.bam";

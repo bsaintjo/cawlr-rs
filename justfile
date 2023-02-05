@@ -12,4 +12,4 @@ musl:
         -u "$(id -u)":"$(id -g)" \
         -e RUSTFLAGS="-C target-feature=+crt-static" \
         -v "$(pwd)":/src rust-musl-builder:latest \
-        cargo build --release --target x86_64-unknown-linux-musl
+        cargo build --release --workspace --target x86_64-unknown-linux-musl

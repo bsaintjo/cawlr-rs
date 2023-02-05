@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
-use libcawlr::agg_blocks::run;
 use clap::Parser;
+use libcawlr::agg_blocks::run;
 
 #[derive(Parser)]
 struct Args {

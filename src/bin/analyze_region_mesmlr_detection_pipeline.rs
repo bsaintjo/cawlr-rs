@@ -7,9 +7,14 @@ use std::{
 
 mod convert_detection;
 
-use libcawlr::utils::parse_name_from_output_dir;
-use libcawlr::{agg_blocks, motif::all_bases, region::Region, sma::SmaOptions, utils::wrap_cmd};
 use clap::Parser;
+use libcawlr::{
+    agg_blocks,
+    motif::all_bases,
+    region::Region,
+    sma::SmaOptions,
+    utils::{parse_name_from_output_dir, wrap_cmd},
+};
 use log::LevelFilter;
 
 #[derive(Debug, Parser)]

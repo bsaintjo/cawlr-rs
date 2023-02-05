@@ -1,12 +1,12 @@
 use std::{fs::File, path::PathBuf};
 
+use clap::Parser;
+use eyre::Result;
 use libcawlr::arrow::{
     arrow_utils::{load_read_write, wrap_writer},
     metadata::MetadataExt,
     scored_read::{Score, ScoredRead},
 };
-use clap::Parser;
-use eyre::Result;
 
 #[derive(Parser)]
 struct Args {

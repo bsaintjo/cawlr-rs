@@ -27,7 +27,7 @@
   - [Nanopore data preparation](#nanopore-data-preparation)
   - [Models](#models)
   - [Pipelines](#pipelines)
-    - [`training-ctrls-pipeline`](#training-ctrls-pipeline)
+    - [`cawlr pipeline train-ctrls`](#cawlr-pipeline-train-ctrls)
     - [`analyze-region-pipeline`](#analyze-region-pipeline)
       - [Command usage](#command-usage)
   - [Example `cawlr` vignette](#example-cawlr-vignette)
@@ -160,7 +160,7 @@ TODO: Point out the models that are provided by `cawlr`
 
 ## Pipelines
 
-### `training-ctrls-pipeline`
+### `cawlr pipeline train-ctrls`
 
 Pipeline takes directories containing the fast5,
 

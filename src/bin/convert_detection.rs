@@ -5,6 +5,8 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use clap::Parser;
+use indicatif::{ProgressBar, ProgressStyle};
 use libcawlr::{
     arrow::{
         arrow_utils::{save, wrap_writer},
@@ -13,8 +15,6 @@ use libcawlr::{
     },
     plus_strand_map::PlusStrandMap,
 };
-use clap::Parser;
-use indicatif::{ProgressBar, ProgressStyle};
 use serde::Deserialize;
 
 #[derive(Parser)]

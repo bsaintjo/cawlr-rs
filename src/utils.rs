@@ -4,7 +4,8 @@ use std::{
     hash::{BuildHasher, Hash},
     io::{stdout, Read, Seek, Write},
     path::{Path, PathBuf},
-    time::Duration, process::Output,
+    process::Output,
+    time::Duration,
 };
 
 use bio::io::fasta::IndexedReader;

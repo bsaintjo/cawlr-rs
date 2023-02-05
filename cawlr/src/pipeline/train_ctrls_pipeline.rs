@@ -5,6 +5,9 @@ use std::{
     process::{Command, Stdio},
 };
 
+use clap::Parser;
+use eyre::Result;
+use fnv::FnvHashMap;
 use libcawlr::{
     collapse::CollapseOptions,
     motif::Motif,
@@ -12,11 +15,8 @@ use libcawlr::{
     rank::RankOptions,
     score_model::Options,
     train::Model,
-    utils::{self, wrap_cmd, wrap_cmd_output, CawlrIO, check_if_failed},
+    utils::{self, check_if_failed, wrap_cmd, wrap_cmd_output, CawlrIO},
 };
-use clap::Parser;
-use eyre::Result;
-use fnv::FnvHashMap;
 use log::LevelFilter;
 
 #[derive(Parser, Debug)]
@@ -27,7 +27,7 @@ pub struct TrainCtrlPipelineCmd {
 
     /// Directory containing fast5s for positive control
     #[clap(long)]
-    pos_fast5s: PathBuf,
+    pos_fast5: PathBuf,
 
     /// Path to single fasta/q file or directory of fasta/q of reads from the
     /// positive control
@@ -41,7 +41,7 @@ pub struct TrainCtrlPipelineCmd {
 
     /// Directory containing fast5s for negative control
     #[clap(long)]
-    neg_fast5s: PathBuf,
+    neg_fast5: PathBuf,
 
     /// Path to single fasta/q file or directory of fasta/q of reads from the
     /// negative control
@@ -78,7 +78,6 @@ pub struct TrainCtrlPipelineCmd {
     #[clap(short, long, num_args=1..)]
     motifs: Vec<Motif>,
 }
-
 
 fn np_index(
     nanopolish: &Path,
@@ -247,10 +246,10 @@ pub fn run(args: TrainCtrlPipelineCmd) -> eyre::Result<()> {
     let pos_reads = reads_to_single_reads(&args.pos_reads, "pos_reads.fastq", &args.output_dir)?;
 
     wrap_cmd("nanopolish index for (+) ctrl", || {
-        np_index(&nanopolish, &args.pos_fast5s, &pos_reads, &args.pos_summary)
+        np_index(&nanopolish, &args.pos_fast5, &pos_reads, &args.pos_summary)
     })?;
     wrap_cmd("nanopolish index for (-) ctrl", || {
-        np_index(&nanopolish, &args.neg_fast5s, &neg_reads, &args.neg_summary)
+        np_index(&nanopolish, &args.neg_fast5, &neg_reads, &args.neg_summary)
     })?;
 
     let pos_aln = args.output_dir.join("pos.bam");
