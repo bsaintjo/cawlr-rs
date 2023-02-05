@@ -5,10 +5,9 @@ use std::{
     process::Command,
 };
 
-mod analyze_region_pipeline;
 mod convert_detection;
 
-use analyze_region_pipeline::parse_name_from_output_dir;
+use libcawlr::utils::parse_name_from_output_dir;
 use libcawlr::{agg_blocks, motif::all_bases, region::Region, sma::SmaOptions, utils::wrap_cmd};
 use clap::Parser;
 use log::LevelFilter;

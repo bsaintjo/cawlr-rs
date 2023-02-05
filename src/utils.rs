@@ -178,3 +178,13 @@ pub fn check_if_failed(output: Output) -> eyre::Result<()> {
         ))
     }
 }
+
+pub fn parse_name_from_output_dir<P: AsRef<Path>>(path: P) -> eyre::Result<String> {
+    let name = path
+        .as_ref()
+        .file_name()
+        .ok_or(eyre::eyre!("Invalid input directory"))?
+        .to_str()
+        .ok_or(eyre::eyre!("Invalid path name"))?;
+    Ok(name.to_string())
+}
