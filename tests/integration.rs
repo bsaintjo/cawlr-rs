@@ -11,7 +11,7 @@ fn integration() -> Result<(), Box<dyn Error>> {
 
     eprintln!("Building release cawlr");
     let run = CargoBuild::new()
-        .bin("cawlr")
+        .package("cawlr")
         .release()
         .no_default_features()
         .run()?;

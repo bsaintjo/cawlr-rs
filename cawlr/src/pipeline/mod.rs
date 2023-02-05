@@ -1,6 +1,6 @@
-pub mod analyze;
-pub mod preprocess;
-pub mod train_ctrls_pipeline;
+mod analyze;
+mod preprocess;
+mod train_ctrls_pipeline;
 
 use clap::Subcommand;
 

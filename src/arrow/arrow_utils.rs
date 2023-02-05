@@ -125,10 +125,10 @@ where
 /// # use std::fs::File;
 /// # use std::error::Error;
 /// # use std::io::Cursor;
-/// # use cawlr::arrow::eventalign::Eventalign;
-/// # use cawlr::arrow::arrow_utils::load_apply;
-/// # use cawlr::arrow::arrow_utils::wrap_writer;
-/// # use cawlr::arrow::arrow_utils::save;
+/// # use libcawlr::arrow::eventalign::Eventalign;
+/// # use libcawlr::arrow::arrow_utils::load_apply;
+/// # use libcawlr::arrow::arrow_utils::wrap_writer;
+/// # use libcawlr::arrow::arrow_utils::save;
 /// # fn main() -> Result<(), Box<dyn Error>> {
 /// #
 /// # let e = Eventalign::default();
