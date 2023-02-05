@@ -65,19 +65,19 @@ WORKDIR /cawlr
 COPY --from=planner /cawlr/recipe.json recipe.json
 RUN cargo chef cook --release --recipe-path recipe.json
 COPY . .
-RUN mold -run cargo build --release --workspace
+RUN mold -run cargo build --release --package cawlr
 RUN cp notebooks/*py /tools \
 	&& chmod +x /tools/*
 
 FROM guppy as dev
-COPY --from=builder /tools /cawlr/target/release/cawlr \
-	/cawlr/target/release/analyze-region-mesmlr-detection-pipeline \
-	/cawlr/target/release/analyze-region-pipeline \
-	/cawlr/target/release/filter_scores \
-	/cawlr/target/release/agg-blocks \
-	/cawlr/target/release/train-ctrls-pipeline \
-	/cawlr/target/release/filter_detection \
-	/tools/
+COPY --from=builder /tools /cawlr/target/release/cawlr
+	# /cawlr/target/release/analyze-region-mesmlr-detection-pipeline \
+	# /cawlr/target/release/analyze-region-pipeline \
+	# /cawlr/target/release/filter_scores \
+	# /cawlr/target/release/agg-blocks \
+	# /cawlr/target/release/train-ctrls-pipeline \
+	# /cawlr/target/release/filter_detection \
+	# /tools/
 ENV PATH="/tools:${PATH}"
 ENV PATH="/root/.local/bin:${PATH}"
 

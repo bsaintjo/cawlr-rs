@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
-use libcawlr::{motif::Motif, region::Region};
 use clap::Parser;
+use libcawlr::{motif::Motif, region::Region};
 
 #[derive(Debug, Parser)]
 pub struct AnalyzeCmd {

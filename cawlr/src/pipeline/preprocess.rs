@@ -5,10 +5,10 @@ use std::{
     process::{Command, Stdio},
 };
 
-use libcawlr::utils::{self, check_if_failed};
 use clap::Parser;
+use libcawlr::utils::{self, check_if_failed};
 
-#[derive(Parser)]
+#[derive(Parser, Debug)]
 pub struct PreprocessCmd {
     #[clap(short, long)]
     pub genome: PathBuf,

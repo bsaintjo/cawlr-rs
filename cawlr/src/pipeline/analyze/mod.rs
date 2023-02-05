@@ -7,6 +7,7 @@ use std::{
     process::{Command, Stdio},
 };
 
+pub use cmd::AnalyzeCmd;
 use libcawlr::{
     agg_blocks,
     collapse::CollapseOptions,
@@ -15,7 +16,6 @@ use libcawlr::{
     sma::SmaOptions,
     utils::{self, wrap_cmd},
 };
-pub use cmd::AnalyzeCmd;
 use log::LevelFilter;
 
 pub fn parse_name_from_output_dir<P: AsRef<Path>>(path: P) -> eyre::Result<String> {

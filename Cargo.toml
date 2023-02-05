@@ -12,7 +12,7 @@ rust-version = "1.56.1"
 categories = ["science", "command-line-utilities"]
 
 [workspace]
-members = ["analyze-region-pipeline"]
+members = ["analyze-region-pipeline", "cawlr"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -154,9 +154,9 @@ name = "overlap-bed"
 path = "src/bin/overlap_bed.rs"
 
 [[bin]]
-name = "cawlr"
+name = "cawlr-internal"
 path = "src/bin/cawlr.rs"
 
 [[bin]]
-name = "train-ctrls-pipeline"
+name = "train-ctrls-pipeline-internal"
 path = "src/bin/train_ctrls_pipeline.rs"
