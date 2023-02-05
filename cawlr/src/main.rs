@@ -21,7 +21,6 @@ use libcawlr::{
     filter::FilterOptions,
     index,
     motif::{all_bases, Motif},
-    npsmlr::{self, train::TrainOptions},
     rank::RankOptions,
     region::Region,
     score::ScoreOptions,
@@ -89,71 +88,10 @@ enum FilterCmd {
 #[derive(Debug, Subcommand)]
 enum NpsmlrCmd {
     /// Train using algorithm adapted from NP-SMLR
-    Train {
-        /// Input arrow file, usually from cawlr collapse
-        #[clap(short, long)]
-        input: PathBuf,
-
-        /// Pickle file containing model parameters
-        #[clap(short, long)]
-        output: PathBuf,
-
-        /// Only train on kmers containing these motifs, can speed up training
-        /// time
-        #[clap(short, long)]
-        motif: Vec<Motif>,
-
-        /// Number of samples to use to train GMM
-        #[clap(long, default_value_t = 50000)]
-        samples: usize,
-
-        /// Train a single component GMM (ie fit a single Gaussian)
-        #[clap(long)]
-        single: bool,
-
-        /// Filter outliers with DBSCAN algorithm
-        #[clap(long)]
-        dbscan: bool,
-
-        #[clap(long)]
-        db_path: Option<PathBuf>,
-    },
+    Train(cmd::train::TrainCmd),
 
     /// Score using algorithm adapted from NP-SMLR
-    Score {
-        /// Input arrow file, usually from cawlr collapse
-        #[clap(short, long)]
-        input: PathBuf,
-
-        /// Path to positive control model, usually from cawlr train
-        #[clap(short, long)]
-        pos_ctrl: PathBuf,
-
-        /// Path to negative control model, usually from cawlr train
-        #[clap(short, long)]
-        neg_ctrl: PathBuf,
-
-        /// Path to ranks file, usually from cawlr rank
-        #[clap(short, long)]
-        ranks: PathBuf,
-
-        /// Output arrow file of scored reads
-        #[clap(short, long)]
-        output: PathBuf,
-
-        /// Motifs to score on, at least 1 motif must be provided
-        #[clap(short, long, num_args(1..))]
-        motif: Vec<Motif>,
-
-        /// Values less than -cutoff for the positive and negative control will
-        /// be filtered
-        #[clap(short, long, default_value_t = 10.0)]
-        cutoff: f64,
-
-        /// If an events has more than freq_thresh samples, it will be filtered
-        #[clap(short, long, default_value_t = 10)]
-        freq_thresh: usize,
-    },
+    Score(cmd::score::ScoreCmd),
 }
 
 #[derive(Parser, Debug)]
@@ -175,6 +113,7 @@ enum Commands {
     #[clap(subcommand)]
     Npsmlr(NpsmlrCmd),
 
+    /// Pipelines for running multiple commands at once
     #[clap(subcommand)]
     Pipeline(PipelineCmds),
 
@@ -514,44 +453,8 @@ fn main() -> Result<()> {
         },
 
         Commands::Npsmlr(cmd) => match cmd {
-            NpsmlrCmd::Train {
-                input,
-                output,
-                motif,
-                samples,
-                single,
-                dbscan,
-                db_path,
-            } => {
-                let reader = BufReader::new(File::open(input)?);
-                let writer = File::create(output)?;
-                TrainOptions::default()
-                    .n_samples(samples)
-                    .db_path(db_path)
-                    .single(single)
-                    .dbscan(dbscan)
-                    .motifs(motif)
-                    .run(reader, writer)?;
-            }
-            NpsmlrCmd::Score {
-                input,
-                pos_ctrl,
-                neg_ctrl,
-                ranks,
-                output,
-                cutoff,
-                freq_thresh,
-                motif,
-            } => {
-                let reader = BufReader::new(File::open(input)?);
-                let writer = File::create(output)?;
-                let mut score_options = npsmlr::ScoreOptions::load(pos_ctrl, neg_ctrl, ranks)?;
-                score_options
-                    .freq_thresh(freq_thresh)
-                    .cutoff(cutoff)
-                    .motifs(motif)
-                    .run(reader, writer)?;
-            }
+            NpsmlrCmd::Train(cmd) => cmd.run()?,
+            NpsmlrCmd::Score(cmd) => cmd.run()?,
         },
         Commands::Pipeline(plcmd) => plcmd.run()?,
     }

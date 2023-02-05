@@ -12,20 +12,20 @@ pub struct CollapseCmd {
     /// Path to nanopolish eventalign output with samples column, or stdin
     /// if not provided.
     #[clap(short, long)]
-    input: Option<PathBuf>,
+    pub input: Option<PathBuf>,
 
     /// Path to BAM alignment file used in nanopolish eventalign
     #[clap(short, long)]
-    bam: PathBuf,
+    pub bam: PathBuf,
 
     #[clap(short, long)]
     /// Path to output file in Apache Arrow format, defaults to stdout if no
     /// argument provided.
-    output: Option<PathBuf>,
+    pub output: Option<PathBuf>,
 
     #[clap(short, long, default_value_t = 2048)]
     /// Number of eventalign records to hold in memory.
-    capacity: usize,
+    pub capacity: usize,
 }
 
 impl CollapseCmd {

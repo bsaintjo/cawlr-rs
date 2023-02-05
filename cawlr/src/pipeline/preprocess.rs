@@ -10,15 +10,22 @@ use libcawlr::utils::{self, check_if_failed};
 
 #[derive(Parser, Debug)]
 pub struct PreprocessCmd {
+    /// Path to genome fasta file
     #[clap(short, long)]
     pub genome: PathBuf,
 
+    /// Path to fastq or set of fastqs. If a directory is given, the command
+    /// will concatenate all .fastq files and write to the output directory.
+    /// If a single file is written, it will create a symlink to that file
+    /// in the output directory to maintain consistency.
     #[clap(long)]
     pub reads: PathBuf,
 
+    /// Path to a directory of fast5 files
     #[clap(long)]
     pub fast5: PathBuf,
 
+    /// Path to a sequencing_summary.txt file, will speed up nanopolish index
     #[clap(long)]
     pub summary: Option<PathBuf>,
 
@@ -53,7 +60,7 @@ impl PreprocessCmd {
         let reads = self.reads_to_single_reads("reads.fastq")?;
         self.aln_reads(&reads)?;
         self.np_index(&reads)?;
-        todo!()
+        Ok(())
     }
 
     fn np_index(&self, reads: &Path) -> eyre::Result<()> {

@@ -1,4 +1,4 @@
-use std::{collections::HashSet, str::FromStr};
+use std::{collections::HashSet, fmt, str::FromStr};
 
 use thiserror::Error;
 
@@ -103,6 +103,12 @@ impl FromStr for Motif {
     type Err = MotifError;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Motif::parse_from_str(s)
+    }
+}
+
+impl fmt::Display for Motif {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}:{}", self.position, self.motif)
     }
 }
 

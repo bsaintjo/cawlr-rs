@@ -59,8 +59,6 @@ linfa-clustering = { version = "0.6.0" }
 log = "0.4.17"
 env_logger = "0.9.1"
 
-# Optional allocator to get speed ups
-mimalloc = { version = "0.1.29", default-features = false, optional = true }
 
 # Arrays for ML and DP Alignment
 # nalgebra = "0.31.1"
@@ -127,7 +125,6 @@ quickcheck = "1.0.3"
 
 [features]
 default = []
-fast = ["mimalloc"]
 
 [[bin]]
 name = "convert-detection"

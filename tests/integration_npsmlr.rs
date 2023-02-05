@@ -5,7 +5,6 @@ use assert_fs::TempDir;
 use escargot::CargoBuild;
 use log::LevelFilter;
 
-#[ignore = "Need bigger test dataset"]
 #[test]
 fn integration_npsmlr() -> Result<(), Box<dyn Error>> {
     env_logger::builder()
@@ -17,7 +16,7 @@ fn integration_npsmlr() -> Result<(), Box<dyn Error>> {
 
     log::info!("Building release cawlr");
     let run = CargoBuild::new()
-        .bin("cawlr")
+        .package("cawlr")
         .release()
         .no_default_features()
         .run()?;

@@ -10,9 +10,16 @@ use self::{
 
 #[derive(Subcommand, Debug)]
 pub enum PipelineCmds {
-    AnalyzeRegion(AnalyzeCmd),
-    PreprocessSample(PreprocessCmd),
+    /// Train models for a positive and negative control dataset
     TrainCtrls(TrainCtrlPipelineCmd),
+
+    /// Preprocess data, should be done prior to analyze-region
+    PreprocessSample(PreprocessCmd),
+
+    /// Analyze a specific locus, producing Genome Browser compatible .bed files
+    /// for visualizing nucleosomes on single molecules, and clustering of
+    /// nucleosome density
+    AnalyzeRegion(AnalyzeCmd),
 }
 
 impl PipelineCmds {
