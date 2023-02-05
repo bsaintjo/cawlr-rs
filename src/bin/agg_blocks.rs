@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use cawlr::agg_blocks::run;
+use libcawlr::agg_blocks::run;
 use clap::Parser;
 
 #[derive(Parser)]

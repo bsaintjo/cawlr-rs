@@ -2,17 +2,17 @@ use std::{
     fs::{self, File},
     io::{BufRead, BufReader, BufWriter, Write},
     path::{Path, PathBuf},
-    process::{Command, Output, Stdio},
+    process::{Command, Stdio},
 };
 
-use cawlr::{
+use libcawlr::{
     collapse::CollapseOptions,
     motif::Motif,
     npsmlr::{train::TrainOptions, ScoreOptions},
     rank::RankOptions,
     score_model::Options,
     train::Model,
-    utils::{self, wrap_cmd, wrap_cmd_output, CawlrIO},
+    utils::{self, wrap_cmd, wrap_cmd_output, CawlrIO, check_if_failed},
 };
 use clap::Parser;
 use eyre::Result;
@@ -79,17 +79,6 @@ struct Args {
     motifs: Vec<Motif>,
 }
 
-fn check_if_failed(output: Output) -> eyre::Result<()> {
-    log::info!("{}", String::from_utf8_lossy(&output.stderr));
-    if output.status.success() {
-        Ok(())
-    } else {
-        Err(eyre::eyre!(
-            "Command failed with exit status {}",
-            output.status
-        ))
-    }
-}
 
 fn np_index(
     nanopolish: &Path,

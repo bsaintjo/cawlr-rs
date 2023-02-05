@@ -1,6 +1,6 @@
 use std::{fs::File, path::PathBuf};
 
-use cawlr::arrow::{
+use libcawlr::arrow::{
     arrow_utils::{load_read_write, wrap_writer},
     metadata::MetadataExt,
     scored_read::{Score, ScoredRead},

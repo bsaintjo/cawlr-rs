@@ -1,7 +1,7 @@
 #cargo-features = ["profile-rustflags"]
 
 [package]
-name = "cawlr"
+name = "libcawlr"
 version = "0.4.0"
 edition = "2021"
 authors = ["Brandon Saint-John <bsaintjo@ucsc.edu>"]
@@ -16,6 +16,12 @@ members = ["analyze-region-pipeline"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[workspace.dependencies]
+clap = { version = "4.0.7", features = ["derive"] }
+fnv = "1.0.7"
+log = "0.4.17"
+eyre = "0.6.8"
+
 [dependencies]
 # Output format for intensive data results
 arrow2 = { version = "0.14.1", features = ["io_ipc", "io_ipc_compression"] }
@@ -29,7 +35,7 @@ bio = "1.0.0"
 bio-types = "0.13.0"
 
 # Command line parsing
-clap = { version = "4.0.7", features = ["derive"] }
+clap = { workspace = true }
 clap-verbosity-flag = "2.0.0"
 
 # Provides kernel density estimate calculations
@@ -136,7 +142,7 @@ name = "agg-blocks"
 path = "src/bin/agg_blocks.rs"
 
 [[bin]]
-name = "analyze-region-pipeline"
+name = "analyze-region-pipeline-internal"
 path = "src/bin/analyze_region_pipeline.rs"
 
 [[bin]]

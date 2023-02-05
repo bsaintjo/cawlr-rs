@@ -41,11 +41,11 @@ dependencies = [
 name = "analyze-region-pipeline"
 version = "0.1.0"
 dependencies = [
- "cawlr",
  "clap",
  "eyre",
  "fnv",
  "glob",
+ "libcawlr",
  "log",
  "miette",
  "simple-logging",
@@ -393,57 +393,6 @@ dependencies = [
  "num-traits",
  "rand 0.8.5",
  "serde",
-]
-
-[[package]]
-name = "cawlr"
-version = "0.4.0"
-dependencies = [
- "arrow2",
- "arrow2_convert",
- "assert_cmd",
- "assert_fs",
- "bam",
- "bio",
- "bio-types",
- "clap",
- "clap-verbosity-flag",
- "criterion-stats",
- "csv",
- "env_logger 0.9.3",
- "escargot",
- "eyre",
- "float_eq",
- "fnv",
- "glob",
- "human-panic",
- "indicatif",
- "itertools",
- "jane-eyre",
- "linfa",
- "linfa-clustering",
- "log",
- "mimalloc",
- "ndarray",
- "num_cpus",
- "openblas-src",
- "predicates",
- "pretty_assertions",
- "quickcheck",
- "rand 0.8.5",
- "rayon",
- "rusqlite",
- "rv",
- "serde",
- "serde-pickle",
- "serde_with",
- "simple-logging",
- "statrs",
- "tempfile",
- "test-log",
- "thiserror",
- "which",
- "zstd-sys",
 ]
 
 [[package]]
@@ -1392,6 +1341,57 @@ name = "libc"
 version = "0.2.137"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fc7fcc620a3bff7cdd7a365be3376c97191aeaccc2a603e600951e452615bf89"
+
+[[package]]
+name = "libcawlr"
+version = "0.4.0"
+dependencies = [
+ "arrow2",
+ "arrow2_convert",
+ "assert_cmd",
+ "assert_fs",
+ "bam",
+ "bio",
+ "bio-types",
+ "clap",
+ "clap-verbosity-flag",
+ "criterion-stats",
+ "csv",
+ "env_logger 0.9.3",
+ "escargot",
+ "eyre",
+ "float_eq",
+ "fnv",
+ "glob",
+ "human-panic",
+ "indicatif",
+ "itertools",
+ "jane-eyre",
+ "linfa",
+ "linfa-clustering",
+ "log",
+ "mimalloc",
+ "ndarray",
+ "num_cpus",
+ "openblas-src",
+ "predicates",
+ "pretty_assertions",
+ "quickcheck",
+ "rand 0.8.5",
+ "rayon",
+ "rusqlite",
+ "rv",
+ "serde",
+ "serde-pickle",
+ "serde_with",
+ "simple-logging",
+ "statrs",
+ "tempfile",
+ "test-log",
+ "thiserror",
+ "which",
+ "zstd-sys",
+]
 
 [[package]]
 name = "libm"

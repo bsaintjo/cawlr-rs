@@ -12,13 +12,16 @@ pub struct Args {
 
 #[derive(Subcommand)]
 pub enum Commands {
+    /// Pipeline for analyzing a specific genomic lcous
     Analyze(analyze::AnalyzeCmd),
+
+    /// Preprocess data prior to analysis
     Preprocess(preprocess::PreprocessCmd),
 }
 fn main() -> eyre::Result<()> {
     let args = Args::parse();
     match args.command {
         Commands::Analyze(args) => analyze::run(args),
-        Commands::Preprocess(_) => todo!(),
+        Commands::Preprocess(args) => args.run(),
     }
 }

@@ -1,14 +1,19 @@
 mod cmd;
 
 use std::{
+    ffi::OsStr,
     fs::{self, File},
-    path::{Path, },
-    process::{Command, Stdio}, ffi::OsStr,
+    path::Path,
+    process::{Command, Stdio},
 };
 
-use cawlr::{
+use libcawlr::{
+    agg_blocks,
     collapse::CollapseOptions,
-    utils::{self, wrap_cmd, }, region::Region, agg_blocks, sma::SmaOptions, motif::all_bases,
+    motif::all_bases,
+    region::Region,
+    sma::SmaOptions,
+    utils::{self, wrap_cmd},
 };
 pub use cmd::AnalyzeCmd;
 use log::LevelFilter;
@@ -53,7 +58,6 @@ fn cluster_region_cmd<S: AsRef<OsStr>>(
 }
 
 pub fn run(args: AnalyzeCmd) -> eyre::Result<()> {
-
     if args.overwrite && args.output_dir.exists() {
         fs::remove_dir_all(&args.output_dir)?;
     }
@@ -64,7 +68,10 @@ pub fn run(args: AnalyzeCmd) -> eyre::Result<()> {
     log::info!("{args:?}");
 
     let name = parse_name_from_output_dir(&args.output_dir)?;
-    let motifs = args.motifs.clone().ok_or(eyre::eyre!("Need atleast 1 motif"))?;
+    let motifs = args
+        .motifs
+        .clone()
+        .ok_or(eyre::eyre!("Need atleast 1 motif"))?;
     let nanopolish = utils::find_binary("nanopolish", &args.nanopolish_path)?;
 
     let filtered_bam = args.output_dir.join("filtered.bam");
@@ -119,7 +126,7 @@ pub fn run(args: AnalyzeCmd) -> eyre::Result<()> {
     let scored = args.output_dir.join("score.arrow");
     wrap_cmd("cawlr score", || {
         let mut scoring =
-            cawlr::npsmlr::ScoreOptions::load(&args.pos_model, &args.neg_model, &args.ranks)?;
+            libcawlr::npsmlr::ScoreOptions::load(&args.pos_model, &args.neg_model, &args.ranks)?;
         scoring.motifs(motifs.clone());
         let collapse_file = File::open(&collapse)?;
         let score_file = File::create(&scored)?;

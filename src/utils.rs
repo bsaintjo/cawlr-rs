@@ -4,7 +4,7 @@ use std::{
     hash::{BuildHasher, Hash},
     io::{stdout, Read, Seek, Write},
     path::{Path, PathBuf},
-    time::Duration,
+    time::Duration, process::Output,
 };
 
 use bio::io::fasta::IndexedReader;
@@ -164,5 +164,17 @@ where
     } else {
         p.finish_with_message(format!("❌ \"{}\" failed", msg));
         Err(eyre::eyre!("Previous command failed, check log.txt"))
+    }
+}
+
+pub fn check_if_failed(output: Output) -> eyre::Result<()> {
+    log::info!("{}", String::from_utf8_lossy(&output.stderr));
+    if output.status.success() {
+        Ok(())
+    } else {
+        Err(eyre::eyre!(
+            "Command failed with exit status {}",
+            output.status
+        ))
     }
 }

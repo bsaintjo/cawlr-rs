@@ -4,7 +4,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use cawlr::{
+use libcawlr::{
     arrow::{
         arrow_utils::{load_apply2, load_read_write_arrow},
         eventalign::Eventalign,

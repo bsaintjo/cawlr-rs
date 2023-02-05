@@ -4,7 +4,7 @@ use std::{
     str::FromStr,
 };
 
-use cawlr::{
+use libcawlr::{
     collapse::CollapseOptions,
     motif::Motif,
     npsmlr,

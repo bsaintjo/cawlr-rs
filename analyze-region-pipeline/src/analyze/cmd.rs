@@ -1,13 +1,10 @@
 use std::path::PathBuf;
 
-use cawlr::{motif::Motif, region::Region};
+use libcawlr::{motif::Motif, region::Region};
 use clap::Parser;
 
 #[derive(Debug, Parser)]
 pub struct AnalyzeCmd {
-    // /// Used to name output bed file
-    // #[clap(short, long)]
-    // name: String,
     /// Region of interested {chromosome}:{start}-{stop}
     #[clap(short, long)]
     pub locus: Region,

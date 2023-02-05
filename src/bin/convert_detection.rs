@@ -5,7 +5,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use cawlr::{
+use libcawlr::{
     arrow::{
         arrow_utils::{save, wrap_writer},
         metadata::{Metadata, MetadataExt, Strand},
