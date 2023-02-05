@@ -81,7 +81,5 @@ COPY --from=builder /tools /cawlr/target/release/cawlr \
 ENV PATH="/tools:${PATH}"
 ENV PATH="/root/.local/bin:${PATH}"
 
-RUN dnf install 
-
 WORKDIR /
 CMD ["/bin/bash"]
