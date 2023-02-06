@@ -6,7 +6,7 @@ use std::{
 };
 
 use clap::Parser;
-use eyre::Result;
+use eyre::{Context, Result};
 use fnv::FnvHashMap;
 use libcawlr::{
     collapse::CollapseOptions,
@@ -73,9 +73,9 @@ pub struct TrainCtrlPipelineCmd {
     #[clap(short = 'j', long, default_value_t = 4)]
     n_threads: usize,
 
-    /// Motifs of modification to filter on, format is "{position}:{motif}"
-    /// ie for GpC motif, motif is "2:GC"
-    #[clap(short, long, num_args=1..)]
+    /// Motifs of modification to filter on, separated by commas, format is
+    /// "{position}:{motif}" ie for GpC and CpG motif , motif is "2:GC,1:CG"
+    #[clap(short, long, required=true, num_args=1.., value_delimiter=',')]
     motifs: Vec<Motif>,
 }
 
@@ -84,6 +84,7 @@ fn np_index(
     fast5s: &Path,
     reads: &Path,
     summary: &Option<PathBuf>,
+    log_file: File,
 ) -> Result<()> {
     let mut cmd = Command::new(nanopolish);
     cmd.arg("index").arg("-d").arg(fast5s);
@@ -91,10 +92,10 @@ fn np_index(
         cmd.arg("-s").arg(summary);
     }
     cmd.arg(reads);
-    cmd.stderr(Stdio::piped());
+    cmd.stderr(log_file);
     log::info!("{cmd:?}");
     let output = cmd.output()?;
-    check_if_failed(output)
+    check_if_failed(output).wrap_err("nanopolish index failed")
 }
 
 fn aln_reads(
@@ -103,6 +104,8 @@ fn aln_reads(
     genome: &Path,
     reads: &Path,
     output: &Path,
+    output_dir: &Path,
+    log_file: File,
 ) -> eyre::Result<()> {
     let mut map_cmd = Command::new(minimap2);
     map_cmd
@@ -113,7 +116,8 @@ fn aln_reads(
         .args(["-t", "4"])
         .arg(genome)
         .arg(reads)
-        .stdout(Stdio::piped());
+        .stdout(Stdio::piped())
+        .stderr(log_file.try_clone()?);
     log::info!("{map_cmd:?}");
     let map_output = map_cmd.spawn()?;
 
@@ -122,13 +126,14 @@ fn aln_reads(
         .arg("sort")
         .arg("--write-index")
         .arg("-T")
-        .arg("reads.tmp")
+        .arg(output_dir)
         .arg("-o")
         .arg(output)
+        .stderr(log_file)
         .stdin(map_output.stdout.unwrap());
     log::info!("{sam_cmd:?}");
     let output = sam_cmd.output()?;
-    check_if_failed(output)
+    check_if_failed(output).wrap_err("minimap2 | samtools failed")
 }
 
 fn eventalign_collapse(
@@ -139,8 +144,8 @@ fn eventalign_collapse(
     output: &Path,
     log_file: File,
 ) -> Result<()> {
-    let cmd = Command::new(nanopolish)
-        .arg("eventalign")
+    let mut cmd = Command::new(nanopolish);
+    cmd.arg("eventalign")
         .arg("-r")
         .arg(reads)
         .arg("-b")
@@ -151,12 +156,12 @@ fn eventalign_collapse(
         .arg("4")
         .arg("--scale-events")
         .arg("--print-read-names")
-        .arg("--samples")
-        .stdout(Stdio::piped())
-        .stderr(log_file)
-        .spawn()?;
+        .arg("--samples");
+    log::info!("nanopolish cmd: {cmd:?}");
+    let mut cmd = cmd.stdout(Stdio::piped()).stderr(log_file).spawn()?;
     let stdout = cmd
         .stdout
+        .take()
         .ok_or_else(|| eyre::eyre!("Could not capture stdout"))?;
     let reader = BufReader::new(stdout);
     let mut collapse = CollapseOptions::try_new(bam, output)?;
@@ -246,19 +251,35 @@ pub fn run(args: TrainCtrlPipelineCmd) -> eyre::Result<()> {
     let pos_reads = reads_to_single_reads(&args.pos_reads, "pos_reads.fastq", &args.output_dir)?;
 
     wrap_cmd("nanopolish index for (+) ctrl", || {
-        np_index(&nanopolish, &args.pos_fast5, &pos_reads, &args.pos_summary)
+        np_index(&nanopolish, &args.pos_fast5, &pos_reads, &args.pos_summary, log_file.try_clone()?)
     })?;
     wrap_cmd("nanopolish index for (-) ctrl", || {
-        np_index(&nanopolish, &args.neg_fast5, &neg_reads, &args.neg_summary)
+        np_index(&nanopolish, &args.neg_fast5, &neg_reads, &args.neg_summary, log_file.try_clone()?)
     })?;
 
     let pos_aln = args.output_dir.join("pos.bam");
     wrap_cmd("align (+) ctrl reads", || {
-        aln_reads(&minimap2, &samtools, &args.genome, &pos_reads, &pos_aln)
+        aln_reads(
+            &minimap2,
+            &samtools,
+            &args.genome,
+            &pos_reads,
+            &pos_aln,
+            &args.output_dir,
+            log_file.try_clone()?
+        )
     })?;
     let neg_aln = args.output_dir.join("neg.bam");
     wrap_cmd("align (-) ctrl reads", || {
-        aln_reads(&minimap2, &samtools, &args.genome, &neg_reads, &neg_aln)
+        aln_reads(
+            &minimap2,
+            &samtools,
+            &args.genome,
+            &neg_reads,
+            &neg_aln,
+            &args.output_dir,
+            log_file.try_clone()?
+        )
     })?;
 
     let pos_collapse = args.output_dir.join("pos_collapse.arrow");

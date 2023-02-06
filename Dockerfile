@@ -62,20 +62,25 @@ RUN cargo chef prepare --recipe-path recipe.json
 
 FROM base AS builder
 WORKDIR /cawlr
+ENV PATH="/tools:${PATH}"
 COPY --from=planner /cawlr/recipe.json recipe.json
 RUN cargo chef cook --release --recipe-path recipe.json
 COPY . .
-RUN mold -run cargo build --release --workspace
+# RUN cargo test -- --ignored
+# RUN mold -run cargo build --release --workspace
+RUN cargo build --release --package cawlr
 RUN cp notebooks/*py /tools \
 	&& chmod +x /tools/*
 
 FROM guppy as dev
 COPY --from=builder /tools /cawlr/target/release/cawlr \
-	/cawlr/target/release/analyze-region-mesmlr-detection-pipeline \
-	/cawlr/target/release/filter_scores \
-	/cawlr/target/release/agg-blocks \
-	/cawlr/target/release/filter_detection \
+	# /cawlr/target/release/analyze-region-mesmlr-detection-pipeline \
+	# /cawlr/target/release/filter_scores \
+	# /cawlr/target/release/agg-blocks \
+	# /cawlr/target/release/filter_detection \
 	/tools/
+COPY --from=builder /vbz /vbz
+ENV HDF5_PLUGIN_PATH="/vbz/ont-vbz-hdf-plugin-1.0.1-Linux/usr/local/hdf5/lib/plugin/"
 ENV PATH="/tools:${PATH}"
 ENV PATH="/root/.local/bin:${PATH}"
 

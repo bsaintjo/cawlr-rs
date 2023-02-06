@@ -183,9 +183,11 @@ impl<W: Write> CollapseOptions<W> {
         let mut npr_iter = builder.deserialize();
 
         let mut idx_diff = 1;
-        let npr: Npr = npr_iter.next().expect(
-            "No data, check if eventalign has data; nanopolish eventalign may have failed",
-        )?;
+        let npr: Npr = npr_iter.next().ok_or_else(|| {
+            eyre::eyre!(
+                "No data, check if eventalign has data; nanopolish eventalign may have failed"
+            )
+        })??;
         let mut position = npr.position;
 
         let mut acc = vec![npr];

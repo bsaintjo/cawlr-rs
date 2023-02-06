@@ -281,9 +281,9 @@ fn main() -> Result<()> {
     jane_eyre::install()?;
 
     let args = Args::parse();
-    env_logger::Builder::new()
-        .filter_level(args.verbose.log_level_filter())
-        .init();
+    // env_logger::Builder::new()
+    //     .filter_level(args.verbose.log_level_filter())
+    //     .init();
     match args.command {
         Commands::Collapse(cmd) => cmd.run()?,
         Commands::Index { input } => {

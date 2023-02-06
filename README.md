@@ -28,13 +28,11 @@
   - [Models](#models)
   - [Pipelines](#pipelines)
     - [`cawlr pipeline train-ctrls`](#cawlr-pipeline-train-ctrls)
-    - [`analyze-region-pipeline`](#analyze-region-pipeline)
+    - [`cawlr pipeline preprocess-sample`](#cawlr-pipeline-preprocess-sample)
+    - [`cawlr pipeline analyze-region`](#cawlr-pipeline-analyze-region)
       - [Command usage](#command-usage)
   - [Example `cawlr` vignette](#example-cawlr-vignette)
   - [QC Scripts](#qc-scripts)
-    - [`plot_gmm_models.py`](#plot_gmm_modelspy)
-    - [`plot_read_length_vs_mod_rate.py`](#plot_read_length_vs_mod_ratepy)
-    - [`plot_scores_with_inference.py`](#plot_scores_with_inferencepy)
   - [Citations](#citations)
 
 ## Quick Start
@@ -162,46 +160,9 @@ TODO: Point out the models that are provided by `cawlr`
 
 ### `cawlr pipeline train-ctrls`
 
-Pipeline takes directories containing the fast5,
+### `cawlr pipeline preprocess-sample`
 
-```
-Usage: train-ctrls-pipeline [OPTIONS] --genome <GENOME> --pos-fast5s <POS_FAST5S> --pos-reads <POS_READS> --neg-fast5s <NEG_FAST5S> --neg-reads <NEG_READS> --output-dir <OUTPUT_DIR>
-
-Options:
-  -g, --genome <GENOME>
-          Path to genome fasta file
-      --pos-fast5s <POS_FAST5S>
-          Directory containing fast5s for positive control
-      --pos-reads <POS_READS>
-          Path to single fasta/q file or directory of fasta/q of reads from the positive control
-      --pos-summary <POS_SUMMARY>
-          Optional path to sequencing_summary.txt file for positive control, speeds up nanopolish indexing
-      --neg-fast5s <NEG_FAST5S>
-          Directory containing fast5s for negative control
-      --neg-reads <NEG_READS>
-          Path to single fasta/q file or directory of fasta/q of reads from the negative control
-      --neg-summary <NEG_SUMMARY>
-          Optional path to sequencing_summary.txt file for negative control, speeds up nanopolish indexing
-  -o, --output-dir <OUTPUT_DIR>
-          Output directory for pipeline
-  -m, --motifs <MOTIFS>...
-          Motifs of modification to filter on, format is "{position}:{motif}" ie for GpC motif, motif is "2:GC"
-```
-
-Example:
-
-```bash
-$ train-ctrls-pipeline -g /path/to/genome.fa \
-  --pos-reads /path/to/pos-reads.fa \
-  --pos-fast5s /path/to/pos-fas5-dir \
-  --pos-summary /path/to/sequencing_summary.txt
-  --neg-reads /path/to/neg-reads.fa \
-  --neg-fast5s /path/to/neg-fas5-dir \
-  --neg-summary /path/to/sequencing_summary.txt
-  --output output_dir
-```
-
-### `analyze-region-pipeline`
+### `cawlr pipeline analyze-region`
 
 #### Command usage
 
@@ -210,12 +171,6 @@ $ train-ctrls-pipeline -g /path/to/genome.fa \
 TODO
 
 ## QC Scripts
-
-### `plot_gmm_models.py`
-
-### `plot_read_length_vs_mod_rate.py`
-
-### `plot_scores_with_inference.py`
 
 ## Citations
 

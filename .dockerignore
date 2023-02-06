@@ -24,11 +24,10 @@ hundred
 test_gen
 target
 README.md
-extra
 guide
 paper_data
-tests
 .github
 .devcontainer
 .venv
 test_data
+test
