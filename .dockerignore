@@ -31,3 +31,4 @@ tests
 .github
 .devcontainer
 .venv
+test_data
