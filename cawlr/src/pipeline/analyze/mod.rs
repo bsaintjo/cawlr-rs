@@ -8,6 +8,7 @@ use std::{
 };
 
 pub use cmd::AnalyzeCmd;
+use eyre::Context;
 use libcawlr::{
     agg_blocks,
     collapse::CollapseOptions,
@@ -68,10 +69,6 @@ pub fn run(args: AnalyzeCmd) -> eyre::Result<()> {
     log::info!("{args:?}");
 
     let name = parse_name_from_output_dir(&args.output_dir)?;
-    let motifs = args
-        .motifs
-        .clone()
-        .ok_or(eyre::eyre!("Need atleast 1 motif"))?;
     let nanopolish = utils::find_binary("nanopolish", &args.nanopolish_path)?;
 
     let filtered_bam = args.output_dir.join("filtered.bam");
@@ -87,7 +84,7 @@ pub fn run(args: AnalyzeCmd) -> eyre::Result<()> {
             .arg(&filtered_bam);
         log::info!("{cmd:?}");
         log::info!("Output file: {}", filtered_bam.display());
-        cmd.output()?;
+        cmd.output().wrap_err("samtools view failed")?;
         Ok(())
     })?;
 
@@ -111,7 +108,7 @@ pub fn run(args: AnalyzeCmd) -> eyre::Result<()> {
             .arg(args.n_threads.to_string())
             .stdout(eventalign_stdout);
         log::info!("{cmd:?} >{}", eventalign_path.display());
-        cmd.output()?;
+        cmd.output().wrap_err("nanopolish eventalign failed")?;
         Ok(())
     })?;
 
@@ -120,17 +117,17 @@ pub fn run(args: AnalyzeCmd) -> eyre::Result<()> {
         let eventalign = File::open(&eventalign_path)?;
         CollapseOptions::try_new(&args.bam, &collapse)?
             .progress(false)
-            .run(eventalign)
+            .run(eventalign).wrap_err("cawlr collapse failed")
     })?;
 
     let scored = args.output_dir.join("score.arrow");
     wrap_cmd("cawlr score", || {
         let mut scoring =
             libcawlr::npsmlr::ScoreOptions::load(&args.pos_model, &args.neg_model, &args.ranks)?;
-        scoring.motifs(motifs.clone());
+        scoring.motifs(args.motifs.clone());
         let collapse_file = File::open(&collapse)?;
         let score_file = File::create(&scored)?;
-        scoring.run(collapse_file, score_file)
+        scoring.run(collapse_file, score_file).wrap_err("cawlr npsmlr score failed")
     })?;
 
     let track_name = format!("{name}.cawlr.sma");
@@ -139,19 +136,19 @@ pub fn run(args: AnalyzeCmd) -> eyre::Result<()> {
         let mut sma_opts =
             SmaOptions::try_new(&args.pos_scores, &args.neg_scores, all_bases(), &sma)?;
         sma_opts.track_name(&track_name);
-        sma_opts.run(&scored)
+        sma_opts.run(&scored).wrap_err("cawlr sma failed")
     })?;
 
     let agg_output = args.output_dir.join(format!("{track_name}.tsv"));
     wrap_cmd("Aggregating blocks", || {
-        agg_blocks::run(&sma, Some(&agg_output))
+        agg_blocks::run(&sma, Some(&agg_output)).wrap_err("Failed to aggregate single molecule data")
     })?;
 
     wrap_cmd("Splitting by strand", || {
         let mut cmd = Command::new("split_by_strand.py");
         cmd.arg("-i").arg(&sma);
         log::info!("{cmd:?}");
-        cmd.output()?;
+        cmd.output().wrap_err("Failed to split by strand")?;
         Ok(())
     })?;
 
@@ -177,7 +174,7 @@ pub fn run(args: AnalyzeCmd) -> eyre::Result<()> {
             &sma,
         );
         log::info!("{cmd:?}");
-        let output = cmd.output()?;
+        let output = cmd.output().wrap_err("Failed to cluster all reads")?;
         log::info!("Exit code: {}", output.status);
         Ok(())
     })?;
@@ -192,7 +189,7 @@ pub fn run(args: AnalyzeCmd) -> eyre::Result<()> {
             &plus_filepath,
         );
         log::info!("{cmd:?}");
-        let output = cmd.output()?;
+        let output = cmd.output().wrap_err("Failed to cluster positive strand reads")?;
         log::info!("Exit code: {}", output.status);
         Ok(())
     })?;
@@ -207,7 +204,7 @@ pub fn run(args: AnalyzeCmd) -> eyre::Result<()> {
             &minus_filepath,
         );
         log::info!("{cmd:?}");
-        let output = cmd.output()?;
+        let output = cmd.output().wrap_err("Failed to cluster negative strand reads")?;
         log::info!("Exit code: {}", output.status);
         Ok(())
     })?;

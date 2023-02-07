@@ -1,11 +1,11 @@
 mod analyze;
 mod preprocess;
-mod train_ctrls_pipeline;
+mod train_ctrls;
 
 use clap::Subcommand;
 
 use self::{
-    analyze::AnalyzeCmd, preprocess::PreprocessCmd, train_ctrls_pipeline::TrainCtrlPipelineCmd,
+    analyze::AnalyzeCmd, preprocess::PreprocessCmd, train_ctrls::TrainCtrlPipelineCmd,
 };
 
 #[derive(Subcommand, Debug)]
@@ -27,7 +27,7 @@ impl PipelineCmds {
         match self {
             PipelineCmds::AnalyzeRegion(args) => analyze::run(args),
             PipelineCmds::PreprocessSample(cmd) => cmd.run(),
-            PipelineCmds::TrainCtrls(cmd) => train_ctrls_pipeline::run(cmd),
+            PipelineCmds::TrainCtrls(cmd) => train_ctrls::run(cmd),
         }
     }
 }

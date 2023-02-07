@@ -19,11 +19,13 @@ use libcawlr::{
 };
 use log::LevelFilter;
 
+use crate::file::ValidPathBuf;
+
 #[derive(Parser, Debug)]
 pub struct TrainCtrlPipelineCmd {
     /// Path to genome fasta file
     #[clap(short, long)]
-    genome: PathBuf,
+    genome: ValidPathBuf,
 
     /// Directory containing fast5s for positive control
     #[clap(long)]
@@ -101,7 +103,7 @@ fn np_index(
 fn aln_reads(
     minimap2: &Path,
     samtools: &Path,
-    genome: &Path,
+    genome: &ValidPathBuf,
     reads: &Path,
     output: &Path,
     output_dir: &Path,
@@ -140,7 +142,7 @@ fn eventalign_collapse(
     nanopolish: &Path,
     reads: &Path,
     bam: &Path,
-    genome: &Path,
+    genome: &ValidPathBuf,
     output: &Path,
     log_file: File,
 ) -> Result<()> {
@@ -174,7 +176,7 @@ fn train_npsmlr(collapse_file: &Path, db_file: &Path, single: bool) -> Result<Mo
         .dbscan(true)
         .single(single)
         .db_path(Some(db_file.to_path_buf()));
-    let reader = File::open(collapse_file)?;
+    let reader = BufReader::new(File::open(collapse_file)?);
     let model = train_opts.run_model(reader)?;
     Ok(model)
 }
@@ -200,7 +202,7 @@ fn reads_to_single_reads(reads: &Path, name: &str, output_dir: &Path) -> Result<
         let fastq_matcher = format!(
             "{}/**/*fastq",
             reads.as_os_str().to_str().ok_or(eyre::eyre!(
-                "Failed to convert path into str, unicdoe issue?"
+                "Failed to convert path into str, unicode issue?"
             ))?
         );
         let mut n_fastq_files = 0;
@@ -221,6 +223,7 @@ fn reads_to_single_reads(reads: &Path, name: &str, output_dir: &Path) -> Result<
                 fastq_file.consume(buf_len);
             }
         }
+        output_file.flush()?;
 
         if n_fastq_files == 0 {
             return Err(eyre::eyre!(
@@ -308,14 +311,16 @@ pub fn run(args: TrainCtrlPipelineCmd) -> eyre::Result<()> {
 
     let pos_train = args.output_dir.join("pos_train.pickle");
     let neg_train = args.output_dir.join("neg_train.pickle");
-    let db_file = args.output_dir.join("db.sqlite3");
+
+    let pos_db_file = args.output_dir.join("pos.db.sqlite3");
+    let neg_db_file = args.output_dir.join("neg.db.sqlite3");
 
     let pos_model = wrap_cmd_output("Train (+) ctrl", || {
-        train_npsmlr(&pos_collapse, &db_file, false)
+        train_npsmlr(&pos_collapse, &pos_db_file, false)
     })?;
     pos_model.save_as(pos_train)?;
     let neg_model = wrap_cmd_output("Train (-) ctrl", || {
-        train_npsmlr(&neg_collapse, &db_file, true)
+        train_npsmlr(&neg_collapse, &neg_db_file, true)
     })?;
     neg_model.save_as(neg_train)?;
 
