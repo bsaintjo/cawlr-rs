@@ -53,10 +53,10 @@ pub struct AnalyzeCmd {
     #[clap(long)]
     pub pct: f64,
 
-    /// Motifs to analyze, formatted "2:GC" if second base C is modified
-    /// Can have more than one
-    #[clap(short, long)]
-    pub motifs: Option<Vec<Motif>>,
+    /// Motifs of modification to filter on, separated by commas, format is
+    /// "{position}:{motif}" ie for GpC and CpG motif , motif is "2:GC,1:CG"
+    #[clap(short, long, required=true, num_args=1.., value_delimiter=',')]
+    pub motifs: Vec<Motif>,
 
     /// Regions to highlight during clustering
     #[clap(long)]
