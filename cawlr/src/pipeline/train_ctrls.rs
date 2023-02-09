@@ -330,10 +330,12 @@ pub fn run(args: TrainCtrlPipelineCmd) -> eyre::Result<()> {
     let neg_db_file = args.output_dir.join("neg.db.sqlite3");
 
     let pos_model = wrap_cmd_output("Train (+) ctrl", || {
+        log::info!("Starting  + training");
         train_npsmlr(&pos_collapse, &pos_db_file, false, &args.motifs)
     })?;
     pos_model.save_as(pos_train)?;
     let neg_model = wrap_cmd_output("Train (-) ctrl", || {
+        log::info!("Starting - training");
         train_npsmlr(&neg_collapse, &neg_db_file, true, &args.motifs)
     })?;
     neg_model.save_as(neg_train)?;
@@ -349,28 +351,36 @@ pub fn run(args: TrainCtrlPipelineCmd) -> eyre::Result<()> {
     wrap_cmd("Scoring (+) ctrl", || {
         let pos_collapse = File::open(&pos_collapse)?;
         let pos_scores = File::create(&pos_scores_path)?;
-        score_opts.run(pos_collapse, &pos_scores)
+        score_opts.run(pos_collapse, &pos_scores)?;
+        log::info!("Finished scoring positive control");
+        Ok(())
     })?;
 
     let neg_scores_path = args.output_dir.join("neg_scored.arrow");
     wrap_cmd("Scoring (-) ctrl", || {
         let neg_collapse = File::open(&neg_collapse)?;
         let neg_scores = File::create(&neg_scores_path)?;
-        score_opts.run(neg_collapse, neg_scores)
+        score_opts.run(neg_collapse, neg_scores)?;
+        log::info!("Finished scoring positive control");
+        Ok(())
     })?;
 
     wrap_cmd("(+) model score dist", || {
         let pos_scores = File::open(&pos_scores_path)?;
         let pos_bkde_path = args.output_dir.join("pos_model_scores.pickle");
         let pos_bkde = Options::default().run(pos_scores)?;
-        pos_bkde.save_as(pos_bkde_path)
+        pos_bkde.save_as(pos_bkde_path)?;
+        log::info!("Completed BKDE for (+) control");
+        Ok(())
     })?;
 
     wrap_cmd("(-) model score dist", || {
         let neg_scores = File::open(&neg_scores_path)?;
         let neg_bkde_path = args.output_dir.join("neg_model_scores.pickle");
         let neg_bkde = Options::default().run(neg_scores)?;
-        neg_bkde.save_as(neg_bkde_path)
+        neg_bkde.save_as(neg_bkde_path)?;
+        log::info!("Completed BKDE for (-) control");
+        Ok(())
     })?;
 
     Ok(())
