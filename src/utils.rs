@@ -132,7 +132,7 @@ where
         )
         .with_message(msg);
     p.enable_steady_tick(Duration::from_millis(100));
-    f()?;
+    // f()?;
     // p.finish_with_message(format!("✅ \"{}\" complete", msg));
     // Ok(())
 
@@ -155,7 +155,7 @@ where
         )
         .with_message(msg);
     p.enable_steady_tick(Duration::from_millis(100));
-    f()?;
+    // f()?;
     // p.finish_with_message(format!("✅ \"{}\" complete", msg));
     // Ok(())
 
