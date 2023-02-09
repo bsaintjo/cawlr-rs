@@ -12,7 +12,7 @@ rust-version = "1.56.1"
 categories = ["science", "command-line-utilities"]
 
 [workspace]
-members = ["cawlr"]
+members = ["cawlr", "mod-bam-pct"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

@@ -117,7 +117,8 @@ pub fn run(args: AnalyzeCmd) -> eyre::Result<()> {
         let eventalign = File::open(&eventalign_path)?;
         CollapseOptions::try_new(&args.bam, &collapse)?
             .progress(false)
-            .run(eventalign).wrap_err("cawlr collapse failed")
+            .run(eventalign)
+            .wrap_err("cawlr collapse failed")
     })?;
 
     let scored = args.output_dir.join("score.arrow");
@@ -127,7 +128,9 @@ pub fn run(args: AnalyzeCmd) -> eyre::Result<()> {
         scoring.motifs(args.motifs.clone());
         let collapse_file = File::open(&collapse)?;
         let score_file = File::create(&scored)?;
-        scoring.run(collapse_file, score_file).wrap_err("cawlr npsmlr score failed")
+        scoring
+            .run(collapse_file, score_file)
+            .wrap_err("cawlr npsmlr score failed")
     })?;
 
     let track_name = format!("{name}.cawlr.sma");
@@ -141,7 +144,8 @@ pub fn run(args: AnalyzeCmd) -> eyre::Result<()> {
 
     let agg_output = args.output_dir.join(format!("{track_name}.tsv"));
     wrap_cmd("Aggregating blocks", || {
-        agg_blocks::run(&sma, Some(&agg_output)).wrap_err("Failed to aggregate single molecule data")
+        agg_blocks::run(&sma, Some(&agg_output))
+            .wrap_err("Failed to aggregate single molecule data")
     })?;
 
     wrap_cmd("Splitting by strand", || {
@@ -189,7 +193,9 @@ pub fn run(args: AnalyzeCmd) -> eyre::Result<()> {
             &plus_filepath,
         );
         log::info!("{cmd:?}");
-        let output = cmd.output().wrap_err("Failed to cluster positive strand reads")?;
+        let output = cmd
+            .output()
+            .wrap_err("Failed to cluster positive strand reads")?;
         log::info!("Exit code: {}", output.status);
         Ok(())
     })?;
@@ -204,7 +210,9 @@ pub fn run(args: AnalyzeCmd) -> eyre::Result<()> {
             &minus_filepath,
         );
         log::info!("{cmd:?}");
-        let output = cmd.output().wrap_err("Failed to cluster negative strand reads")?;
+        let output = cmd
+            .output()
+            .wrap_err("Failed to cluster negative strand reads")?;
         log::info!("Exit code: {}", output.status);
         Ok(())
     })?;

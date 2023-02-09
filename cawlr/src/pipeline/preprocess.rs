@@ -6,13 +6,17 @@ use std::{
 };
 
 use clap::Parser;
+use eyre::Context;
 use libcawlr::utils::{self, check_if_failed};
+use log::LevelFilter;
+
+use crate::file::ValidPathBuf;
 
 #[derive(Parser, Debug)]
 pub struct PreprocessCmd {
     /// Path to genome fasta file
     #[clap(short, long)]
-    pub genome: PathBuf,
+    pub genome: ValidPathBuf,
 
     /// Path to fastq or set of fastqs. If a directory is given, the command
     /// will concatenate all .fastq files and write to the output directory.
@@ -57,13 +61,19 @@ impl PreprocessCmd {
             fs::remove_dir_all(&self.output_dir)?;
         }
         fs::create_dir_all(&self.output_dir)?;
+
+        let log_file_path = self.output_dir.join("log.txt");
+        let log_file = File::create(log_file_path)?;
+        simple_logging::log_to(log_file.try_clone()?, LevelFilter::Info);
+
+        log::info!("{self:?}");
         let reads = self.reads_to_single_reads("reads.fastq")?;
-        self.aln_reads(&reads)?;
-        self.np_index(&reads)?;
+        self.aln_reads(&reads, log_file.try_clone()?)?;
+        self.np_index(&reads, log_file.try_clone()?)?;
         Ok(())
     }
 
-    fn np_index(&self, reads: &Path) -> eyre::Result<()> {
+    fn np_index(&self, reads: &Path, log_file: File) -> eyre::Result<()> {
         let nanopolish = utils::find_binary("nanopolish", &self.nanopolish_path)?;
         let mut cmd = Command::new(nanopolish);
         cmd.arg("index").arg("-d").arg(&self.fast5);
@@ -71,13 +81,13 @@ impl PreprocessCmd {
             cmd.arg("-s").arg(summary);
         }
         cmd.arg(reads);
-        cmd.stderr(Stdio::piped());
+        cmd.stderr(log_file);
         log::info!("{cmd:?}");
         let output = cmd.output()?;
-        check_if_failed(output)
+        check_if_failed(output).wrap_err("nanopolish index failed")
     }
 
-    fn aln_reads(&self, reads: &Path) -> eyre::Result<()> {
+    fn aln_reads(&self, reads: &Path, log_file: File) -> eyre::Result<()> {
         let minimap2 = utils::find_binary("minimap2", &self.minimap2_path)?;
         let samtools = utils::find_binary("samtools", &self.samtools_path)?;
         let mut map_cmd = Command::new(minimap2);
@@ -89,22 +99,26 @@ impl PreprocessCmd {
             .args(["-t", "4"])
             .arg(&self.genome)
             .arg(reads)
+            .stderr(log_file.try_clone()?)
             .stdout(Stdio::piped());
         log::info!("{map_cmd:?}");
         let map_output = map_cmd.spawn()?;
 
         let mut sam_cmd = Command::new(samtools);
+        let aln_bam = self.output_dir.join("aln.bam");
         sam_cmd
             .arg("sort")
             .arg("--write-index")
             .arg("-T")
             .arg("reads.tmp")
             .arg("-o")
-            .arg("aln.bam")
+            .arg(aln_bam)
+            .stderr(log_file.try_clone()?)
             .stdin(map_output.stdout.unwrap());
         log::info!("{sam_cmd:?}");
         let output = sam_cmd.output()?;
-        check_if_failed(output)
+
+        check_if_failed(output).wrap_err("minimap2 | samtools failed")
     }
 
     fn reads_to_single_reads(&self, name: &str) -> eyre::Result<PathBuf> {

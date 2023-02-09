@@ -36,5 +36,22 @@ fn test_docker_train_ctrl_pipeline() -> eyre::Result<()> {
         .env("RUST_BACKTRACE", "full")
         .assert()
         .success();
+
+    // let reads_file = train_output.join("pos_reads.fastq");
+    let preprocess_output = temp_dir.join("preprocess_output");
+    Command::new(cawlr)
+        .arg("pipeline")
+        .arg("preprocess-sample")
+        .arg("-g")
+        .arg("extra/sacCer3.fa")
+        .arg("--reads")
+        .arg("extra/pos-fastq")
+        .arg("--fast5")
+        .arg("extra/pos-fast5")
+        .arg("preprocess_output")
+        .arg("-o")
+        .arg(&preprocess_output)
+        .assert()
+        .success();
     Ok(())
 }

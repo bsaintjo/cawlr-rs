@@ -1,4 +1,5 @@
 use std::{
+    collections::HashMap,
     io::{Read, Seek, Write},
     path::{Path, PathBuf},
 };
@@ -201,7 +202,11 @@ impl TrainOptions {
 }
 
 #[derive(Debug)]
-struct Db(Connection);
+struct Db {
+    limit: usize,
+    connection: Connection,
+    counts: HashMap<String, usize>,
+}
 
 impl Db {
     fn open<P: AsRef<Path>>(path: P) -> eyre::Result<Self> {
@@ -209,14 +214,18 @@ impl Db {
         if path.exists() {
             std::fs::remove_file(path)?;
         }
-        let db = Db(Connection::open(path)?);
+        let db = Db {
+            limit: 50000,
+            connection: Connection::open(path)?,
+            counts: Default::default(),
+        };
         db.init()?;
         db.create_idx()?;
         Ok(db)
     }
 
     fn init(&self) -> eyre::Result<()> {
-        self.0.execute(
+        self.connection.execute(
             "CREATE TABLE data (
                 id      INTEGER PRIMARY KEY,
                 kmer    TEXT NOT NULL,
@@ -228,15 +237,17 @@ impl Db {
     }
 
     fn create_idx(&self) -> eyre::Result<()> {
-        self.0.execute("CREATE INDEX kmer_idx on data (kmer)", ())?;
-        self.0.pragma_update(None, "journal_mode", "WAL")?;
-        self.0.pragma_update(None, "synchronous", "NORMAL")?;
-        self.0.pragma_update(None, "cache_size", -64000)?;
+        self.connection
+            .execute("CREATE INDEX kmer_idx on data (kmer)", ())?;
+        self.connection.pragma_update(None, "journal_mode", "WAL")?;
+        self.connection
+            .pragma_update(None, "synchronous", "NORMAL")?;
+        self.connection.pragma_update(None, "cache_size", -64000)?;
         Ok(())
     }
 
     fn add_reads(&mut self, es: Vec<Eventalign>, motifs: &[Motif]) -> eyre::Result<()> {
-        let tx = self.0.transaction()?;
+        let tx = self.connection.transaction()?;
         let mut stmt = tx.prepare("INSERT INTO data (kmer, sample) VALUES (?1, ?2)")?;
         for eventalign in es.into_iter() {
             log::info!("Processing Read: {}", eventalign.name());
@@ -252,7 +263,7 @@ impl Db {
 
                 for sample in signal.samples.iter() {
                     if !(40.0..=170.0).contains(sample) {
-                        log::warn!("Uncharacteristic signal measurement {sample}");
+                        log::debug!("Uncharacteristic signal measurement {sample}");
                         continue;
                     }
                     if sample.is_finite() {
@@ -269,7 +280,7 @@ impl Db {
 
     fn get_kmer_samples(&self, kmer: &str, n_samples: usize) -> eyre::Result<Vec<f64>> {
         let mut stmt = self
-            .0
+            .connection
             .prepare("SELECT sample FROM data where kmer = :kmer ORDER BY RANDOM() LIMIT :n")?;
         let rows = stmt.query_map(named_params! {":kmer": kmer, ":n": n_samples}, |row| {
             row.get::<usize, f64>(0)
@@ -346,6 +357,37 @@ mod test {
                 assert!(samples.is_empty(), "{k}");
             }
         }
+    }
+
+    #[test]
+    fn test_db_count() {
+        let tmp_dir = TempDir::new().unwrap();
+        let db_path = tmp_dir.join("test.db");
+        let test_cases = vec![
+            ("AAAAAA", vec![100.0; 3], true),
+            ("GGGGGG", vec![20.0; 4], false),
+            ("CCCCCC", vec![300.0; 2], false),
+        ];
+        let mut db = Db::open(db_path).expect("Failed to open database file");
+        let signal_data = test_cases
+            .iter()
+            .enumerate()
+            .map(|(i, (k, xs, _))| Signal::new(i as u64, k.to_string(), 1.0, 0.5, xs.clone()))
+            .collect::<Vec<_>>();
+        let mut eventalign = Eventalign::default();
+        *eventalign.signal_data_mut() = signal_data;
+        db.add_reads(vec![eventalign], &all_bases())
+            .expect("Unable to add read");
+        let mut stmt = db
+            .connection
+            .prepare("SELECT COUNT(kmer) FROM data where kmer = :kmer")
+            .expect("Failed to prepare statement");
+        let kmer = "AAAAAA";
+        let rows = stmt
+            .query_and_then(named_params! {":kmer": kmer}, |row| row.get(0))
+            .expect("Failed to get row");
+        let res: rusqlite::Result<Vec<usize>> = rows.collect();
+        assert_eq!(3, res.unwrap()[0])
     }
 
     #[test]

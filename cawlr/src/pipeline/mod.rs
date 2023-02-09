@@ -4,9 +4,7 @@ mod train_ctrls;
 
 use clap::Subcommand;
 
-use self::{
-    analyze::AnalyzeCmd, preprocess::PreprocessCmd, train_ctrls::TrainCtrlPipelineCmd,
-};
+use self::{analyze::AnalyzeCmd, preprocess::PreprocessCmd, train_ctrls::TrainCtrlPipelineCmd};
 
 #[derive(Subcommand, Debug)]
 pub enum PipelineCmds {

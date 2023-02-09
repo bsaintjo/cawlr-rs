@@ -171,11 +171,12 @@ fn eventalign_collapse(
     Ok(())
 }
 
-fn train_npsmlr(collapse_file: &Path, db_file: &Path, single: bool) -> Result<Model> {
+fn train_npsmlr(collapse_file: &Path, db_file: &Path, single: bool, motifs: &[Motif]) -> Result<Model> {
     let train_opts = TrainOptions::default()
         .dbscan(true)
         .single(single)
-        .db_path(Some(db_file.to_path_buf()));
+        .db_path(Some(db_file.to_path_buf()))
+        .motifs(motifs.to_vec());
     let reader = BufReader::new(File::open(collapse_file)?);
     let model = train_opts.run_model(reader)?;
     Ok(model)
@@ -240,6 +241,7 @@ fn reads_to_single_reads(reads: &Path, name: &str, output_dir: &Path) -> Result<
 }
 
 pub fn run(args: TrainCtrlPipelineCmd) -> eyre::Result<()> {
+    log::info!("{args:?}");
     let nanopolish = utils::find_binary("nanopolish", &args.nanopolish_path)?;
     let minimap2 = utils::find_binary("minimap2", &args.minimap2_path)?;
     let samtools = utils::find_binary("samtools", &args.samtools_path)?;
@@ -254,10 +256,22 @@ pub fn run(args: TrainCtrlPipelineCmd) -> eyre::Result<()> {
     let pos_reads = reads_to_single_reads(&args.pos_reads, "pos_reads.fastq", &args.output_dir)?;
 
     wrap_cmd("nanopolish index for (+) ctrl", || {
-        np_index(&nanopolish, &args.pos_fast5, &pos_reads, &args.pos_summary, log_file.try_clone()?)
+        np_index(
+            &nanopolish,
+            &args.pos_fast5,
+            &pos_reads,
+            &args.pos_summary,
+            log_file.try_clone()?,
+        )
     })?;
     wrap_cmd("nanopolish index for (-) ctrl", || {
-        np_index(&nanopolish, &args.neg_fast5, &neg_reads, &args.neg_summary, log_file.try_clone()?)
+        np_index(
+            &nanopolish,
+            &args.neg_fast5,
+            &neg_reads,
+            &args.neg_summary,
+            log_file.try_clone()?,
+        )
     })?;
 
     let pos_aln = args.output_dir.join("pos.bam");
@@ -269,7 +283,7 @@ pub fn run(args: TrainCtrlPipelineCmd) -> eyre::Result<()> {
             &pos_reads,
             &pos_aln,
             &args.output_dir,
-            log_file.try_clone()?
+            log_file.try_clone()?,
         )
     })?;
     let neg_aln = args.output_dir.join("neg.bam");
@@ -281,7 +295,7 @@ pub fn run(args: TrainCtrlPipelineCmd) -> eyre::Result<()> {
             &neg_reads,
             &neg_aln,
             &args.output_dir,
-            log_file.try_clone()?
+            log_file.try_clone()?,
         )
     })?;
 
@@ -316,11 +330,11 @@ pub fn run(args: TrainCtrlPipelineCmd) -> eyre::Result<()> {
     let neg_db_file = args.output_dir.join("neg.db.sqlite3");
 
     let pos_model = wrap_cmd_output("Train (+) ctrl", || {
-        train_npsmlr(&pos_collapse, &pos_db_file, false)
+        train_npsmlr(&pos_collapse, &pos_db_file, false, &args.motifs)
     })?;
     pos_model.save_as(pos_train)?;
     let neg_model = wrap_cmd_output("Train (-) ctrl", || {
-        train_npsmlr(&neg_collapse, &neg_db_file, true)
+        train_npsmlr(&neg_collapse, &neg_db_file, true, &args.motifs)
     })?;
     neg_model.save_as(neg_train)?;
 

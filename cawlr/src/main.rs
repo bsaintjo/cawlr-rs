@@ -1,6 +1,6 @@
 mod cmd;
-mod pipeline;
 mod file;
+mod pipeline;
 
 use std::{
     fs::File,

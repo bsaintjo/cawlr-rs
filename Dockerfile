@@ -9,7 +9,7 @@ RUN dnf makecache --refresh \
 	&& dnf update -y \
 	&& dnf install -y gcc gcc-c++ gcc-gfortran make perl git wget tar \
 	zlib-devel ncurses-devel ncurses bzip2 bzip2-devel xz-devel libcurl-devel \
-	python39 python39-devel \
+	python39 python39-devel cmake \
 	libzstd-devel libjpeg-turbo libtiff-devel libjpeg-devel openjpeg2 \
 	freetype-devel lcms2 libwebp-devel tcl-devel tk-devel \
 	harfbuzz-devel fribidi-devel libraqm-devel libimagequant-devel libxcb-devel \
@@ -58,26 +58,23 @@ RUN cargo install cargo-chef
 FROM base AS planner
 WORKDIR /cawlr
 COPY . .
-RUN cargo chef prepare --recipe-path recipe.json
+RUN mold -run cargo chef prepare --recipe-path recipe.json
 
 FROM base AS builder
 WORKDIR /cawlr
 ENV PATH="/tools:${PATH}"
 COPY --from=planner /cawlr/recipe.json recipe.json
-RUN cargo chef cook --release --recipe-path recipe.json
+RUN mold -run cargo chef cook --release --recipe-path recipe.json
 COPY . .
-# RUN cargo test -- --ignored
-# RUN mold -run cargo build --release --workspace
-RUN cargo build --release --package cawlr
+# RUN mold -run cargo test -- --ignored
+RUN mold -run cargo build --release --workspace
 RUN cp notebooks/*py /tools \
 	&& chmod +x /tools/*
 
 FROM guppy as dev
-COPY --from=builder /tools /cawlr/target/release/cawlr \
-	# /cawlr/target/release/analyze-region-mesmlr-detection-pipeline \
-	# /cawlr/target/release/filter_scores \
-	# /cawlr/target/release/agg-blocks \
-	# /cawlr/target/release/filter_detection \
+COPY --from=builder /tools \
+	/cawlr/target/release/cawlr \
+	/cawlr/target/release/mod-bam-pct \
 	/tools/
 COPY --from=builder /vbz /vbz
 ENV HDF5_PLUGIN_PATH="/vbz/ont-vbz-hdf-plugin-1.0.1-Linux/usr/local/hdf5/lib/plugin/"
