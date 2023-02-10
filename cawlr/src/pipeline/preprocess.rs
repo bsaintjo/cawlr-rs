@@ -23,11 +23,11 @@ pub struct PreprocessCmd {
     /// If a single file is written, it will create a symlink to that file
     /// in the output directory to maintain consistency.
     #[clap(long)]
-    pub reads: PathBuf,
+    pub reads: ValidPathBuf,
 
     /// Path to a directory of fast5 files
     #[clap(long)]
-    pub fast5: PathBuf,
+    pub fast5: ValidPathBuf,
 
     /// Path to a sequencing_summary.txt file, will speed up nanopolish index
     #[clap(long)]
@@ -110,7 +110,7 @@ impl PreprocessCmd {
             .arg("sort")
             .arg("--write-index")
             .arg("-T")
-            .arg("reads.tmp")
+            .arg(&self.output_dir)
             .arg("-o")
             .arg(aln_bam)
             .stderr(log_file.try_clone()?)
@@ -123,12 +123,12 @@ impl PreprocessCmd {
 
     fn reads_to_single_reads(&self, name: &str) -> eyre::Result<PathBuf> {
         let output_filepath = self.output_dir.join(name);
-        if self.reads.is_dir() {
+        if self.reads.0.is_dir() {
             log::info!("Detected directory, concatenating into a single fastq file.");
             let mut output_file = BufWriter::new(File::create(&output_filepath)?);
             let fastq_matcher = format!(
                 "{}/**/*fastq",
-                self.reads.as_os_str().to_str().ok_or(eyre::eyre!(
+                self.reads.0.as_os_str().to_str().ok_or(eyre::eyre!(
                     "Failed to convert path into str, unicdoe issue?"
                 ))?
             );
@@ -159,7 +159,7 @@ impl PreprocessCmd {
                 log::info!("Processed {n_fastq_files} fastq files");
             }
         } else {
-            std::os::unix::fs::symlink(&self.reads, &output_filepath)?;
+            std::os::unix::fs::symlink(&self.reads.0, &output_filepath)?;
         }
         Ok(output_filepath)
     }
