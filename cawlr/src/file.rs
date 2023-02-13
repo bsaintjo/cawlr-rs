@@ -1,4 +1,4 @@
-use std::{ffi::OsStr, path::PathBuf};
+use std::{ffi::OsStr, path::{PathBuf, Path}};
 
 use clap::{builder::PathBufValueParser, error::ErrorKind};
 
@@ -7,6 +7,12 @@ pub struct ValidPathBuf(pub PathBuf);
 
 impl AsRef<OsStr> for ValidPathBuf {
     fn as_ref(&self) -> &OsStr {
+        self.0.as_ref()
+    }
+}
+
+impl AsRef<Path> for ValidPathBuf {
+    fn as_ref(&self) -> &Path {
         self.0.as_ref()
     }
 }
