@@ -3,6 +3,8 @@ use std::path::PathBuf;
 use clap::Parser;
 use libcawlr::{motif::Motif, region::Region};
 
+use crate::file::ValidPathBuf;
+
 #[derive(Debug, Parser)]
 pub struct AnalyzeCmd {
     /// Region of interested {chromosome}:{start}-{stop}
@@ -15,35 +17,35 @@ pub struct AnalyzeCmd {
 
     /// Path to bam file to filter on the locus
     #[clap(short, long)]
-    pub bam: PathBuf,
+    pub bam: ValidPathBuf,
 
     /// Path to full fastq, doesn't need to be filtered
     #[clap(long)]
-    pub reads: PathBuf,
+    pub reads: ValidPathBuf,
 
     /// Path to genome
     #[clap(short, long)]
-    pub genome: PathBuf,
+    pub genome: ValidPathBuf,
 
     /// Path to postive control model, from cawlr train
     #[clap(long)]
-    pub pos_model: PathBuf,
+    pub pos_model: ValidPathBuf,
 
     /// Path to postive control scores, from cawlr model-scores
     #[clap(long)]
-    pub pos_scores: PathBuf,
+    pub pos_scores: ValidPathBuf,
 
     /// Path to negative control model, from cawlr train
     #[clap(long)]
-    pub neg_model: PathBuf,
+    pub neg_model: ValidPathBuf,
 
     /// Path to negative control scores, from cawlr model-scores
     #[clap(long)]
-    pub neg_scores: PathBuf,
+    pub neg_scores: ValidPathBuf,
 
     /// Path to ranks file, from cawlr ranks
     #[clap(long)]
-    pub ranks: PathBuf,
+    pub ranks: ValidPathBuf,
 
     /// Number of clusters to use for clustering script
     #[clap(long, default_value_t = 3)]

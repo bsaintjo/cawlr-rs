@@ -31,7 +31,7 @@ pub struct PreprocessCmd {
 
     /// Path to a sequencing_summary.txt file, will speed up nanopolish index
     #[clap(long)]
-    pub summary: Option<PathBuf>,
+    pub summary: Option<ValidPathBuf>,
 
     #[clap(short, long)]
     pub output_dir: PathBuf,

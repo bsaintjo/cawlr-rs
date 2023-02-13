@@ -4,20 +4,21 @@ use std::{
     ffi::OsStr,
     fs::{self, File},
     path::Path,
-    process::{Command, Stdio},
+    process::Command,
 };
 
 pub use cmd::AnalyzeCmd;
 use eyre::Context;
 use libcawlr::{
     agg_blocks,
-    collapse::CollapseOptions,
     motif::all_bases,
     region::Region,
     sma::SmaOptions,
     utils::{self, wrap_cmd},
 };
 use log::LevelFilter;
+
+use crate::pipeline::external;
 
 pub fn parse_name_from_output_dir<P: AsRef<Path>>(path: P) -> eyre::Result<String> {
     let name = path
@@ -64,8 +65,12 @@ pub fn run(args: AnalyzeCmd) -> eyre::Result<()> {
     }
     fs::create_dir_all(&args.output_dir)?;
 
-    let log_file = args.output_dir.join("log.txt");
-    simple_logging::log_to_file(log_file, LevelFilter::Info)?;
+    // let log_file = args.output_dir.join("log.txt");
+    // simple_logging::log_to_file(log_file, LevelFilter::Info)?;
+
+    let log_file_path = args.output_dir.join("log.txt");
+    let log_file = File::create(log_file_path)?;
+    simple_logging::log_to(log_file.try_clone()?, LevelFilter::Info);
     log::info!("{args:?}");
 
     let name = parse_name_from_output_dir(&args.output_dir)?;
@@ -88,38 +93,50 @@ pub fn run(args: AnalyzeCmd) -> eyre::Result<()> {
         Ok(())
     })?;
 
-    let eventalign_path = args.output_dir.join("eventalign.tsv");
-    wrap_cmd("nanopolish eventalign", || {
-        let eventalign = File::create(&eventalign_path)?;
-        let eventalign_stdout = Stdio::from(eventalign.try_clone()?);
-
-        let mut cmd = Command::new(&nanopolish);
-        cmd.arg("eventalign")
-            .arg("--reads")
-            .arg(&args.reads)
-            .arg("--bam")
-            .arg(&filtered_bam)
-            .arg("--genome")
-            .arg(&args.genome)
-            .arg("--scale-events")
-            .arg("--print-read-names")
-            .arg("--samples")
-            .arg("-t")
-            .arg(args.n_threads.to_string())
-            .stdout(eventalign_stdout);
-        log::info!("{cmd:?} >{}", eventalign_path.display());
-        cmd.output().wrap_err("nanopolish eventalign failed")?;
-        Ok(())
-    })?;
-
     let collapse = args.output_dir.join("collapse.arrow");
-    wrap_cmd("cawlr collapse", || {
-        let eventalign = File::open(&eventalign_path)?;
-        CollapseOptions::try_new(&args.bam, &collapse)?
-            .progress(false)
-            .run(eventalign)
-            .wrap_err("cawlr collapse failed")
+    wrap_cmd("nanopolish eventalign sample data | cawlr collapse", || {
+        external::eventalign_collapse(
+            &nanopolish,
+            &args.reads,
+            &args.bam,
+            &args.genome,
+            &collapse,
+            log_file.try_clone()?,
+        )
     })?;
+
+    // let eventalign_path = args.output_dir.join("eventalign.tsv");
+    // wrap_cmd("nanopolish eventalign", || {
+    //     let eventalign = File::create(&eventalign_path)?;
+    //     let eventalign_stdout = Stdio::from(eventalign.try_clone()?);
+
+    //     let mut cmd = Command::new(&nanopolish);
+    //     cmd.arg("eventalign")
+    //         .arg("--reads")
+    //         .arg(&args.reads)
+    //         .arg("--bam")
+    //         .arg(&filtered_bam)
+    //         .arg("--genome")
+    //         .arg(&args.genome)
+    //         .arg("--scale-events")
+    //         .arg("--print-read-names")
+    //         .arg("--samples")
+    //         .arg("-t")
+    //         .arg(args.n_threads.to_string())
+    //         .stdout(eventalign_stdout);
+    //     log::info!("{cmd:?} >{}", eventalign_path.display());
+    //     cmd.output().wrap_err("nanopolish eventalign failed")?;
+    //     Ok(())
+    // })?;
+
+    // let collapse = args.output_dir.join("collapse.arrow");
+    // wrap_cmd("cawlr collapse", || {
+    //     let eventalign = File::open(&eventalign_path)?;
+    //     CollapseOptions::try_new(&args.bam.0, &collapse)?
+    //         .progress(false)
+    //         .run(eventalign)
+    //         .wrap_err("cawlr collapse failed")
+    // })?;
 
     let scored = args.output_dir.join("score.arrow");
     wrap_cmd("cawlr score", || {
@@ -137,7 +154,7 @@ pub fn run(args: AnalyzeCmd) -> eyre::Result<()> {
     let sma = args.output_dir.join(format!("{track_name}.bed"));
     wrap_cmd("cawlr sma", || {
         let mut sma_opts =
-            SmaOptions::try_new(&args.pos_scores, &args.neg_scores, all_bases(), &sma)?;
+            SmaOptions::try_new(&args.pos_scores.0, &args.neg_scores.0, all_bases(), &sma)?;
         sma_opts.track_name(&track_name);
         sma_opts.run(&scored).wrap_err("cawlr sma failed")
     })?;
