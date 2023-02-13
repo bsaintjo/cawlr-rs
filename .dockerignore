@@ -33,3 +33,6 @@ test_data
 test
 .vscode
 sample-test/
+region-output/
+sample-output/
+extra/

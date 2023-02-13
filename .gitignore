@@ -10,3 +10,5 @@ test/
 .venv
 test_data/
 sample-test/
+region-output/
+sample-output/
