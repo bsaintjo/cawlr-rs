@@ -65,9 +65,6 @@ pub fn run(args: AnalyzeCmd) -> eyre::Result<()> {
     }
     fs::create_dir_all(&args.output_dir)?;
 
-    // let log_file = args.output_dir.join("log.txt");
-    // simple_logging::log_to_file(log_file, LevelFilter::Info)?;
-
     let log_file_path = args.output_dir.join("log.txt");
     let log_file = File::create(log_file_path)?;
     simple_logging::log_to(log_file.try_clone()?, LevelFilter::Info);
@@ -104,39 +101,6 @@ pub fn run(args: AnalyzeCmd) -> eyre::Result<()> {
             log_file.try_clone()?,
         )
     })?;
-
-    // let eventalign_path = args.output_dir.join("eventalign.tsv");
-    // wrap_cmd("nanopolish eventalign", || {
-    //     let eventalign = File::create(&eventalign_path)?;
-    //     let eventalign_stdout = Stdio::from(eventalign.try_clone()?);
-
-    //     let mut cmd = Command::new(&nanopolish);
-    //     cmd.arg("eventalign")
-    //         .arg("--reads")
-    //         .arg(&args.reads)
-    //         .arg("--bam")
-    //         .arg(&filtered_bam)
-    //         .arg("--genome")
-    //         .arg(&args.genome)
-    //         .arg("--scale-events")
-    //         .arg("--print-read-names")
-    //         .arg("--samples")
-    //         .arg("-t")
-    //         .arg(args.n_threads.to_string())
-    //         .stdout(eventalign_stdout);
-    //     log::info!("{cmd:?} >{}", eventalign_path.display());
-    //     cmd.output().wrap_err("nanopolish eventalign failed")?;
-    //     Ok(())
-    // })?;
-
-    // let collapse = args.output_dir.join("collapse.arrow");
-    // wrap_cmd("cawlr collapse", || {
-    //     let eventalign = File::open(&eventalign_path)?;
-    //     CollapseOptions::try_new(&args.bam.0, &collapse)?
-    //         .progress(false)
-    //         .run(eventalign)
-    //         .wrap_err("cawlr collapse failed")
-    // })?;
 
     let scored = args.output_dir.join("score.arrow");
     wrap_cmd("cawlr score", || {
