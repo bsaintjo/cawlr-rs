@@ -40,7 +40,7 @@ impl clap::builder::TypedValueParser for ValidPathBufParser {
         if !val.exists() {
             let err = clap::Error::raw(
                 ErrorKind::ValueValidation,
-                format!("Path {value:?} does not exist"),
+                format!("Path {value:?} does not exist\n"),
             )
             .with_cmd(cmd);
             Err(err)
