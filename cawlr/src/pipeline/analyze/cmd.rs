@@ -73,7 +73,7 @@ pub struct AnalyzeCmd {
     pub samtools_path: Option<PathBuf>,
 
     #[clap(long, default_value_t = false)]
-    pub overwrite: bool,
+    pub no_overwrite: bool,
 
     #[clap(short = 'j', long, default_value_t = 4)]
     pub n_threads: usize,

@@ -11,6 +11,7 @@ use std::{
 use clap::{error::ErrorKind, CommandFactory, Parser, Subcommand};
 use clap_verbosity_flag::Verbosity;
 use eyre::Result;
+use file::ValidPathBuf;
 use human_panic::setup_panic;
 use libcawlr::{
     arrow::{
@@ -170,11 +171,11 @@ enum Commands {
     Rank {
         /// Positive control output from cawlr train
         #[clap(long)]
-        pos_ctrl: PathBuf,
+        pos_ctrl: ValidPathBuf,
 
         /// Negative control output from cawlr train
         #[clap(long)]
-        neg_ctrl: PathBuf,
+        neg_ctrl: ValidPathBuf,
 
         /// Path to output file
         #[clap(short, long)]
@@ -237,7 +238,7 @@ enum Commands {
     ModelScores {
         /// Arrow output from cawlr score
         #[clap(short, long)]
-        input: PathBuf,
+        input: ValidPathBuf,
 
         /// Pickle file containing estimated kernel density estimate values
         #[clap(short, long)]
@@ -256,7 +257,7 @@ enum Commands {
     Sma {
         /// Path to scored data from cawlr score
         #[clap(short, long)]
-        input: PathBuf,
+        input: ValidPathBuf,
 
         /// Path to output file
         #[clap(short, long)]
@@ -264,11 +265,11 @@ enum Commands {
 
         /// Output from cawlr model-scores for treated control sample
         #[clap(long)]
-        pos_ctrl_scores: PathBuf,
+        pos_ctrl_scores: ValidPathBuf,
 
         /// Output from cawlr model-scores for untreated control sample
         #[clap(long)]
-        neg_ctrl_scores: PathBuf,
+        neg_ctrl_scores: ValidPathBuf,
 
         /// Only that contain this motif will be used to perform single molecule
         /// analysis, by default will use all kmers
@@ -282,9 +283,8 @@ fn main() -> Result<()> {
     jane_eyre::install()?;
 
     let args = Args::parse();
-    // env_logger::Builder::new()
-    //     .filter_level(args.verbose.log_level_filter())
-    //     .init();
+    let log_level_filter = args.verbose.log_level_filter();
+
     match args.command {
         Commands::Collapse(cmd) => cmd.run()?,
         Commands::Index { input } => {
@@ -457,7 +457,7 @@ fn main() -> Result<()> {
             NpsmlrCmd::Train(cmd) => cmd.run()?,
             NpsmlrCmd::Score(cmd) => cmd.run()?,
         },
-        Commands::Pipeline(plcmd) => plcmd.run()?,
+        Commands::Pipeline(plcmd) => plcmd.run(log_level_filter)?,
     }
     Ok(())
 }

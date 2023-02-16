@@ -4,6 +4,7 @@ mod train_ctrls;
 mod external;
 
 use clap::Subcommand;
+use log::LevelFilter;
 
 use self::{analyze::AnalyzeCmd, preprocess::PreprocessCmd, train_ctrls::TrainCtrlPipelineCmd};
 
@@ -22,9 +23,9 @@ pub enum PipelineCmds {
 }
 
 impl PipelineCmds {
-    pub fn run(self) -> eyre::Result<()> {
+    pub fn run(self, log_level_filter: LevelFilter) -> eyre::Result<()> {
         match self {
-            PipelineCmds::AnalyzeRegion(args) => analyze::run(args),
+            PipelineCmds::AnalyzeRegion(args) => analyze::run(args, log_level_filter),
             PipelineCmds::PreprocessSample(cmd) => cmd.run(),
             PipelineCmds::TrainCtrls(cmd) => train_ctrls::run(cmd),
         }

@@ -59,15 +59,15 @@ fn cluster_region_cmd<S: AsRef<OsStr>>(
     cmd
 }
 
-pub fn run(args: AnalyzeCmd) -> eyre::Result<()> {
-    if args.overwrite && args.output_dir.exists() {
+pub fn run(args: AnalyzeCmd, log_level_filter: LevelFilter) -> eyre::Result<()> {
+    if !args.no_overwrite && args.output_dir.exists() {
         fs::remove_dir_all(&args.output_dir)?;
     }
     fs::create_dir_all(&args.output_dir)?;
 
     let log_file_path = args.output_dir.join("log.txt");
     let log_file = File::create(log_file_path)?;
-    simple_logging::log_to(log_file.try_clone()?, LevelFilter::Info);
+    simple_logging::log_to(log_file.try_clone()?, log_level_filter);
     log::info!("{args:?}");
 
     let name = parse_name_from_output_dir(&args.output_dir)?;
@@ -109,6 +109,7 @@ pub fn run(args: AnalyzeCmd) -> eyre::Result<()> {
         scoring.motifs(args.motifs.clone());
         let collapse_file = File::open(&collapse)?;
         let score_file = File::create(&scored)?;
+        log::info!("{scoring:?}");
         scoring
             .run(collapse_file, score_file)
             .wrap_err("cawlr npsmlr score failed")

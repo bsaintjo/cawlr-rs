@@ -236,6 +236,8 @@ impl SmaOptions {
         let scores_file = File::open(scores_filepath)?;
         load_apply(scores_file, |reads: Vec<ScoredRead>| {
             for read in reads {
+                log::info!("{:?}", read.metadata());
+                log::debug!("{read:?}");
                 sma(&mut self.writer, &self.pos_bkde, &self.neg_bkde, &read)?;
             }
             Ok(())
