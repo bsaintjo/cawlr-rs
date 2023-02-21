@@ -95,7 +95,7 @@ pub fn run(args: AnalyzeCmd, log_level_filter: LevelFilter) -> eyre::Result<()> 
         external::eventalign_collapse(
             &nanopolish,
             &args.reads,
-            &args.bam,
+            &filtered_bam,
             &args.genome,
             &collapse,
             log_file.try_clone()?,
