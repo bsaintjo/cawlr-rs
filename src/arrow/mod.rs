@@ -3,6 +3,7 @@ pub mod eventalign;
 pub mod metadata;
 pub mod scored_read;
 pub mod signal;
+mod mod_bam;
 
 #[cfg(test)]
 mod test {
