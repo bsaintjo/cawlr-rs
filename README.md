@@ -30,6 +30,8 @@
     - [`cawlr pipeline train-ctrls`](#cawlr-pipeline-train-ctrls)
     - [`cawlr pipeline preprocess-sample`](#cawlr-pipeline-preprocess-sample)
     - [`cawlr pipeline analyze-region`](#cawlr-pipeline-analyze-region)
+    - [`cawlr` with BAM files with modification data](#cawlr-with-bam-files-with-modification-data)
+      - [Requirements](#requirements)
       - [Command usage](#command-usage)
   - [Example `cawlr` vignette](#example-cawlr-vignette)
   - [QC Scripts](#qc-scripts)
@@ -163,6 +165,31 @@ TODO: Point out the models that are provided by `cawlr`
 ### `cawlr pipeline preprocess-sample`
 
 ### `cawlr pipeline analyze-region`
+
+### `cawlr` with BAM files with modification data
+
+The `cawlr` tool is able to work with BAM files that contain modification data through the MM and ML tags. This is useful if you are using third-party tools such as [`megalodon`](https://github.com/nanoporetech/megalodon) or [Pac-Bio based tools](https://github.com/PacificBiosciences/primrose).
+
+#### Requirements
+
+File names in example representing requirements is shown in parentheses
+
+- BAM files for positive/negative control (`pos.bam`/`neg.bam`)
+- BAM file for sample of interest (`sample.bam`)
+- Tag for the modification (`C+m` for cytosine methylation)
+  - Currently `cawlr` only supports the modification calls on a single strand
+  - For more information on the proper format, you can use `samtools view` to look for the specific tag or look at the [SAMtags specification](https://samtools.github.io/hts-specs/SAMtags.pdf)
+
+```bash
+cawlr model-scores -i pos.bam -t "C+m" -o pos-model-scores.pickle
+cawlr model-scores -i neg.bam -t "C+m" -o neg-model-scores.pickle
+cawlr sma \
+  -i sample.bam \
+  -t "C+m" \
+  --pos-ctrl-scores pos-model-scores.pickle \
+  --neg-ctrl-scores neg-model-scores.pickle \
+  -o sample.bed
+```
 
 #### Command usage
 

@@ -31,6 +31,7 @@ pub struct ModBamAlignment<'a> {
 }
 
 impl<'a> ModBamAlignment<'a> {
+    /// Return None if the read is unaligned
     fn from_record(rec: bam::Record, base_mod: &'a [u8], header: &'a bam::Header) -> Option<Self> {
         if rec.start() == -1 {
             None
@@ -218,14 +219,10 @@ impl ModBamIter {
         Self { records, base_mod }
     }
 
-    pub fn next(&mut self) -> Option<io::Result<ModBamAlignment<'_>>> {
+    pub fn next(&mut self) -> Option<io::Result<Option<ModBamAlignment<'_>>>> {
         let Some(res) = self.records.0.next() else { return None; };
         let Ok(rec) = res else { return Some(Err(res.err().unwrap())); };
-        let mba = ModBamAlignment {
-            rec,
-            base_mod: &self.base_mod,
-            header: self.records.0.header(),
-        };
+        let mba = ModBamAlignment::from_record(rec, &self.base_mod, self.records.0.header());
         Some(Ok(mba))
     }
 }
@@ -253,9 +250,14 @@ pub(crate) mod test {
     fn test_modbam_conversion() -> eyre::Result<()> {
         let example = "extra/modbams/MM-double.bam";
         let base_mod = b"C+m".to_vec();
-        let modbam = BamRecords::from_path(example)?;
-        let mut rec_iter = ModBamIter::new(modbam, base_mod);
-        let aln = rec_iter.next().unwrap().unwrap();
+        let mut modbam = BamRecords::from_path(example)?;
+        let header = modbam.0.header().clone();
+        let rec = modbam.0.next().unwrap().unwrap();
+        let aln = ModBamAlignment {
+            rec,
+            base_mod: &base_mod,
+            header: &header,
+        };
         let mod_prob_pos = aln.mod_prob_positions()?;
         assert_eq!(mod_prob_pos.positions, vec![1, 3, 0]);
         assert_eq!(
@@ -271,7 +273,7 @@ pub(crate) mod test {
         let base_mod = b"C+m".to_vec();
         let modbam = BamRecords::from_path(example)?;
         let mut rec_iter = ModBamIter::new(modbam, base_mod);
-        let aln = rec_iter.next().unwrap().unwrap();
+        let aln = rec_iter.next().unwrap().unwrap().unwrap();
         assert!(aln.mod_prob_positions().is_err());
         Ok(())
     }

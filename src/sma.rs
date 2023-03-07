@@ -8,7 +8,7 @@ use eyre::Result;
 use itertools::Itertools;
 
 use crate::{
-    arrow::{arrow_utils::load_apply, metadata::MetadataExt, scored_read::ScoredRead},
+    arrow::{arrow_utils::load_apply, metadata::MetadataExt, scored_read::ScoredRead, io::{ModFile, read_mod_bam_or_arrow}},
     bkde::BinnedKde,
     motif::Motif,
     utils::CawlrIO,
@@ -219,6 +219,22 @@ impl SmaOptions {
         self.track_name = Some(track_name.into());
         self
     }
+    pub fn run_modfile(mut self, mod_file: ModFile) -> Result<()>
+    {
+        let track_name = self
+            .track_name
+            .clone()
+            .unwrap_or_else(|| "cawlr_sma".to_string());
+        writeln!(
+            &mut self.writer,
+            "track name=\"{track_name}\" itemRgb=\"on\" visibility=2"
+        )?;
+        
+        read_mod_bam_or_arrow(mod_file, |read| {
+            log::info!("{:?}", read.metadata());
+            sma(&mut self.writer, &self.pos_bkde, &self.neg_bkde, &read)
+        })
+    }
 
     pub fn run<P>(mut self, scores_filepath: P) -> Result<()>
     where
@@ -232,12 +248,11 @@ impl SmaOptions {
             &mut self.writer,
             "track name=\"{track_name}\" itemRgb=\"on\" visibility=2"
         )?;
-
+        
         let scores_file = File::open(scores_filepath)?;
         load_apply(scores_file, |reads: Vec<ScoredRead>| {
             for read in reads {
                 log::info!("{:?}", read.metadata());
-                log::debug!("{read:?}");
                 sma(&mut self.writer, &self.pos_bkde, &self.neg_bkde, &read)?;
             }
             Ok(())

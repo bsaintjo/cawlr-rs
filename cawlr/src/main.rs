@@ -261,7 +261,7 @@ enum Commands {
         /// section 1.7 of the Sequence Alignment/Map Optional Fields
         /// Specification link: https://samtools.github.io/hts-specs/SAMtags.pdf
         #[clap(short, long)]
-        tag: Option<Vec<u8>>,
+        tag: Option<String>,
     },
     /// Infer nucleosome positions on single molecules
     Sma {
@@ -281,10 +281,18 @@ enum Commands {
         #[clap(long)]
         neg_ctrl_scores: ValidPathBuf,
 
-        /// Only that contain this motif will be used to perform single molecule
-        /// analysis, by default will use all kmers
+        // /// Only that contain this motif will be used to perform single molecule
+        // /// analysis, by default will use all kmers
+        // #[clap(short, long)]
+        // motif: Option<Vec<Motif>>,
+        /// Bam tag to use for modification detection. This is only used if the
+        /// input is a BAM file, usually as input from another tool. This is on
+        /// the MM tag in the bam file with typical format such as C+m
+        /// for methylation on the top strand. For more information, see
+        /// section 1.7 of the Sequence Alignment/Map Optional Fields
+        /// Specification link: https://samtools.github.io/hts-specs/SAMtags.pdf
         #[clap(short, long)]
-        motif: Option<Vec<Motif>>,
+        tag: Option<String>,
     },
 }
 
@@ -430,18 +438,14 @@ fn main() -> Result<()> {
             output,
             pos_ctrl_scores,
             neg_ctrl_scores,
-            motif,
+            // motif,
+            tag,
         } => {
+            let mod_file = ModFile::open_path(input, tag)?;
             let pos_bkde = BinnedKde::load(pos_ctrl_scores)?;
             let neg_bkde = BinnedKde::load(neg_ctrl_scores)?;
             let writer = utils::stdout_or_file(output.as_ref())?;
-            let motifs = {
-                if let Some(motif) = motif {
-                    motif
-                } else {
-                    all_bases()
-                }
-            };
+            let motifs = all_bases();
             let mut sma = SmaOptions::new(pos_bkde, neg_bkde, motifs, writer);
             if let Some(output_filename) = output {
                 let track_name = output_filename
@@ -451,7 +455,7 @@ fn main() -> Result<()> {
                     .unwrap();
                 sma.track_name(track_name);
             }
-            sma.run(input)?;
+            sma.run_modfile(mod_file)?;
         }
         Commands::QC(cmd) => match cmd {
             QCCmd::Score { input } => {

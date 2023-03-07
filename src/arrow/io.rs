@@ -29,7 +29,12 @@ impl ModFile {
         })
     }
 
-    pub fn open_path<P: AsRef<Path>>(path: P, tag: Option<Vec<u8>>) -> eyre::Result<Self> {
+    pub fn open_path<P, B>(path: P, tag: Option<B>) -> eyre::Result<Self>
+    where
+        P: AsRef<Path>,
+        B: Into<Vec<u8>>,
+    {
+        let tag: Option<Vec<u8>> = tag.map(|t| t.into());
         let mod_file = match (path.as_ref().extension(), tag) {
             (Some(ext), _) if ext == "arrow" => ModFile::open_arrow(&path)?,
             (Some(ext), tag) if ext == "bam" => {
@@ -59,7 +64,7 @@ where
             let records = BamRecords::from_file(file)?;
             let mut iter = ModBamIter::new(records, mod_tag);
             while let Some(res) = iter.next() {
-                let mba = res?;
+                let Some(mba) = res? else { continue; };
                 let scored_read: ScoredRead = mba.try_into()?;
                 f(scored_read)?;
             }
@@ -103,8 +108,8 @@ mod test {
     #[test]
     fn test_bam_input() {
         let modbam_file = "extra/modbams/megalodon-modbam.bam";
-        let mod_tag = b"A+Y";
-        let modbam = ModFile::open_mod_bam(modbam_file, *mod_tag).unwrap();
+        let mod_tag = "A+Y";
+        let modbam = ModFile::open_mod_bam(modbam_file, mod_tag).unwrap();
         let res = read_mod_bam_or_arrow(modbam, |_| Ok(()));
         assert!(res.is_ok())
     }
