@@ -1,4 +1,6 @@
-use std::io::{Read, Seek};
+use std::{
+    io::{Read, Seek},
+};
 
 use criterion_stats::univariate::{
     kde::{kernel::Gaussian, Bandwidth, Kde},
@@ -8,7 +10,11 @@ use eyre::Result;
 use rand::{rngs::SmallRng, seq::SliceRandom, SeedableRng};
 
 use crate::{
-    arrow::{arrow_utils::load_apply, scored_read::ScoredRead},
+    arrow::{
+        arrow_utils::load_apply,
+        io::{read_mod_bam_or_arrow, ModFile},
+        scored_read::ScoredRead,
+    },
     bkde::BinnedKde,
 };
 
@@ -46,6 +52,17 @@ impl Options {
         self
     }
 
+    pub fn run_modfile(&mut self, mod_file: ModFile) -> Result<BinnedKde> {
+        let scores = extract_samples_from_modfile(mod_file)?;
+        let scores: Vec<f64> = scores
+            .choose_multiple(&mut self.rng, self.samples)
+            .cloned()
+            .collect();
+        let kde = sample_kde(&scores)?;
+        let bkde = BinnedKde::from_kde(self.bins as i32, &kde);
+        Ok(bkde)
+    }
+
     pub fn run<R>(&mut self, reader: R) -> Result<BinnedKde>
     where
         R: Read + Seek,
@@ -76,6 +93,16 @@ where
     let mut scores = Vec::new();
     load_apply(reader, |reads: Vec<ScoredRead>| {
         let mut samples = extract_samples(&reads);
+        scores.append(&mut samples);
+        Ok(())
+    })?;
+    Ok(scores)
+}
+
+pub fn extract_samples_from_modfile(mod_file: ModFile) -> Result<Vec<f64>> {
+    let mut scores = Vec::new();
+    read_mod_bam_or_arrow(mod_file, |read| {
+        let mut samples = extract_samples(&[read]);
         scores.append(&mut samples);
         Ok(())
     })?;

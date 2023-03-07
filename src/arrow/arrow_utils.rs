@@ -1,7 +1,9 @@
 use std::{
     borrow::Borrow,
+    fs::File,
     io::{Read, Seek, Write},
     marker::PhantomData,
+    path::Path,
 };
 
 use arrow2::{
@@ -116,6 +118,18 @@ where
     let metadata = read_file_metadata(&mut reader)?;
     let reader = FileReader::new(reader, metadata, None, None);
     Ok(reader)
+}
+
+pub fn is_arrow_file<P>(path: P) -> bool
+where
+    P: AsRef<Path>,
+{
+    let is_arrow = || {
+        let mut reader = File::open(path)?;
+        let _ = read_file_metadata(&mut reader)?;
+        Ok::<(), eyre::Error>(())
+    };
+    is_arrow().is_ok()
 }
 
 /// Apply a function to chunks of data loaded from an Arrow Feather File.
@@ -363,4 +377,15 @@ where
             Ok(x)
         })
     })
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_is_arrow_file() {
+        let path = "extra/modbams/MM-double.bam";
+        assert!(!is_arrow_file(path))
+    }
 }

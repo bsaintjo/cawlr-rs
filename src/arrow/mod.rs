@@ -4,6 +4,7 @@ pub mod metadata;
 pub mod scored_read;
 pub mod signal;
 mod mod_bam;
+pub mod io;
 
 #[cfg(test)]
 mod test {

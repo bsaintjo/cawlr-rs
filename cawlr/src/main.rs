@@ -17,6 +17,7 @@ use libcawlr::{
     arrow::{
         arrow_utils::{load_apply2, load_read_write_arrow},
         eventalign::Eventalign,
+        io::ModFile,
         scored_read::ScoredRead,
     },
     bkde::BinnedKde,
@@ -252,6 +253,15 @@ enum Commands {
         /// density estimate
         #[clap(short, long, default_value_t = 10_000)]
         samples: usize,
+
+        /// Bam tag to use for modification detection. This is only used if the
+        /// input is a BAM file, usually as input from another tool. This is on
+        /// the MM tag in the bam file with typical format such as C+m
+        /// for methylation on the top strand. For more information, see
+        /// section 1.7 of the Sequence Alignment/Map Optional Fields
+        /// Specification link: https://samtools.github.io/hts-specs/SAMtags.pdf
+        #[clap(short, long)]
+        tag: Option<Vec<u8>>,
     },
     /// Infer nucleosome positions on single molecules
     Sma {
@@ -405,12 +415,13 @@ fn main() -> Result<()> {
             output,
             bins,
             samples,
+            tag,
         } => {
-            let file = File::open(input)?;
+            let mod_file = ModFile::open_path(input, tag)?;
             let bkde = score_model::Options::default()
                 .bins(bins)
                 .samples(samples)
-                .run(file)?;
+                .run_modfile(mod_file)?;
             bkde.save_as(output)?;
         }
 
