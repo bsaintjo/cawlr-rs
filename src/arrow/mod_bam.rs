@@ -25,7 +25,7 @@ pub enum ModBamConversionError {
 }
 
 pub struct ModBamAlignment<'a> {
-    rec: bam::Record,
+    pub rec: bam::Record,
     base_mod: &'a [u8],
     header: &'a bam::Header,
 }

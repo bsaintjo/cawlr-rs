@@ -65,8 +65,15 @@ where
             let mut iter = ModBamIter::new(records, mod_tag);
             while let Some(res) = iter.next() {
                 let Some(mba) = res? else { continue; };
-                let scored_read: ScoredRead = mba.try_into()?;
-                f(scored_read)?;
+                
+                // TODO Avoid clone by pass it into the error
+                let rec = mba.rec.clone();
+                match mba.try_into() {
+                    Ok(scored_read) => f(scored_read)?,
+                    Err(e) =>  {
+                        log::warn!("{} failed with error {e}", String::from_utf8_lossy(rec.name()));
+                    }
+                }
             }
             Ok(())
         }
