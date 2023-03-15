@@ -171,7 +171,12 @@ fn eventalign_collapse(
     Ok(())
 }
 
-fn train_npsmlr(collapse_file: &Path, db_file: &Path, single: bool, motifs: &[Motif]) -> Result<Model> {
+fn train_npsmlr(
+    collapse_file: &Path,
+    db_file: &Path,
+    single: bool,
+    motifs: &[Motif],
+) -> Result<Model> {
     let train_opts = TrainOptions::default()
         .dbscan(true)
         .single(single)
@@ -365,21 +370,40 @@ pub fn run(args: TrainCtrlPipelineCmd) -> eyre::Result<()> {
         Ok(())
     })?;
 
+    let pos_bkde_path = args.output_dir.join("pos_model_scores.pickle");
     wrap_cmd("(+) model score dist", || {
         let pos_scores = File::open(&pos_scores_path)?;
-        let pos_bkde_path = args.output_dir.join("pos_model_scores.pickle");
         let pos_bkde = Options::default().run(pos_scores)?;
-        pos_bkde.save_as(pos_bkde_path)?;
+        pos_bkde.save_as(&pos_bkde_path)?;
         log::info!("Completed BKDE for (+) control");
         Ok(())
     })?;
 
+    let neg_bkde_path = args.output_dir.join("neg_model_scores.pickle");
     wrap_cmd("(-) model score dist", || {
         let neg_scores = File::open(&neg_scores_path)?;
-        let neg_bkde_path = args.output_dir.join("neg_model_scores.pickle");
         let neg_bkde = Options::default().run(neg_scores)?;
-        neg_bkde.save_as(neg_bkde_path)?;
+        neg_bkde.save_as(&neg_bkde_path)?;
         log::info!("Completed BKDE for (-) control");
+        Ok(())
+    })?;
+
+    let score_plot = args.output_dir.join("score_dist.png");
+    wrap_cmd("Score dist", || {
+        let mut score_dist_cmd = Command::new("plot_scoring_dist.py");
+        score_dist_cmd
+            .arg("-i")
+            .arg(&neg_bkde_path)
+            .arg(&pos_bkde_path)
+            .arg("-o")
+            .arg(&score_plot)
+            .arg("--title")
+            .arg("Score distribution between (+) and (-) controls");
+        log::info!("Score dist command: {score_dist_cmd:?}");
+        score_dist_cmd.stderr(log_file.try_clone()?);
+        let output = score_dist_cmd.output()?;
+        check_if_failed(output).wrap_err("Score distribution command")?;
+
         Ok(())
     })?;
 

@@ -2,11 +2,7 @@
 //!
 //! Current uses bam, but should be switched over to rust-htslib or
 //! noodles
-use std::{
-    fs::File,
-    io::{self},
-    path::Path,
-};
+use std::{fs::File, io, path::Path};
 
 use bam::{record::tags::TagValue, BamReader};
 
@@ -64,20 +60,20 @@ impl<'a> ModBamAlignment<'a> {
         Metadata::new(name, chrom, start, length, strand, String::new())
     }
 
-    fn mod_prob_positions(&self) -> Result<ModProbs, ModBamConversionError> {
+    fn mod_prob_positions(&self) -> Result<ModProbsMl, ModBamConversionError> {
         let tags = self.rec.tags();
-        let Some(TagValue::String(score_pos, _)) = tags.get(b"Mm") else { return Err(ModBamConversionError::NoTags); };
-        let ModPosMM { skipped, positions } = ModPosMM::parse_mm_tag(self.base_mod, score_pos)
+        let Some(TagValue::String(score_pos, _)) = tags.get(b"Mm").or(tags.get(b"MM")) else { return Err(ModBamConversionError::NoTags); };
+        let ModPosMm { skipped, positions } = ModPosMm::parse_mm_tag(self.base_mod, score_pos)
             .ok_or(ModBamConversionError::NoTags)?;
 
-        let Some(TagValue::IntArray(score_prob_arr)) = tags.get(b"Ml") else { return Err(ModBamConversionError::NoTags);  };
+        let Some(TagValue::IntArray(score_prob_arr)) = tags.get(b"Ml").or(tags.get(b"ML")) else { return Err(ModBamConversionError::NoTags);  };
         let probs = score_prob_arr
             .raw()
             .iter()
             .map(|&x| (x as f64) / 256.)
             .collect::<Vec<_>>();
         let probs = probs[skipped..skipped + positions.len()].to_vec();
-        Ok(ModProbs {
+        Ok(ModProbsMl {
             probs,
             positions,
             modbam: self,
@@ -85,13 +81,13 @@ impl<'a> ModBamAlignment<'a> {
     }
 }
 
-struct ModProbs<'a> {
+struct ModProbsMl<'a> {
     probs: Vec<f64>,
     positions: Vec<u64>,
     modbam: &'a ModBamAlignment<'a>,
 }
 
-impl<'a> ModProbs<'a> {
+impl<'a> ModProbsMl<'a> {
     fn into_scores(self) -> Result<Vec<Score>, ModBamConversionError> {
         let mut pos_acc = 0;
         let mut scores = Vec::with_capacity(self.probs.len());
@@ -137,20 +133,21 @@ impl TryFrom<ModBamAlignment<'_>> for ScoredRead {
     }
 }
 
-struct ModPosMM {
+/// Represents the MM tag, containing data about positions of modifications
+struct ModPosMm {
     skipped: usize,
     positions: Vec<u64>,
 }
 
-impl ModPosMM {
-    fn parse_mm_tag(identifier: &[u8], xs: &[u8]) -> Option<Self> {
+impl ModPosMm {
+    fn parse_mm_tag(mod_tag: &[u8], tag_bytes: &[u8]) -> Option<Self> {
         let mut skipped = 0;
         let mut positions = None;
 
-        let mod_base = xs.split(|&b| b == b';');
+        let mod_base = tag_bytes.split(|&b| b == b';');
 
         for section in mod_base {
-            match parse_mod_base(identifier, section) {
+            match parse_mod_base(mod_tag, section) {
                 None => return None,
                 Some(TagMatches::Matched(pos)) => {
                     positions = Some(pos);
@@ -159,7 +156,7 @@ impl ModPosMM {
                 Some(TagMatches::Skipped(n)) => skipped += n,
             }
         }
-        positions.map(|ps| ModPosMM {
+        positions.map(|ps| ModPosMm {
             skipped,
             positions: ps,
         })
@@ -181,9 +178,9 @@ enum TagMatches {
 }
 
 // TODO handle unwraps gracefully
-fn parse_mod_base(base_identify: &[u8], bs: &[u8]) -> Option<TagMatches> {
-    let mut base_and_pos = bs.split(|&b| b == b',');
-    if base_and_pos.next()? != base_identify {
+fn parse_mod_base(mod_tag: &[u8], tag_bytes: &[u8]) -> Option<TagMatches> {
+    let mut base_and_pos = tag_bytes.split(|&b| b == b',');
+    if base_and_pos.next()? != mod_tag {
         return Some(TagMatches::Skipped(base_and_pos.count()));
     }
     Some(TagMatches::Matched(
@@ -231,6 +228,11 @@ struct ModBaseTag {
     fundamental: u8,
     is_top: bool,
     modified_base: Vec<u8>,
+}
+
+struct ModBasePositions {
+    tag: ModBaseTag,
+    positions: Vec<u8>,
 }
 
 #[cfg(test)]
@@ -309,5 +311,8 @@ pub(crate) mod test {
             .get(Tag::try_from(*b"Mm").unwrap())
             .or(data.get(Tag::BaseModifications))
             .unwrap() else { panic!("Not str")};
+        let ModPosMm { skipped, positions } =
+            ModPosMm::parse_mm_tag(b"C+m", mm.as_bytes()).unwrap();
+        let probs = ml[skipped..skipped + positions.len()].to_vec();
     }
 }
