@@ -331,8 +331,11 @@ pub fn run(args: TrainCtrlPipelineCmd) -> eyre::Result<()> {
     let pos_train = args.output_dir.join("pos_train.pickle");
     let neg_train = args.output_dir.join("neg_train.pickle");
 
-    let pos_db_file = args.output_dir.join("pos.db.sqlite3");
-    let neg_db_file = args.output_dir.join("neg.db.sqlite3");
+    let pos_db_path = "pos.db.sqlite3";
+    let neg_db_path = "neg.db.sqlite3";
+
+    let pos_db_file = args.output_dir.join(pos_db_path);
+    let neg_db_file = args.output_dir.join(neg_db_path);
 
     let pos_model = wrap_cmd_output("Train (+) ctrl", || {
         log::info!("Starting  + training");
@@ -404,6 +407,12 @@ pub fn run(args: TrainCtrlPipelineCmd) -> eyre::Result<()> {
         let output = score_dist_cmd.output()?;
         check_if_failed(output).wrap_err("Score distribution command")?;
 
+        Ok(())
+    })?;
+
+    wrap_cmd("Cleaning up database files", || {
+        fs::remove_file(pos_db_path)?;
+        fs::remove_file(neg_db_path)?;
         Ok(())
     })?;
 
