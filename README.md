@@ -27,14 +27,16 @@
   - [Nanopore data preparation](#nanopore-data-preparation)
   - [Models](#models)
   - [Pipelines](#pipelines)
+    - [Docker vs native](#docker-vs-native)
     - [`cawlr pipeline train-ctrls`](#cawlr-pipeline-train-ctrls)
+      - [Inputs](#inputs)
     - [`cawlr pipeline preprocess-sample`](#cawlr-pipeline-preprocess-sample)
     - [`cawlr pipeline analyze-region`](#cawlr-pipeline-analyze-region)
     - [`cawlr` with BAM files with modification data](#cawlr-with-bam-files-with-modification-data)
       - [Requirements](#requirements)
       - [Command usage](#command-usage)
   - [Example `cawlr` vignette](#example-cawlr-vignette)
-  - [QC Scripts](#qc-scripts)
+  - [Plotting Scripts](#plotting-scripts)
   - [Citations](#citations)
 
 ## Quick Start
@@ -118,11 +120,12 @@ cargo test
 
 ## Nanopore data preparation
 
-In order to prepare data for `cawlr` you need to install:
+In order to prepare data for `cawlr` you need to install the following tools. These are provided in the docker image and the versions of the tools that `cawlr` is tested with are listed in parentheses.
 
-- [`samtools`](http://www.htslib.org/)
-- [`nanopolish`](https://github.com/jts/nanopolish)
-- [`minimap2`](https://github.com/lh3/minimap2)
+- `guppy (v6.1.7)`
+- [`samtools (v1.16)`](http://www.htslib.org/)
+- [`nanopolish (v0.13)`](https://github.com/jts/nanopolish)
+- [`minimap2 (v2.24)`](https://github.com/lh3/minimap2)
 
 Example command of running nanopolish to set up inputs
 
@@ -160,7 +163,32 @@ TODO: Point out the models that are provided by `cawlr`
 
 ## Pipelines
 
+### Docker vs native
+
+Pipelines will perform mapping and signal alignment so they must have access to binaries for `samtools`, `minimap2` and `nanopolish`. In the docker container, these binaries are already installed and in the `PATH`. If running the pipelines not within the docker container, these binaries need to be either located in the `PATH` or pass the paths to the pipeline tools using `--samtools-path`, `--minimap2-path`, and `--nanopolish-path`.
+
 ### `cawlr pipeline train-ctrls`
+
+#### Inputs
+
+- `--genome`
+  - Path to genome fasta file
+- `--pos-fast5`
+  - Directory of basecalled fast5 files for positive control
+- `--pos-reads`
+  - Directory or single file containing basecalled reads
+- `--pos-summary`
+  - Patht to `sequencing_summary.txt` file from `guppy` output. Not required but will significantly speed up indexing.
+- `--neg-fast5`
+  - Directory of basecalled fast5 files for negative control
+- `--neg-reads`
+  - Directory or single file containing basecalled reads
+- `--neg-summary`
+  - Patht to `sequencing_summary.txt` file from `guppy` output. Not required but will significantly speed up indexing.
+- `--motifs`
+  - List of motifs of modified based to filter on
+  - Format is `{1-based index}:{context}`, separated by commas
+    - Example for GpC and CpG positions: `"2:GC,1:CG"`
 
 ### `cawlr pipeline preprocess-sample`
 
@@ -197,7 +225,7 @@ cawlr sma \
 
 TODO
 
-## QC Scripts
+## Plotting Scripts
 
 ## Citations
 
