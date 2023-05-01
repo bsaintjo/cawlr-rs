@@ -40,14 +40,14 @@ def bed_line_cluster_array(line, cluster_start, cluster_stop):
     return cluster_array
 
 
-def pct_full(arr):
+def pct_full(arr: list):
     """Count what percent of the read overlaps with the read, None in
     the array means that there was no data for it."""
     n_none = sum(1 for x in arr if x is None)
     return 1 - float(n_none) / len(arr)
 
 
-def convert_nones(arr):
+def convert_nones(arr: list[float]):
     """Convert Nones to something else so KMeans is able to cluster on it"""
     return [x if x is not None else 0.5 for x in arr]
 
@@ -62,7 +62,19 @@ def split_clusters(cresults, carrays):
     return labels
 
 
-def parse_highlights(s: str, region_start, region_end):
+def split_lines_by_clusters(cresults, bedlines: list[str]) -> dict[int, list[str]]:
+    """
+    Returns dictionary where the key is the cluster index from K-means clustering,
+    and the value is a list of strings corresponding to the bed lines that clustered
+    in that index.
+    """
+    cidx_to_line = defaultdict(list)
+    for cidx, line in zip(cresults, bedlines):
+        cidx_to_line[cidx].append(line)
+    cidx_to_line
+
+
+def parse_highlights(s: str, region_start: int, region_end: int):
     xs = s.split(":")
     strand = xs[-1]
     xs = xs[0].split("-")
@@ -87,6 +99,28 @@ def strand_to_color(hstrand: str):
         fp_color = "black"
         tp_color = "black"
     return fp_color, tp_color
+
+
+def open_clustered_beds(path: Path, n: int):
+    """Returns a dictionary of n file handles corresponding to the clustered bed tracks"""
+    acc = dict()
+    parent = path.parent
+    for x in range(n):
+        fh_name = "cluster{}.{}.bed".format(x, path.stem)
+        fh_path = parent / fh_name
+        fh = open(fh_path, "w")
+        print(
+            'track name="{}" itemRgb="on" visibility=2'.format(fh_name),
+            file=fh,
+        )
+        acc[x] = fh
+    return acc
+
+
+def close_clustered_beds(fh_dict: dict):
+    """Close all the filehandles in the filehandle dictionary."""
+    for fh in fh_dict.values():
+        fh.close()
 
 
 def main():
@@ -121,10 +155,14 @@ def main():
 
     input_path = Path(args.input)
     output = input_path.parent / (input_path.stem + ".cluster.png")
+    clustered = open_clustered_beds(input_path, args.n_clusters)
 
     highlights = [parse_highlights(h, args.start, args.end) for h in args.highlight]
 
-    acc = []
+    # list of 0,1 arrays corresponding to linkers and nucleosomes
+    binarized_bed = []
+    # list of bedlines kept after filtering for making clustered beds
+    bedlines = []
     with open(args.input, "r") as bedfile:
         next(bedfile)  # Skip header
         for line in bedfile:
@@ -132,15 +170,21 @@ def main():
                 line, cluster_start=args.start, cluster_stop=args.end
             )
             if pct_full(arr) > args.pct:
-                acc.append(convert_nones(arr))
-    if not acc:
+                binarized_bed.append(convert_nones(arr))
+                bedlines.append(line)
+    if not binarized_bed:
         print("Empty results, input maybe empty or lower % threshold")
         sys.exit(1)
 
     kmeans = KMeans(n_clusters=args.n_clusters)
-    results = kmeans.fit_predict(acc)
+    results = kmeans.fit_predict(binarized_bed)
 
-    label_to_arr = split_clusters(results, acc)
+    label_to_arr = split_clusters(results, binarized_bed)
+    cidx_to_line = split_lines_by_clusters(results, bedlines)
+
+    for cidx, line in cidx_to_line.items():
+        clustered[cidx].write(line)
+    close_clustered_beds(clustered)
 
     fig, axs = plt.subplots(
         nrows=args.n_clusters, ncols=1, sharex=True, figsize=(15, 6)
