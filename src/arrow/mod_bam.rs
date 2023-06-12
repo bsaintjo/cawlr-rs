@@ -2,7 +2,7 @@
 //!
 //! Current uses bam, but should be switched over to rust-htslib or
 //! noodles
-use std::{fs::File, io, path::Path};
+use std::{fmt, fs::File, io, path::Path};
 
 use bam::{record::tags::TagValue, BamReader};
 
@@ -26,10 +26,20 @@ pub struct ModBamAlignment<'a> {
     header: &'a bam::Header,
 }
 
+impl<'a> fmt::Debug for ModBamAlignment<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("ModBamAlignment")
+            .field("rec", &self.rec)
+            .field("base_mod", &self.base_mod)
+            .finish()
+    }
+}
+
 impl<'a> ModBamAlignment<'a> {
     /// Return None if the read is unaligned
     fn from_record(rec: bam::Record, base_mod: &'a [u8], header: &'a bam::Header) -> Option<Self> {
         if rec.start() == -1 {
+            log::warn!("Read is unaligned, skipping...");
             None
         } else {
             Some(Self {
@@ -106,6 +116,9 @@ impl<'a> ModProbsMl<'a> {
             .enumerate()
             .filter_map(|b| if b.1 == mod_base { Some(b.0) } else { None })
             .collect::<Vec<_>>();
+        if seq_positions.is_empty() {
+            return Err(ModBamConversionError::NoScores);
+        }
 
         for (prob, pos) in self.probs.into_iter().zip(self.positions.into_iter()) {
             pos_acc += pos;
@@ -180,7 +193,16 @@ enum TagMatches {
 // TODO handle unwraps gracefully
 fn parse_mod_base(mod_tag: &[u8], tag_bytes: &[u8]) -> Option<TagMatches> {
     let mut base_and_pos = tag_bytes.split(|&b| b == b',');
-    if base_and_pos.next()? != mod_tag {
+    // the modification tag can have a '.' or '?' depending on the modification
+    // detector Since we don't use this information, make sure to take the from
+    // 3 to make sure we are correctly comparing
+    let next_mod_tag = base_and_pos.next()?;
+    let next_mod_tag: &[u8] = match next_mod_tag.last() {
+        Some(b'.') | Some(b'?')=> &next_mod_tag[..next_mod_tag.len() - 1],
+        Some(_) => next_mod_tag,
+        None => return None,
+    };
+    if next_mod_tag != mod_tag {
         return Some(TagMatches::Skipped(base_and_pos.count()));
     }
     Some(TagMatches::Matched(
@@ -284,7 +306,11 @@ pub(crate) mod test {
     fn test_parse_mod_base() {
         let example = b"C+mh,5,12,0";
         let res = parse_mod_base(b"C+mh", example);
-        assert_eq!(res, Some(TagMatches::Matched(vec![5, 12, 0])))
+        assert_eq!(res, Some(TagMatches::Matched(vec![5, 12, 0])));
+
+        let example = b"C+mh?,5,12,0";
+        let res = parse_mod_base(b"C+mh", example);
+        assert_eq!(res, Some(TagMatches::Matched(vec![5, 12, 0])));
     }
 
     #[test]
