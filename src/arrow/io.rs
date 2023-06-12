@@ -59,12 +59,22 @@ where
     F: FnMut(ScoredRead) -> eyre::Result<()>,
 {
     match mod_file {
-        ModFile::Arrow(file) => load_apply_indy(file, f),
+        ModFile::Arrow(file) => {
+            log::info!("Detected arrow file");
+            load_apply_indy(file, f)
+        }
         ModFile::ModBam { file, mod_tag } => {
+            log::info!("Detected modification bam file");
             let records = BamRecords::from_file(file)?;
             let mut iter = ModBamIter::new(records, mod_tag);
             while let Some(res) = iter.next() {
-                let Some(mba) = res? else { continue; };
+                if res.is_err() {
+                    log::warn!("Failed to convert to modbam to ScoredRead: {res:?}");
+                    continue;
+                }
+                let Some(mba) = res.unwrap() else {
+                    continue;
+                };
                 
                 // TODO Avoid clone by pass it into the error
                 let rec = mba.rec.clone();
@@ -117,8 +127,10 @@ mod test {
         let modbam_file = "extra/modbams/megalodon-modbam.bam";
         let mod_tag = "A+Y";
         let modbam = ModFile::open_mod_bam(modbam_file, mod_tag).unwrap();
-        let res = read_mod_bam_or_arrow(modbam, |_| Ok(()));
-        assert!(res.is_ok())
+        let mut count = 0;
+        let res = read_mod_bam_or_arrow(modbam, |_| { count +=1; Ok(()) });
+        assert!(res.is_ok());
+        assert_eq!(count, 1);
     }
 
     #[test]

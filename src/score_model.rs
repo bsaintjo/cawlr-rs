@@ -1,6 +1,4 @@
-use std::{
-    io::{Read, Seek},
-};
+use std::io::{Read, Seek};
 
 use criterion_stats::univariate::{
     kde::{kernel::Gaussian, Bandwidth, Kde},
@@ -121,4 +119,16 @@ pub fn extract_samples(reads: &[ScoredRead]) -> Vec<f64> {
                 .collect::<Vec<_>>()
         })
         .collect()
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_extract_samples() {
+        let modfile = ModFile::open_mod_bam("extra/modbams/megalodon-modbam.bam", "A+Y").unwrap();
+        let samples = extract_samples_from_modfile(modfile).unwrap();
+        assert_eq!(samples.len(), 15);
+    }
 }
