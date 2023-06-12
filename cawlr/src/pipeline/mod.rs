@@ -2,6 +2,7 @@ mod analyze;
 mod preprocess;
 mod train_ctrls;
 mod external;
+mod utils;
 
 use clap::Subcommand;
 use log::LevelFilter;
