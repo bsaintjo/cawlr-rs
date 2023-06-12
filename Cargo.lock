@@ -295,6 +295,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bef38d45163c2f1dde094a7dfd33ccf595c92905c8f8f4fdc18d06fb1037718a"
 
 [[package]]
+name = "bitflags"
+version = "2.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "24a6904aef64d73cf10ab17ebace7befb918b82164785cb89907993be7f83813"
+
+[[package]]
 name = "bstr"
 version = "0.2.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -468,7 +474,7 @@ version = "4.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f13b9c79b5d1dd500d20ef541215a6423c75829ef43117e1b4d17fd8af0b5d76"
 dependencies = [
- "bitflags",
+ "bitflags 1.3.2",
  "clap_derive",
  "clap_lex",
  "is-terminal",
@@ -561,7 +567,7 @@ version = "0.0.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "318d6c16e73b3a900eb212ad6a82fc7d298c5ab8184c7a9998646455bc474a16"
 dependencies = [
- "bitflags",
+ "bitflags 1.3.2",
  "concolor-query",
  "is-terminal",
 ]
@@ -1003,6 +1009,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "835a3dc7d1ec9e75e2b5fb4ba75396837112d2060b03f7d43bc1897c7f7211da"
 
 [[package]]
+name = "filter-overmod"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "env_logger 0.10.0",
+ "eyre",
+ "jane-eyre",
+ "log",
+ "noodles 0.36.0",
+ "rust-htslib 0.42.0",
+]
+
+[[package]]
 name = "fixedbitset"
 version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1132,7 +1151,7 @@ version = "0.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "93e3af942408868f6934a7b85134a3230832b9977cf66125df2f9edcfce4ddcc"
 dependencies = [
- "bitflags",
+ "bitflags 1.3.2",
  "ignore",
  "walkdir",
 ]
@@ -1570,7 +1589,7 @@ dependencies = [
  "linfa-clustering",
  "log",
  "ndarray",
- "noodles",
+ "noodles 0.33.0",
  "num_cpus",
  "openblas-src",
  "predicates",
@@ -1846,7 +1865,7 @@ dependencies = [
  "csv",
  "miette",
  "num-format",
- "rust-htslib",
+ "rust-htslib 0.40.2",
  "serde",
 ]
 
@@ -1987,8 +2006,18 @@ version = "0.33.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3df9886a5347befb05eb49511abbc45f0c48359aa2b7dc7a739693ed62e8488c"
 dependencies = [
- "noodles-bam",
- "noodles-sam",
+ "noodles-bam 0.27.0",
+ "noodles-sam 0.24.0",
+]
+
+[[package]]
+name = "noodles"
+version = "0.36.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "28dc967800567e8e68e2b5fb57b857d52e0a5fcdc59e0df4349beb43a596e87b"
+dependencies = [
+ "noodles-bam 0.30.0",
+ "noodles-sam 0.27.0",
 ]
 
 [[package]]
@@ -2000,11 +2029,27 @@ dependencies = [
  "bit-vec 0.6.3",
  "byteorder",
  "bytes",
- "noodles-bgzf",
+ "noodles-bgzf 0.20.0",
  "noodles-core",
- "noodles-csi",
- "noodles-fasta",
- "noodles-sam",
+ "noodles-csi 0.14.0",
+ "noodles-fasta 0.19.0",
+ "noodles-sam 0.24.0",
+]
+
+[[package]]
+name = "noodles-bam"
+version = "0.30.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d4ff1dfb79aab2ffe963141c4c3d8e04dead57575ab2b254cbba8a84126a2de7"
+dependencies = [
+ "bit-vec 0.6.3",
+ "byteorder",
+ "bytes",
+ "noodles-bgzf 0.21.0",
+ "noodles-core",
+ "noodles-csi 0.16.0",
+ "noodles-fasta 0.21.0",
+ "noodles-sam 0.27.0",
 ]
 
 [[package]]
@@ -2012,6 +2057,18 @@ name = "noodles-bgzf"
 version = "0.20.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2bff155a5362c61d9b977648d874aa84aea88f7de032e43df908c7cd26b22b6d"
+dependencies = [
+ "byteorder",
+ "bytes",
+ "crossbeam-channel",
+ "flate2",
+]
+
+[[package]]
+name = "noodles-bgzf"
+version = "0.21.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bf38d9f8687d88b5e7cc53ac0732de833c76933fbb53a2c5c6ccf3bdf73d7699"
 dependencies = [
  "byteorder",
  "bytes",
@@ -2033,7 +2090,20 @@ checksum = "56201d5278cb875d3b4a8e338a21fa5b43f6dd56547447006dbad4638e6c952e"
 dependencies = [
  "bit-vec 0.6.3",
  "byteorder",
- "noodles-bgzf",
+ "noodles-bgzf 0.20.0",
+ "noodles-core",
+]
+
+[[package]]
+name = "noodles-csi"
+version = "0.16.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9171106c55fd5f6afe521ca98754fdbc8420f0016e432bce2e61442bcaa11c6f"
+dependencies = [
+ "bit-vec 0.6.3",
+ "byteorder",
+ "indexmap",
+ "noodles-bgzf 0.21.0",
  "noodles-core",
 ]
 
@@ -2045,7 +2115,19 @@ checksum = "d94c27a4d1b03404e524c73f28bfbefd19864388e2a24e9c5392c2a165306615"
 dependencies = [
  "bytes",
  "memchr",
- "noodles-bgzf",
+ "noodles-bgzf 0.20.0",
+ "noodles-core",
+]
+
+[[package]]
+name = "noodles-fasta"
+version = "0.21.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "936d71fec2b263e2c381490469ad97efe0e30c363078b860997cdd3aa3aeaafa"
+dependencies = [
+ "bytes",
+ "memchr",
+ "noodles-bgzf 0.21.0",
  "noodles-core",
 ]
 
@@ -2055,14 +2137,30 @@ version = "0.24.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "45d38fe9a03d4c6c0695cd0e33cd9d7d27dd7f1688af2a72cbeb02c926dcf02e"
 dependencies = [
- "bitflags",
+ "bitflags 1.3.2",
  "indexmap",
  "lexical-core",
  "memchr",
- "noodles-bgzf",
+ "noodles-bgzf 0.20.0",
  "noodles-core",
- "noodles-csi",
- "noodles-fasta",
+ "noodles-csi 0.14.0",
+ "noodles-fasta 0.19.0",
+]
+
+[[package]]
+name = "noodles-sam"
+version = "0.27.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "02062c457baf547e972f1ec379d8abf4aad1c8b782b4d5909a833cbbe4737f0c"
+dependencies = [
+ "bitflags 2.2.1",
+ "indexmap",
+ "lexical-core",
+ "memchr",
+ "noodles-bgzf 0.21.0",
+ "noodles-core",
+ "noodles-csi 0.16.0",
+ "noodles-fasta 0.21.0",
 ]
 
 [[package]]
@@ -2611,7 +2709,7 @@ version = "0.2.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fb5a58c1855b4b6819d59012155603f0b22ad30cad752600aadfcb695265519a"
 dependencies = [
- "bitflags",
+ "bitflags 1.3.2",
 ]
 
 [[package]]
@@ -2663,7 +2761,7 @@ version = "0.28.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "01e213bc3ecb39ac32e81e51ebe31fd888a940515173e3a18a35f8c6e896422a"
 dependencies = [
- "bitflags",
+ "bitflags 1.3.2",
  "fallible-iterator",
  "fallible-streaming-iterator",
  "hashlink",
@@ -2676,6 +2774,27 @@ name = "rust-htslib"
 version = "0.40.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0b73defe4e69f22d0208eaeb004fc563e968588d13fe2aafc1aa6f19cb4808d4"
+dependencies = [
+ "bio-types",
+ "byteorder",
+ "custom_derive",
+ "derive-new",
+ "hts-sys",
+ "ieee754",
+ "lazy_static",
+ "libc",
+ "linear-map",
+ "newtype_derive",
+ "regex",
+ "thiserror",
+ "url",
+]
+
+[[package]]
+name = "rust-htslib"
+version = "0.42.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6ec743efcc1c37c8bcc660036ad02df4720586e6fffed0b0fca97894b8ea3dd4"
 dependencies = [
  "bio-types",
  "byteorder",
@@ -2722,7 +2841,7 @@ version = "0.36.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d4fdebc4b395b7fbb9ab11e462e20ed9051e7b16e42d24042c776eca0ac81b03"
 dependencies = [
- "bitflags",
+ "bitflags 1.3.2",
  "errno",
  "io-lifetimes",
  "libc",

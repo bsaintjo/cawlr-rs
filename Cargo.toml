@@ -12,7 +12,7 @@ rust-version = "1.56.1"
 categories = ["science", "command-line-utilities"]
 
 [workspace]
-members = ["cawlr", "mod-bam-pct"]
+members = ["cawlr", "mod-bam-pct", "filter-overmod"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -145,3 +145,7 @@ path = "src/bin/analyze_region_mesmlr_detection_pipeline.rs"
 [[bin]]
 name = "overlap-bed"
 path = "src/bin/overlap_bed.rs"
+
+[[bin]]
+name = "gen-test-data"
+path = "src/bin/gen_test_data.rs"
