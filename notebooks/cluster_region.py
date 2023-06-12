@@ -12,6 +12,8 @@ from collections import defaultdict
 import matplotlib.pyplot as plt
 from sklearn.cluster import KMeans
 import numpy as np
+from typing import List, Dict
+
 
 
 def bed_line_cluster_array(line, cluster_start, cluster_stop):
@@ -47,7 +49,7 @@ def pct_full(arr: list):
     return 1 - float(n_none) / len(arr)
 
 
-def convert_nones(arr: list[float]):
+def convert_nones(arr: List[float]):
     """Convert Nones to something else so KMeans is able to cluster on it"""
     return [x if x is not None else 0.5 for x in arr]
 
@@ -62,7 +64,7 @@ def split_clusters(cresults, carrays):
     return labels
 
 
-def split_lines_by_clusters(cresults, bedlines: list[str]) -> dict[int, list[str]]:
+def split_lines_by_clusters(cresults, bedlines: List[str]) -> Dict[int, List[str]]:
     """
     Returns dictionary where the key is the cluster index from K-means clustering,
     and the value is a list of strings corresponding to the bed lines that clustered
@@ -71,7 +73,7 @@ def split_lines_by_clusters(cresults, bedlines: list[str]) -> dict[int, list[str
     cidx_to_line = defaultdict(list)
     for cidx, line in zip(cresults, bedlines):
         cidx_to_line[cidx].append(line)
-    cidx_to_line
+    return cidx_to_line
 
 
 def parse_highlights(s: str, region_start: int, region_end: int):
@@ -117,7 +119,7 @@ def open_clustered_beds(path: Path, n: int):
     return acc
 
 
-def close_clustered_beds(fh_dict: dict):
+def close_clustered_beds(fh_dict: Dict):
     """Close all the filehandles in the filehandle dictionary."""
     for fh in fh_dict.values():
         fh.close()
@@ -182,8 +184,9 @@ def main():
     label_to_arr = split_clusters(results, binarized_bed)
     cidx_to_line = split_lines_by_clusters(results, bedlines)
 
-    for cidx, line in cidx_to_line.items():
-        clustered[cidx].write(line)
+    for cidx, lines in cidx_to_line.items():
+        for line in lines:
+            clustered[cidx].write(line)
     close_clustered_beds(clustered)
 
     fig, axs = plt.subplots(
