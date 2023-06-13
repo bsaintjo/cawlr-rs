@@ -1,10 +1,10 @@
 pub mod arrow_utils;
 pub mod eventalign;
+pub mod io;
 pub mod metadata;
+mod mod_bam;
 pub mod scored_read;
 pub mod signal;
-mod mod_bam;
-pub mod io;
 
 #[cfg(test)]
 mod test {

@@ -75,13 +75,16 @@ where
                 let Some(mba) = res.unwrap() else {
                     continue;
                 };
-                
+
                 // TODO Avoid clone by pass it into the error
                 let rec = mba.rec.clone();
                 match mba.try_into() {
                     Ok(scored_read) => f(scored_read)?,
-                    Err(e) =>  {
-                        log::warn!("{} failed with error {e}", String::from_utf8_lossy(rec.name()));
+                    Err(e) => {
+                        log::warn!(
+                            "{} failed with error {e}",
+                            String::from_utf8_lossy(rec.name())
+                        );
                     }
                 }
             }
@@ -128,7 +131,10 @@ mod test {
         let mod_tag = "A+Y";
         let modbam = ModFile::open_mod_bam(modbam_file, mod_tag).unwrap();
         let mut count = 0;
-        let res = read_mod_bam_or_arrow(modbam, |_| { count +=1; Ok(()) });
+        let res = read_mod_bam_or_arrow(modbam, |_| {
+            count += 1;
+            Ok(())
+        });
         assert!(res.is_ok());
         assert_eq!(count, 1);
     }

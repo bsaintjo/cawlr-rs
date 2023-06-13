@@ -1,5 +1,9 @@
 use clap::Parser;
-use libcawlr::{arrow::io::ModFile, score_model::{self, extract_max_samples}, utils::CawlrIO};
+use libcawlr::{
+    arrow::io::ModFile,
+    score_model::{self, extract_max_samples},
+    utils::CawlrIO,
+};
 
 #[derive(Parser)]
 struct Args {

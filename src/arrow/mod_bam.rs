@@ -198,7 +198,7 @@ fn parse_mod_base(mod_tag: &[u8], tag_bytes: &[u8]) -> Option<TagMatches> {
     // 3 to make sure we are correctly comparing
     let next_mod_tag = base_and_pos.next()?;
     let next_mod_tag: &[u8] = match next_mod_tag.last() {
-        Some(b'.') | Some(b'?')=> &next_mod_tag[..next_mod_tag.len() - 1],
+        Some(b'.') | Some(b'?') => &next_mod_tag[..next_mod_tag.len() - 1],
         Some(_) => next_mod_tag,
         None => return None,
     };

@@ -1,4 +1,7 @@
-use std::{ffi::OsStr, path::{PathBuf, Path}};
+use std::{
+    ffi::OsStr,
+    path::{Path, PathBuf},
+};
 
 use clap::{builder::PathBufValueParser, error::ErrorKind};
 

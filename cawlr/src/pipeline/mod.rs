@@ -1,7 +1,7 @@
 mod analyze;
+mod external;
 mod preprocess;
 mod train_ctrls;
-mod external;
 mod utils;
 
 use clap::Subcommand;

@@ -1,8 +1,9 @@
 use std::{
+    ffi::OsStr,
     fs::File,
     io::BufReader,
     path::Path,
-    process::{Command, Stdio}, ffi::OsStr,
+    process::{Command, Stdio},
 };
 
 use libcawlr::collapse::CollapseOptions;
