@@ -60,6 +60,19 @@ impl Options {
         let bkde = BinnedKde::from_kde(self.bins as i32, &kde);
         Ok(bkde)
     }
+    pub fn run_modfile_with<F>(&mut self, mod_file: ModFile, extractor: F) -> Result<BinnedKde>
+    where
+        F: Fn(&[ScoredRead]) -> Vec<f64>,
+    {
+        let scores = extract_samples_from_modfile_with(mod_file, extractor)?;
+        let scores: Vec<f64> = scores
+            .choose_multiple(&mut self.rng, self.samples)
+            .cloned()
+            .collect();
+        let kde = sample_kde(&scores)?;
+        let bkde = BinnedKde::from_kde(self.bins as i32, &kde);
+        Ok(bkde)
+    }
 
     pub fn run<R>(&mut self, reader: R) -> Result<BinnedKde>
     where
@@ -107,6 +120,20 @@ pub fn extract_samples_from_modfile(mod_file: ModFile) -> Result<Vec<f64>> {
     Ok(scores)
 }
 
+pub fn extract_samples_from_modfile_with<F>(mod_file: ModFile, f: F) -> Result<Vec<f64>>
+where
+    F: Fn(&[ScoredRead]) -> Vec<f64>,
+{
+    let mut scores = Vec::new();
+    read_mod_bam_or_arrow(mod_file, |read| {
+        let mut samples = f(&[read]);
+        scores.append(&mut samples);
+        Ok(())
+    })?;
+    Ok(scores)
+}
+
+/// Extract all scores from each read
 // TODO Use full score instead of signal score
 pub fn extract_samples(reads: &[ScoredRead]) -> Vec<f64> {
     reads
@@ -117,6 +144,20 @@ pub fn extract_samples(reads: &[ScoredRead]) -> Vec<f64> {
                 .flat_map(|score| score.signal_score)
                 .filter(|x| !x.is_nan())
                 .collect::<Vec<_>>()
+        })
+        .collect()
+}
+
+/// Extract the max score from each read
+pub fn extract_max_samples(reads: &[ScoredRead]) -> Vec<f64> {
+    reads
+        .iter()
+        .flat_map(|lr| {
+            lr.scores()
+                .iter()
+                .flat_map(|score| score.signal_score)
+                .filter(|x| !x.is_nan())
+                .max_by(|a, b| a.total_cmp(b))
         })
         .collect()
 }

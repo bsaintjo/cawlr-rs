@@ -77,7 +77,8 @@ COPY --from=builder /tools \
 	/cawlr/target/release/cawlr \
 	/cawlr/target/release/mod-bam-pct \
 	/cawlr/target/release/analyze-region-mesmlr-detection-pipeline \
-	/cawlr/target/release/gen-test-data\
+	/cawlr/target/release/gen-test-data \
+	/cawlr/target/release/max-model-scores \
 	/tools/
 COPY --from=builder /vbz /vbz
 ENV HDF5_PLUGIN_PATH="/vbz/ont-vbz-hdf-plugin-1.0.1-Linux/usr/local/hdf5/lib/plugin/"
