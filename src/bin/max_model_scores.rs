@@ -16,10 +16,13 @@ struct Args {
     #[clap(short, long)]
     tag: String,
 
-    #[clap(short, long)]
+    /// Number of bins used to estimate the kernel density estimate
+    #[clap(short, long, default_value_t = 10_000)]
     bins: u32,
 
-    #[clap(short, long)]
+    /// Number of scores sampled from the input to compute the kernel
+    /// density estimate
+    #[clap(short, long, default_value_t = 10_000)]
     samples: usize,
 }
 

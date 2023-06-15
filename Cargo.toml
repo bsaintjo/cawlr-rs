@@ -149,3 +149,7 @@ path = "src/bin/overlap_bed.rs"
 [[bin]]
 name = "gen-test-data"
 path = "src/bin/gen_test_data.rs"
+
+[[bin]]
+name = "max-model-scores"
+path = "src/bin/max_model_scores.rs"
