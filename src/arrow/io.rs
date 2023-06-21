@@ -72,9 +72,7 @@ where
                     log::warn!("Failed to convert to modbam to ScoredRead: {res:?}");
                     continue;
                 }
-                let Some(mba) = res.unwrap() else {
-                    continue;
-                };
+                let mba = res.unwrap();
 
                 // TODO Avoid clone by pass it into the error
                 let rec = mba.rec.clone();

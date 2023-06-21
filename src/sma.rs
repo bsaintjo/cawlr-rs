@@ -235,8 +235,13 @@ impl SmaOptions {
         )?;
 
         read_mod_bam_or_arrow(mod_file, |read| {
-            log::info!("{:?}", read.metadata());
-            sma(&mut self.writer, &self.pos_bkde, &self.neg_bkde, &read)
+            if !read.is_unaligned() {
+                log::info!("{:?}", read.metadata());
+                sma(&mut self.writer, &self.pos_bkde, &self.neg_bkde, &read)?;
+            } else {
+                log::debug!("Read {} is unaligned, skipping...", read.name())
+            }
+            Ok(())
         })
     }
 

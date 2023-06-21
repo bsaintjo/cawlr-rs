@@ -40,6 +40,10 @@ impl Metadata {
 pub trait MetadataExt {
     fn metadata(&self) -> &Metadata;
 
+    fn is_unaligned(&self) -> bool {
+        self.metadata().chrom.is_empty()
+    }
+
     fn name(&self) -> &str {
         self.metadata().name.as_ref()
     }

@@ -37,16 +37,17 @@ impl<'a> fmt::Debug for ModBamAlignment<'a> {
 
 impl<'a> ModBamAlignment<'a> {
     /// Return None if the read is unaligned
-    fn from_record(rec: bam::Record, base_mod: &'a [u8], header: &'a bam::Header) -> Option<Self> {
+    fn from_record(rec: bam::Record, base_mod: &'a [u8], header: &'a bam::Header) -> Self {
         if rec.start() == -1 {
-            log::warn!("Read is unaligned, skipping...");
-            None
-        } else {
-            Some(Self {
-                rec,
-                base_mod,
-                header,
-            })
+            log::warn!(
+                "Read {} is unaligned, skipping...",
+                std::str::from_utf8(rec.name()).unwrap()
+            );
+        }
+        Self {
+            rec,
+            base_mod,
+            header,
         }
     }
 
@@ -54,19 +55,29 @@ impl<'a> ModBamAlignment<'a> {
         let name = std::str::from_utf8(self.rec.name())
             .expect("bam read name utf8")
             .to_string();
-        let start: u64 = self.rec.start().try_into().expect("Start to positive only");
+        let start: u64 = {
+            let s = self.rec.start();
+            if s < 0 {
+                0
+            } else {
+                s as u64
+            }
+        };
         let length = self.rec.query_len() as u64;
         let strand = if self.rec.flag().is_reverse_strand() {
             Strand::plus()
         } else {
             Strand::minus()
         };
-        let ref_id = self.rec.ref_id() as u32;
-        let chrom = self
-            .header
-            .reference_name(ref_id)
-            .expect("No reference name")
-            .to_string();
+        let ref_id = self.rec.ref_id();
+        let chrom = if ref_id < 0 {
+            String::from("")
+        } else {
+            self.header
+                .reference_name(ref_id as u32)
+                .expect("Read reference name not found")
+                .to_string()
+        };
         Metadata::new(name, chrom, start, length, strand, String::new())
     }
 
@@ -102,7 +113,7 @@ impl<'a> ModProbsMl<'a> {
         let mut pos_acc = 0;
         let mut scores = Vec::with_capacity(self.probs.len());
 
-        let start = u64::try_from(self.modbam.rec.start()).unwrap();
+        let start = u64::try_from(self.modbam.rec.start()).unwrap_or(0);
         let mod_base = self.modbam.base_mod[0];
         let kmer = String::from_utf8(vec![mod_base]).unwrap();
 
@@ -238,7 +249,7 @@ impl ModBamIter {
         Self { records, base_mod }
     }
 
-    pub fn next(&mut self) -> Option<io::Result<Option<ModBamAlignment<'_>>>> {
+    pub fn next(&mut self) -> Option<io::Result<ModBamAlignment<'_>>> {
         let Some(res) = self.records.0.next() else { return None; };
         let Ok(rec) = res else { return Some(Err(res.err().unwrap())); };
         let mba = ModBamAlignment::from_record(rec, &self.base_mod, self.records.0.header());
@@ -262,6 +273,20 @@ pub(crate) mod test {
     use noodles::sam::record::data::field::{Tag, Value};
 
     use super::*;
+    use crate::arrow::metadata::MetadataExt;
+
+    #[test]
+    fn test_modbam_unaligned() {
+        let unaligned_bam = "extra/modbams/MM-double.bam";
+        let base_mod = b"C+m".to_vec();
+
+        let modbam = BamRecords::from_path(unaligned_bam).unwrap();
+        let mut rec_iter = ModBamIter::new(modbam, base_mod);
+        let aln = rec_iter.next().unwrap().unwrap();
+        let sr: ScoredRead = aln.try_into().unwrap();
+        assert!(sr.is_unaligned());
+        assert_eq!(sr.scores().len(), 3);
+    }
 
     #[test]
     fn test_not_bam_file() {
@@ -270,6 +295,8 @@ pub(crate) mod test {
         assert!(modbam.is_err())
     }
 
+    // TODO Can delete and incorporate in test_modbam_unaligned now that it takes
+    // unaligned reads
     #[test]
     fn test_modbam_conversion() -> eyre::Result<()> {
         let example = "extra/modbams/MM-double.bam";
@@ -297,7 +324,7 @@ pub(crate) mod test {
         let base_mod = b"C+m".to_vec();
         let modbam = BamRecords::from_path(example)?;
         let mut rec_iter = ModBamIter::new(modbam, base_mod);
-        let aln = rec_iter.next().unwrap().unwrap().unwrap();
+        let aln = rec_iter.next().unwrap().unwrap();
         assert!(aln.mod_prob_positions().is_err());
         Ok(())
     }
