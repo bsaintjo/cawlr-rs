@@ -32,7 +32,7 @@ fn main() -> eyre::Result<()> {
     let bkde = score_model::Options::default()
         .bins(args.bins)
         .samples(args.samples)
-        .run_modfile_with(mod_file, extract_max_samples)?;
+        .run_modfile_max(mod_file)?;
     bkde.save_as(args.output)?;
     Ok(())
 }
