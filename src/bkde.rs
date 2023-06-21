@@ -22,7 +22,8 @@ impl BinnedKde {
         // values
         let mut bins: Vec<f64> = linspace(0., 1., n_bins)
             .into_iter()
-            .map(|x| kde.estimate(x))
+            // Add minimum positive values to avoid zero values in PMF -> logarithm errors
+            .map(|x| kde.estimate(x) + f64::MIN_POSITIVE)
             .collect();
         let total: f64 = bins.iter().sum();
         // Normalize so area approximately sums to 1
