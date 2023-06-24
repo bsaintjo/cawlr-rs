@@ -46,7 +46,10 @@ def pct_full(arr: list):
     """Count what percent of the read overlaps with the read, None in
     the array means that there was no data for it."""
     n_none = sum(1 for x in arr if x is None)
-    return 1 - float(n_none) / len(arr)
+    if len(arr) == 0:
+        return 0.0
+    else:
+        return 1. - float(n_none) / len(arr)
 
 
 def convert_nones(arr: List[float]):
@@ -154,6 +157,10 @@ def main():
     )
 
     args = parser.parse_args()
+    if args.start >= args.end:
+        print("Start coordinate must be less than end coordinate")
+        sys.exit(1)
+
 
     input_path = Path(args.input)
     output = input_path.parent / (input_path.stem + ".cluster.png")
