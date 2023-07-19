@@ -2,6 +2,9 @@
 //!
 //! Current uses bam, but should be switched over to rust-htslib or
 //! noodles
+mod mm_tag;
+mod ml;
+
 use std::{fmt, fs::File, io, path::Path};
 
 use bam::{record::tags::TagValue, BamReader};
