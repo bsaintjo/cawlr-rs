@@ -68,8 +68,7 @@ RUN mold -run cargo chef cook --release --recipe-path recipe.json
 COPY . .
 # RUN mold -run cargo test -- --ignored
 RUN mold -run cargo build --release --workspace
-RUN cp notebooks/*py /tools \
-	&& cp scripts/*py /tools \
+RUN cp scripts/*py /tools \
 	&& chmod +x /tools/*
 
 FROM guppy as dev

@@ -8,7 +8,7 @@ import pandas as pd
 import seaborn as sns
 from sklearn.preprocessing import StandardScaler
 
-import cluster_region
+import scripts.cluster_region as cluster_region
 
 def main():
     parser = argparse.ArgumentParser()
