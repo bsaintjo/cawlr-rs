@@ -1,8 +1,8 @@
 docker:
-    docker build --pull -f "Dockerfile" -t bsaintjo/cawlr:full "."
+    docker build --pull -f "Dockerfile" -t brookslab/cawlr:latest "."
     @echo "Image successfully built"
 
-    docker push bsaintjo/cawlr:full
+    docker push brookslab/cawlr:latest
     @echo "Image successfully pushed"
 
 musl:
