@@ -13,7 +13,7 @@
 - [cawlr 𓅨](#cawlr-𓅨)
   - [Table of Contents](#table-of-contents)
   - [Quick Start](#quick-start)
-    - [Nanopore R9](#nanopore-r9)
+    - [Nanopore R9.4 data](#nanopore-r94-data)
     - [Modification BAM input](#modification-bam-input)
   - [Installation](#installation)
     - [Installing rust via rustup](#installing-rust-via-rustup)
@@ -43,7 +43,7 @@
 
 ## Quick Start
 
-### Nanopore R9
+### Nanopore R9.4 data
 
 ```bash
 $ cawlr pipeline train-ctrls -g genome.fa --pos-fast5 pos-fast5s/ --pos-reads pos.fastq --neg-fast5 neg-fast5s/ --neg-reads neg.fastq --output-dir training-output -m "2:GC"
@@ -247,6 +247,8 @@ plot_scoring_dist.py -i pos-model-scores.pickle neg-model-scores.pickle -o scori
 
 #### Example Scoring Distribution plot
 
+![Example Scoring Distribution Plot](images/fiberseq.scoring-dist.png)
+
 ### Clustering single molecule reads
 
 This will perform K-Means clustering on the nucleosome calls and plot each cluster separately. The input is a bed file that comes from `cawlr sma`. You can filter based on what percent of a read covers a given locus and choose the number of clusters.
@@ -282,6 +284,8 @@ cluster_region.py
 ```
 
 #### Example Clustering plot
+
+![Clustering Example Plot](images/ft.fig2e.chr2L.17382000-17391000.cluster%20(1).png)
 
 ## Citations
 
