@@ -46,9 +46,9 @@
 ### Nanopore R9.4 data
 
 ```bash
-$ cawlr pipeline train-ctrls -g genome.fa --pos-fast5 pos-fast5s/ --pos-reads pos.fastq --neg-fast5 neg-fast5s/ --neg-reads neg.fastq --output-dir training-output -m "2:GC"
-$ cawlr pipeline preprocess-sample -g genome.fa --reads sample.fastq --fast5 sample-fast5s --summary /path/to/sequencing_summary.txt -o preprocessed/
-$ cawlr pipeline analyze-region -l "chrI:1000-2000" -b sample.bam
+cawlr pipeline train-ctrls -g genome.fa --pos-fast5 pos-fast5s/ --pos-reads pos.fastq --neg-fast5 neg-fast5s/ --neg-reads neg.fastq --output-dir training-output -m "2:GC"
+cawlr pipeline preprocess-sample -g genome.fa --reads sample.fastq --fast5 sample-fast5s --summary /path/to/sequencing_summary.txt -o preprocessed/
+cawlr pipeline analyze-region -l "chrI:1000-2000" -b sample.bam
 ```
 
 <!-- ```bash
@@ -282,7 +282,7 @@ optional arguments:
 #### Example Clustering Command
 
 ```bash
-cluster_region.py
+cluster_region.py -i region.bed -s 1000 -e 2000 -p 0.8 -n 3 --suptitle "My Region"
 ```
 
 #### Example Clustering plot
