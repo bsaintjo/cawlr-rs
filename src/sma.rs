@@ -19,10 +19,18 @@ use crate::{
     utils::CawlrIO,
 };
 
-fn make_scoring_vec(read: &ScoredRead) -> Vec<f64> {
+/// Converts all the scores in the read into a vector. Each element is either
+/// -1.0 if no value exists, or a score between 0.0 and 1.0.
+/// This vector is usually used in the dynamic alignment step later in single
+/// molecule analysis.
+pub(crate) fn make_scoring_vec(read: &ScoredRead) -> Vec<f64> {
     let mut calling_vec = Vec::new();
     (0..=(read.end_1b_excl() - read.start_0b() + 1)).for_each(|_| calling_vec.push(-1.0));
-    (0..read.scores().len()).for_each(|i| {
+    let num_scores = read.scores().len();
+    log::debug!("N scores: {num_scores}");
+    (0..num_scores).for_each(|i| {
+        log::debug!("Ith score: {i}");
+        log::debug!("Score position: {:?}", read.scores()[i].pos);
         let idx = read.scores()[i].pos - read.start_0b() + 1;
         calling_vec[idx as usize] = read.scores()[i].score;
     });
@@ -183,6 +191,7 @@ fn sma<W: Write>(
     Ok(())
 }
 
+/// Loads and stores data used for single molecule analysis.
 pub struct SmaOptions {
     track_name: Option<String>,
     pos_bkde: BinnedKde,
@@ -220,10 +229,12 @@ impl SmaOptions {
         Ok(SmaOptions::new(pos_bkde, neg_bkde, motifs, writer))
     }
 
+    /// Set bed file track name to track during in the genome browser
     pub fn track_name<S: Into<String>>(&mut self, track_name: S) -> &mut Self {
         self.track_name = Some(track_name.into());
         self
     }
+
     pub fn run_modfile(mut self, mod_file: ModFile) -> Result<()> {
         let track_name = self
             .track_name
