@@ -2,8 +2,8 @@
 //!
 //! Current uses bam, but should be switched over to rust-htslib or
 //! noodles
-mod mm_tag;
 mod ml;
+mod mm_tag;
 
 use std::{fmt, fs::File, io, path::Path};
 
@@ -67,10 +67,12 @@ impl<'a> ModBamAlignment<'a> {
             }
         };
         let length = self.rec.query_len() as u64;
-        let strand = if self.rec.flag().is_reverse_strand() {
-            Strand::plus()
-        } else {
+        let strand = if !self.rec.flag().is_mapped() {
+            Strand::unknown()
+        } else if self.rec.flag().is_reverse_strand() {
             Strand::minus()
+        } else {
+            Strand::plus()
         };
         let ref_id = self.rec.ref_id();
         let chrom = if ref_id < 0 {
@@ -117,6 +119,7 @@ impl<'a> ModProbsMl<'a> {
         let mut scores = Vec::with_capacity(self.probs.len());
 
         let start = u64::try_from(self.modbam.rec.start()).unwrap_or(0);
+        let end = start + u64::try_from(self.modbam.rec.query_len()).unwrap_or(0);
         let mod_base = self.modbam.base_mod[0];
         let kmer = String::from_utf8(vec![mod_base]).unwrap();
 
@@ -136,7 +139,12 @@ impl<'a> ModProbsMl<'a> {
 
         for (prob, pos) in self.probs.into_iter().zip(self.positions.into_iter()) {
             pos_acc += pos;
-            let abs_pos: u64 = start + (seq_positions[pos_acc as usize] as u64);
+            // let abs_pos: u64 = start + (seq_positions[pos_acc as usize] as u64);
+            let abs_pos: u64 = if self.modbam.rec.flag().is_reverse_strand() {
+                end - (seq_positions[pos_acc as usize] as u64) - 1
+            } else {
+                start + (seq_positions[pos_acc as usize] as u64)
+            };
             let score = Score::new(abs_pos, kmer.clone(), false, Some(prob), 0.0, prob);
             scores.push(score);
             pos_acc += 1;
@@ -276,7 +284,7 @@ pub(crate) mod test {
     use noodles::sam::record::data::field::{Tag, Value};
 
     use super::*;
-    use crate::arrow::metadata::MetadataExt;
+    use crate::{arrow::metadata::MetadataExt, sma::make_scoring_vec};
 
     #[test]
     fn test_modbam_unaligned() {
@@ -289,6 +297,56 @@ pub(crate) mod test {
         let sr: ScoredRead = aln.try_into().unwrap();
         assert!(sr.is_unaligned());
         assert_eq!(sr.scores().len(), 3);
+    }
+
+    #[test]
+    fn test_modebam_megalodon() {
+        let bam_path = "extra/modbams/megalodon-modbam.bam";
+        let base_mod = b"A+Y".to_vec();
+        let modbam = BamRecords::from_path(bam_path).unwrap();
+        let mut rec_iter = ModBamIter::new(modbam, base_mod);
+        let aln = rec_iter.next().unwrap().unwrap();
+        let sr: ScoredRead = aln.try_into().unwrap();
+        assert_eq!(sr.scores().len(), 15);
+        assert_eq!(sr.strand(), Strand::plus());
+    }
+
+    #[test]
+    fn test_modbam_reverse() {
+        let bam_path = "extra/modbams/reverse-read.bam";
+        let base_mod = b"C+m".to_vec();
+        let modbam = BamRecords::from_path(bam_path).unwrap();
+        let mut rec_iter = ModBamIter::new(modbam, base_mod);
+        let aln = rec_iter.next().unwrap().unwrap();
+        let sr: ScoredRead = aln.try_into().unwrap();
+        assert_eq!(sr.scores().len(), 3);
+        assert_eq!(sr.strand(), Strand::minus());
+        let score_dict = sr
+            .scores()
+            .iter()
+            .map(|s| (s.pos, s))
+            .collect::<std::collections::HashMap<_, _>>();
+        assert!(score_dict.contains_key(&4));
+        assert!(score_dict.contains_key(&5));
+        assert!(score_dict.contains_key(&28));
+    }
+
+    #[test]
+    fn test_filtered_bam() {
+        let bam_path = "extra/modbams/filtered.bam";
+        let base_mod = b"A+Y".to_vec();
+        let modbam = BamRecords::from_path(bam_path).unwrap();
+        let mut rec_iter = ModBamIter::new(modbam, base_mod);
+        let aln = rec_iter.next().unwrap().unwrap();
+        let sr: ScoredRead = aln.try_into().unwrap();
+        let sr_positions = sr.scores().iter().map(|s| s.pos).collect::<Vec<_>>();
+        assert_eq!(sr_positions.len(), 20569);
+        assert_eq!(sr_positions.iter().max(), Some(&443408));
+        assert_eq!(sr_positions.iter().min(), Some(&377513));
+
+        let mut sr_vec = make_scoring_vec(&sr);
+        println!("start {:?}", &sr_vec[0..20]);
+        println!("end {:?}", &sr_vec[sr_vec.len() - 20..sr_vec.len()]);
     }
 
     #[test]
