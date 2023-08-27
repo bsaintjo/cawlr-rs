@@ -36,3 +36,6 @@ sample-test/
 region-output/
 sample-output/
 extra/
+cawlr-viz/build
+test.bam*
+test.sam*
