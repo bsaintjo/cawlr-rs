@@ -302,6 +302,9 @@ fn main() -> Result<()> {
 
     let args = Args::parse();
     let log_level_filter = args.verbose.log_level_filter();
+    env_logger::Builder::new()
+        .filter_level(log_level_filter)
+        .init();
 
     match args.command {
         Commands::Collapse(cmd) => cmd.run()?,
