@@ -199,6 +199,11 @@ def main():
     fig, axs = plt.subplots(
         nrows=args.n_clusters, ncols=1, sharex=True, figsize=(15, 6)
     )
+    # If only one cluster, make axs a single element list
+    # so we can iterate over it
+    if args.n_clusters == 1:
+        axs = [axs]
+
     for idx, arrs in label_to_arr.items():
         axs[idx].imshow(arrs, aspect="auto", interpolation="none")
         for (hstart, hend, hstrand) in highlights:
