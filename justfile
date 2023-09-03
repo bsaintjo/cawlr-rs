@@ -1,5 +1,5 @@
 docker:
-    docker build --pull -f "Dockerfile" -t brookslab/cawlr:latest "."
+    docker build -f "Dockerfile" -t brookslab/cawlr:latest "."
     @echo "Image successfully built"
 
     docker push brookslab/cawlr:latest
