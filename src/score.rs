@@ -141,14 +141,15 @@ impl ScoreOptions {
                 log::debug!("Position {pos} kmer: {kmer}");
 
                 let signal_score = self.calc_signal_score(pos, &data_pos);
-                let skipping_score = self.calc_skipping_score(pos, &data_pos, &context, motif)?;
-                let final_score = signal_score.map_or(skipping_score, |x| x.max(skipping_score));
+                // let skipping_score = self.calc_skipping_score(pos, &data_pos, &context, motif)?;
+                // let final_score = signal_score.map_or(skipping_score, |x| x.max(skipping_score));
+                let final_score = signal_score.unwrap_or(0.0);
                 let score = Score::new(
                     pos,
                     kmer,
                     signal_score.is_none(),
                     signal_score,
-                    skipping_score,
+                    // skipping_score,
                     final_score,
                 );
                 log::debug!("final score: {score:.3?}");
@@ -159,45 +160,45 @@ impl ScoreOptions {
         Ok(scored_read)
     }
 
-    fn calc_skipping_score(
-        &self,
-        pos: u64,
-        data_pos: &FnvHashMap<u64, &Signal>,
-        context: &context::Context,
-        motif: &Motif,
-    ) -> Result<f64> {
-        let sur_kmers = context.surrounding(pos, motif);
-        let sur_has_data = surround_has_data(pos, data_pos);
-        let skipping_scores = sur_kmers
-            .into_iter()
-            .zip(sur_has_data.into_iter())
-            .flat_map(|(kmer, has_data)| {
-                let kmer = std::str::from_utf8(kmer).expect("Invalid kmer");
-                let pos_presence = self.pos_ctrl.skips().get(kmer);
-                let neg_presence = self.neg_ctrl.skips().get(kmer);
-                match (pos_presence, neg_presence) {
-                    (Some(&pos_presence), Some(&neg_presence)) => {
-                        if has_data {
-                            Some(pos_presence / (pos_presence + neg_presence))
-                        } else {
-                            let pos_absent = 1. - pos_presence;
-                            let neg_absent = 1. - neg_presence;
-                            Some(pos_absent / (pos_absent + neg_absent))
-                        }
-                    }
-                    _ => None,
-                }
-            })
-            .collect::<Vec<_>>();
+    // fn calc_skipping_score(
+    //     &self,
+    //     pos: u64,
+    //     data_pos: &FnvHashMap<u64, &Signal>,
+    //     context: &context::Context,
+    //     motif: &Motif,
+    // ) -> Result<f64> {
+    //     let sur_kmers = context.surrounding(pos, motif);
+    //     let sur_has_data = surround_has_data(pos, data_pos);
+    //     let skipping_scores = sur_kmers
+    //         .into_iter()
+    //         .zip(sur_has_data.into_iter())
+    //         .flat_map(|(kmer, has_data)| {
+    //             let kmer = std::str::from_utf8(kmer).expect("Invalid kmer");
+    //             // let pos_presence = self.pos_ctrl.skips().get(kmer);
+    //             // let neg_presence = self.neg_ctrl.skips().get(kmer);
+    //             match (pos_presence, neg_presence) {
+    //                 (Some(&pos_presence), Some(&neg_presence)) => {
+    //                     if has_data {
+    //                         Some(pos_presence / (pos_presence + neg_presence))
+    //                     } else {
+    //                         let pos_absent = 1. - pos_presence;
+    //                         let neg_absent = 1. - neg_presence;
+    //                         Some(pos_absent / (pos_absent + neg_absent))
+    //                     }
+    //                 }
+    //                 _ => None,
+    //             }
+    //         })
+    //         .collect::<Vec<_>>();
 
-        // TODO: Switch to median when it can be correctly handled
-        let skip_score = skipping_scores.mean();
-        if skip_score.is_nan() {
-            Err(eyre::eyre!("No data for calculating median"))
-        } else {
-            Ok(skip_score)
-        }
-    }
+    //     // TODO: Switch to median when it can be correctly handled
+    //     let skip_score = skipping_scores.mean();
+    //     if skip_score.is_nan() {
+    //         Err(eyre::eyre!("No data for calculating median"))
+    //     } else {
+    //         Ok(skip_score)
+    //     }
+    // }
 
     /// For a given position, get the values for the position and surrounding
     /// kmers. Filter for the best kmer model, if there is confidence in the

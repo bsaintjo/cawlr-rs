@@ -184,7 +184,7 @@ impl ScoreOptions {
                                 signal.kmer.to_string(),
                                 false,
                                 Some(rate),
-                                0.0,
+                                // 0.0,
                                 rate,
                             );
                             scores.push(score);

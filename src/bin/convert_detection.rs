@@ -70,7 +70,7 @@ fn convert_to_read(dlines: &[DetectionLine]) -> ScoredRead {
                 dline.kmer.clone(),
                 false,
                 Some(dline.score),
-                0.0,
+                // 0.0,
                 dline.score,
             )
         })

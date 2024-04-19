@@ -108,12 +108,12 @@ impl<T: Borrow<Mixture<Gaussian>>> From<T> for ModelParams {
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct Model {
     gmms: ModelDB,
-    skips: FnvHashMap<String, f64>,
+    // skips: FnvHashMap<String, f64>,
 }
 
 impl Model {
-    pub(crate) fn new(gmms: ModelDB, skips: FnvHashMap<String, f64>) -> Self {
-        Self { gmms, skips }
+    pub(crate) fn new(gmms: ModelDB) -> Self {
+        Self { gmms, }
     }
     /// Get a reference to the model's gmms.
     pub(crate) fn gmms(&self) -> &ModelDB {
@@ -121,9 +121,9 @@ impl Model {
     }
 
     /// Get a reference to the model's skips.
-    pub(crate) fn skips(&self) -> &FnvHashMap<String, f64> {
-        &self.skips
-    }
+    // pub(crate) fn skips(&self) -> &FnvHashMap<String, f64> {
+    //     &self.skips
+    // }
 
     pub(crate) fn insert_gmm(&mut self, kmer: String, gmm: Mixture<Gaussian>) {
         let gmm = ModelParams::from(gmm);
@@ -131,47 +131,47 @@ impl Model {
     }
 }
 
-struct Skips {
-    count: usize,
-    total: usize,
-}
+// struct Skips {
+//     count: usize,
+//     total: usize,
+// }
 
-impl Skips {
-    fn new(count: usize, total: usize) -> Self {
-        Self { count, total }
-    }
+// impl Skips {
+//     fn new(count: usize, total: usize) -> Self {
+//         Self { count, total }
+//     }
 
-    fn plus_both(&mut self) {
-        self.total += 1;
-        self.count += 1;
-    }
+//     fn plus_both(&mut self) {
+//         self.total += 1;
+//         self.count += 1;
+//     }
 
-    fn plus_total(&mut self) {
-        self.total += 1;
-    }
+//     fn plus_total(&mut self) {
+//         self.total += 1;
+//     }
 
-    fn had_score(&mut self, is_score: bool) {
-        if is_score {
-            self.plus_both();
-        } else {
-            self.plus_total();
-        }
-    }
-}
+//     fn had_score(&mut self, is_score: bool) {
+//         if is_score {
+//             self.plus_both();
+//         } else {
+//             self.plus_total();
+//         }
+//     }
+// }
 
-impl Default for Skips {
-    fn default() -> Self {
-        Skips::new(0, 0)
-    }
-}
+// impl Default for Skips {
+//     fn default() -> Self {
+//         Skips::new(0, 0)
+//     }
+// }
 
-struct KmerSkips(FnvHashMap<Vec<u8>, Skips>);
+// struct KmerSkips(FnvHashMap<Vec<u8>, Skips>);
 
-impl KmerSkips {
-    fn new() -> Self {
-        Self(FnvHashMap::default())
-    }
-}
+// impl KmerSkips {
+//     fn new() -> Self {
+//         Self(FnvHashMap::default())
+//     }
+// }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum TrainStrategy {
@@ -191,7 +191,7 @@ impl Display for TrainStrategy {
 
 pub struct Train {
     acc: KmerMeans,
-    skips: KmerSkips,
+    // skips: KmerSkips,
     genome: IndexedReader<File>,
     feather: PathBuf,
     samples: usize,
@@ -214,7 +214,7 @@ impl Train {
         let feather = filename.as_ref().to_owned();
         Ok(Self {
             acc: FnvHashMap::default(),
-            skips: KmerSkips::new(),
+            // skips: KmerSkips::new(),
             genome,
             feather,
             samples,
@@ -226,20 +226,20 @@ impl Train {
         self.acc.is_empty() || insufficient(&self.acc, self.samples)
     }
 
-    fn kmer_skips_insufficient(&self) -> bool {
-        self.skips.0.is_empty() || self.skips.0.values().any(|x| x.total < self.samples)
-    }
+    // fn kmer_skips_insufficient(&self) -> bool {
+    //     self.skips.0.is_empty() || self.skips.0.values().any(|x| x.total < self.samples)
+    // }
 
     pub fn run(mut self) -> Result<Model> {
         let file = File::open(&self.feather)?;
         load_apply(file, |eventaligns| {
             for eventalign in eventaligns.into_iter() {
-                if self.kmer_means_insufficient() || self.kmer_skips_insufficient() {
+                if self.kmer_means_insufficient() {
                     match self.strat {
                         TrainStrategy::AvgSample => self.read_to_kmer_means(&eventalign),
                         TrainStrategy::AllSamples => self.read_to_kmer_samples(&eventalign),
                     }
-                    self.read_to_skip_counts(&eventalign)?;
+                    // self.read_to_skip_counts(&eventalign)?;
                 }
             }
             Ok(())
@@ -269,14 +269,14 @@ impl Train {
         //     }
         // }
 
-        let mut ratios = FnvHashMap::default();
-        for (kmer, skips) in self.skips.0.into_iter() {
-            let kmer = String::from_utf8(kmer)?;
-            let ratio = (skips.count as f64) / (skips.total as f64);
-            ratios.insert(kmer, ratio);
-        }
+        // let mut ratios = FnvHashMap::default();
+        // for (kmer, skips) in self.skips.0.into_iter() {
+        //     let kmer = String::from_utf8(kmer)?;
+        //     let ratio = (skips.count as f64) / (skips.total as f64);
+        //     ratios.insert(kmer, ratio);
+        // }
 
-        let model = Model::new(gmms, ratios);
+        let model = Model::new(gmms);
 
         Ok(model)
     }
@@ -303,19 +303,19 @@ impl Train {
         }
     }
 
-    fn read_to_skip_counts(&mut self, read: &Eventalign) -> Result<()> {
-        let mut pos_scores = FnvHashSet::default();
-        for signal in read.signal_iter() {
-            pos_scores.insert(signal.pos);
-        }
-        let read_seq = self.get_read_seq(read)?;
-        for (kmer, pos) in read_seq.windows(6).zip(read.start_0b()..) {
-            let has_score = pos_scores.contains(&pos);
-            let kskip = self.skips.0.entry(kmer.to_owned()).or_default();
-            kskip.had_score(has_score);
-        }
-        Ok(())
-    }
+    // fn read_to_skip_counts(&mut self, read: &Eventalign) -> Result<()> {
+    //     let mut pos_scores = FnvHashSet::default();
+    //     for signal in read.signal_iter() {
+    //         pos_scores.insert(signal.pos);
+    //     }
+    //     let read_seq = self.get_read_seq(read)?;
+    //     for (kmer, pos) in read_seq.windows(6).zip(read.start_0b()..) {
+    //         let has_score = pos_scores.contains(&pos);
+    //         let kskip = self.skips.0.entry(kmer.to_owned()).or_default();
+    //         kskip.had_score(has_score);
+    //     }
+    //     Ok(())
+    // }
 
     /// Get a mutable reference to the train's genome.
     pub(crate) fn genome_mut(&mut self) -> &mut IndexedReader<File> {

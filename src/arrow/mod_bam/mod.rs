@@ -145,7 +145,7 @@ impl<'a> ModProbsMl<'a> {
             } else {
                 start + (seq_positions[pos_acc as usize] as u64)
             };
-            let score = Score::new(abs_pos, kmer.clone(), false, Some(prob), 0.0, prob);
+            let score = Score::new(abs_pos, kmer.clone(), false, Some(prob), prob);
             scores.push(score);
             pos_acc += 1;
         }

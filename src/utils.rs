@@ -22,7 +22,7 @@ use crate::train::Model;
 ///
 /// TODO: Maybe return with the BufWriter wrapping the trait object, like
 /// BufWriter<Box<dyn Write>> instead of the how we have now.
-pub fn stdout_or_file<P>(filename: Option<&P>) -> Result<Box<dyn Write>>
+pub fn stdout_or_file<P>(filename: Option<&P>) -> Result<Box<dyn Write + Send>>
 where
     P: AsRef<Path>,
 {
@@ -30,7 +30,7 @@ where
         let handle = File::create(fp)?;
         Ok(Box::new(handle))
     } else {
-        let handle = stdout().lock();
+        let handle = stdout();
         Ok(Box::new(handle))
     }
 }

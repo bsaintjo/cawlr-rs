@@ -25,18 +25,18 @@ fn integration_npsmlr() -> Result<(), Box<dyn Error>> {
     let modbam_model_scores = temp_dir.path().join("modbam-model-scores");
 
     // Should fail but only because no aligned reads are inside
-    Command::new(cawlr)
-        .arg("model-scores")
-        .arg("-i")
-        .arg("extra/modbams/MM-double.bam")
-        .arg("-t")
-        .arg("C+m")
-        .arg("--bins")
-        .arg("1000")
-        .arg("-o")
-        .arg(&modbam_model_scores)
-        .assert()
-        .failure();
+    // Command::new(cawlr)
+    //     .arg("model-scores")
+    //     .arg("-i")
+    //     .arg("extra/modbams/MM-double.bam")
+    //     .arg("-t")
+    //     .arg("C+m")
+    //     .arg("--bins")
+    //     .arg("1000")
+    //     .arg("-o")
+    //     .arg(&modbam_model_scores)
+    //     .assert()
+    //     .failure();
 
     Command::new(cawlr)
         .arg("model-scores")

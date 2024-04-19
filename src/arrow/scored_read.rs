@@ -47,7 +47,7 @@ pub struct Score {
     pub kmer: String,
     pub skipped: bool,
     pub signal_score: Option<f64>,
-    pub skip_score: f64,
+    // pub skip_score: f64,
     pub score: f64,
 }
 
@@ -57,7 +57,7 @@ impl Score {
         kmer: String,
         skipped: bool,
         signal_score: Option<f64>,
-        skip_score: f64,
+        // skip_score: f64,
         score: f64,
     ) -> Self {
         Self {
@@ -65,7 +65,7 @@ impl Score {
             kmer,
             skipped,
             signal_score,
-            skip_score,
+            // skip_score,
             score,
         }
     }

@@ -405,27 +405,28 @@ impl SmaOptions {
     }
 
     pub fn run_modfile(mut self, mod_file: ModFile) -> Result<()> {
-        todo!()
-    }
-    //     let track_name = self
-    //         .track_name
-    //         .clone()
-    //         .unwrap_or_else(|| "cawlr_sma".to_string());
-    //     writeln!(
-    //         &mut self.writer,
-    //         "track name=\"{track_name}\" itemRgb=\"on\" visibility=2"
-    //     )?;
-
-    //     read_mod_bam_or_arrow(mod_file, |read| {
-    //         if !read.is_unaligned() {
-    //             log::info!("{:?}", read.metadata());
-    //             sma(&mut self.writer, &self.pos_bkde, &self.neg_bkde, &read)?;
-    //         } else {
-    //             log::debug!("Read {} is unaligned, skipping...", read.name())
-    //         }
-    //         Ok(())
-    //     })
+    //     todo!()
     // }
+        let track_name = self
+            .track_name
+            .clone()
+            .unwrap_or_else(|| "cawlr_sma".to_string());
+        writeln!(
+            &mut self.writer,
+            "track name=\"{track_name}\" itemRgb=\"on\" visibility=2"
+        )?;
+
+        let writer = Mutex::new(self.writer);
+        read_mod_bam_or_arrow(mod_file, |read| {
+            if !read.is_unaligned() {
+                log::info!("{:?}", read.metadata());
+                sma(&writer, &self.pos_bkde, &self.neg_bkde, &read)?;
+            } else {
+                log::debug!("Read {} is unaligned, skipping...", read.name())
+            }
+            Ok(())
+        })
+    }
 
     pub fn run<P>(mut self, scores_filepath: P) -> Result<()>
     where
