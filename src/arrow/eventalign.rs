@@ -1,4 +1,6 @@
 use arrow2::datatypes::{Field, Schema};
+use arrow2_convert::ArrowDeserialize;
+use arrow2_convert::ArrowSerialize;
 use arrow2_convert::{field::ArrowField, ArrowField};
 
 use super::{
@@ -7,7 +9,7 @@ use super::{
 };
 
 /// Output representing a single read from nanopolish eventalign
-#[derive(Debug, Clone, ArrowField, Default, PartialEq)]
+#[derive(Debug, Clone, ArrowField, ArrowDeserialize, ArrowSerialize, Default, PartialEq)]
 pub struct Eventalign {
     pub metadata: Metadata,
     signal_data: Vec<Signal>,

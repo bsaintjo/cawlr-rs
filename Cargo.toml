@@ -24,8 +24,8 @@ eyre = "0.6.8"
 
 [dependencies]
 # Output format for intensive data results
-arrow2 = { version = "0.14.1", features = ["io_ipc", "io_ipc_compression"] }
-arrow2_convert = { version = "0.3.2", features = [
+arrow2 = { version = "0.17.4", features = ["io_ipc", "io_ipc_compression"] }
+arrow2_convert = { version = "0.5.0", features = [
     "derive",
     "arrow2_convert_derive",
 ] }

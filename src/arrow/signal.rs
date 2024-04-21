@@ -1,7 +1,9 @@
+use arrow2_convert::ArrowDeserialize;
+use arrow2_convert::ArrowSerialize;
 use arrow2_convert::ArrowField;
 use rv::traits::ContinuousDistr;
 
-#[derive(Debug, Clone, ArrowField, Default, PartialEq)]
+#[derive(Debug, Clone, ArrowField, ArrowSerialize, ArrowDeserialize, Default, PartialEq)]
 pub struct Signal {
     pub pos: u64,
     pub kmer: String,
