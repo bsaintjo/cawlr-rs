@@ -108,7 +108,7 @@ zstd-sys = "=2.0.4"
 
 # Used in pipelines to find all fastq files
 glob = "0.3.1"
-noodles = { version = "0.33.0", features = ["bam", "sam"] }
+noodles = { version = "0.69.0", features = ["bam", "sam"] }
 
 [profile.release]
 lto = "fat"

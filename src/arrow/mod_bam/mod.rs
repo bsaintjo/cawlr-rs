@@ -88,11 +88,15 @@ impl<'a> ModBamAlignment<'a> {
 
     fn mod_prob_positions(&self) -> Result<ModProbsMl, ModBamConversionError> {
         let tags = self.rec.tags();
-        let Some(TagValue::String(score_pos, _)) = tags.get(b"Mm").or(tags.get(b"MM")) else { return Err(ModBamConversionError::NoTags); };
+        let Some(TagValue::String(score_pos, _)) = tags.get(b"Mm").or(tags.get(b"MM")) else {
+            return Err(ModBamConversionError::NoTags);
+        };
         let ModPosMm { skipped, positions } = ModPosMm::parse_mm_tag(self.base_mod, score_pos)
             .ok_or(ModBamConversionError::NoTags)?;
 
-        let Some(TagValue::IntArray(score_prob_arr)) = tags.get(b"Ml").or(tags.get(b"ML")) else { return Err(ModBamConversionError::NoTags);  };
+        let Some(TagValue::IntArray(score_prob_arr)) = tags.get(b"Ml").or(tags.get(b"ML")) else {
+            return Err(ModBamConversionError::NoTags);
+        };
         let probs = score_prob_arr
             .raw()
             .iter()
@@ -261,8 +265,12 @@ impl ModBamIter {
     }
 
     pub fn next(&mut self) -> Option<io::Result<ModBamAlignment<'_>>> {
-        let Some(res) = self.records.0.next() else { return None; };
-        let Ok(rec) = res else { return Some(Err(res.err().unwrap())); };
+        let Some(res) = self.records.0.next() else {
+            return None;
+        };
+        let Ok(rec) = res else {
+            return Some(Err(res.err().unwrap()));
+        };
         let mba = ModBamAlignment::from_record(rec, &self.base_mod, self.records.0.header());
         Some(Ok(mba))
     }
@@ -281,7 +289,7 @@ struct ModBasePositions {
 
 #[cfg(test)]
 pub(crate) mod test {
-    use noodles::sam::record::data::field::{Tag, Value};
+    use noodles::sam::alignment::record::data::field::{value::Array, Tag, Value};
 
     use super::*;
     use crate::{arrow::metadata::MetadataExt, sma::make_scoring_vec};
@@ -412,21 +420,23 @@ pub(crate) mod test {
     #[test]
     fn test_noodles() {
         let example = "extra/modbams/MM-double.bam";
-        let mut reader = File::open(example).map(noodles::bam::Reader::new).unwrap();
-        let header = reader.read_header().unwrap().parse().unwrap();
-        reader.read_reference_sequences().unwrap();
-        let rec = reader.records(&header).next().unwrap().unwrap();
+        let mut reader = File::open(example)
+            .map(noodles::bam::io::Reader::new)
+            .unwrap();
+        let _ = reader.read_header().unwrap();
+        // reader.read_reference_sequences().unwrap();
+        let rec = reader.records().next().unwrap().unwrap();
+        println!("{rec:?}");
         let data = rec.data();
-        let Value::UInt8Array(ref ml) = data
-            .get(Tag::try_from(*b"Ml").unwrap())
-            .or(data.get(Tag::BaseModificationProbabilities))
-            .unwrap() else { panic!("Not [u8]")};
-        let Value::String(mm) = data
-            .get(Tag::try_from(*b"Mm").unwrap())
-            .or(data.get(Tag::BaseModifications))
-            .unwrap() else { panic!("Not str")};
-        let ModPosMm { skipped, positions } =
-            ModPosMm::parse_mm_tag(b"C+m", mm.as_bytes()).unwrap();
-        let probs = ml[skipped..skipped + positions.len()].to_vec();
+        let Value::Array(Array::UInt8(ml)) = data.get(b"Ml").or(data.get(b"ML")).unwrap().unwrap()
+        else {
+            panic!("Not [u8]")
+        };
+        let Value::String(mm) = data.get(b"Mm").or(data.get(b"MM")).unwrap().unwrap() else {
+            panic!("Not str")
+        };
+        let ModPosMm { skipped, positions } = ModPosMm::parse_mm_tag(b"C+m", mm).unwrap();
+        let probs =
+            ml.iter().flatten().collect::<Vec<_>>()[skipped..skipped + positions.len()].to_vec();
     }
 }
