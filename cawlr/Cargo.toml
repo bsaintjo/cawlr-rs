@@ -11,9 +11,9 @@ clap = { workspace = true }
 eyre = { workspace = true }
 log = { workspace = true }
 clap-verbosity-flag = "2.0.0"
-human-panic = "1.1.0"
+human-panic = "2.0.0"
 jane-eyre = "0.3.0"
-env_logger = "0.10.0"
+env_logger = "0.11.3"
 rayon = "1.6.1"
 num_cpus = "1.15.0"
 simple-logging = "2.0.2"
