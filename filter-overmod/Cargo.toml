@@ -7,9 +7,9 @@ edition = "2021"
 
 [dependencies]
 clap.workspace = true
-env_logger = "0.10.0"
+env_logger = "0.11.3"
 eyre.workspace = true
 jane-eyre = "0.3.0"
 log.workspace = true
 noodles = { version = "0.36.0", features = ["bam", "sam"] }
-rust-htslib = "0.42.0"
+rust-htslib = "0.46.0"
