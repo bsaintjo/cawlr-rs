@@ -1,13 +1,25 @@
 use std::fmt::Display;
 
-use arrow2_convert::ArrowField;
+use arrow2_convert::{ArrowDeserialize, ArrowField, ArrowSerialize};
+use serde::{Deserialize, Serialize};
 
 /// Represents the genomic coordinates and other information about a sequencing
 /// read.
 ///
 /// Note: All coordinate data will be zero-based for the start and one based
 /// (zero-based not inclusive) for the end
-#[derive(Debug, Clone, ArrowField, Default, PartialEq, Eq)]
+#[derive(
+    Debug,
+    Clone,
+    ArrowField,
+    ArrowSerialize,
+    ArrowDeserialize,
+    Serialize,
+    Deserialize,
+    Default,
+    PartialEq,
+    Eq,
+)]
 pub struct Metadata {
     pub name: String,
     pub chrom: String,
@@ -112,7 +124,18 @@ pub trait MetadataMutExt {
 }
 
 /// Read orientation relative to a genome
-#[derive(Debug, Copy, Clone, ArrowField, PartialEq, Eq)]
+#[derive(
+    Debug,
+    Copy,
+    Clone,
+    ArrowField,
+    ArrowSerialize,
+    ArrowDeserialize,
+    Serialize,
+    Deserialize,
+    PartialEq,
+    Eq,
+)]
 pub struct Strand {
     strand: i8,
 }

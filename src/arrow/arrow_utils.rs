@@ -57,7 +57,7 @@ pub trait SchemaExt: ArrowField {
         let options = WriteOptions {
             compression: Some(Compression::LZ4),
         };
-        let fw = FileWriter::try_new(writer, &schema, None, options)?;
+        let fw = FileWriter::try_new(writer, schema, None, options)?;
         Ok(ArrowWriter::new(fw))
     }
 }
@@ -82,7 +82,7 @@ where
     let options = WriteOptions {
         compression: Some(Compression::LZ4),
     };
-    let fw = FileWriter::try_new(writer, schema, None, options)?;
+    let fw = FileWriter::try_new(writer, schema.clone(), None, options)?;
     Ok(fw)
 }
 

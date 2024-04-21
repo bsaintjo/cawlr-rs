@@ -8,7 +8,7 @@ authors = ["Brandon Saint-John <bsaintjo@ucsc.edu>"]
 readme = "README.md"
 description = "cawlr: Chromatin accessibility with long reads"
 license = "BSD-3-Clause"
-rust-version = "1.56.1"
+# rust-version = "1.56.1"
 categories = ["science", "command-line-utilities"]
 
 [workspace]
@@ -24,11 +24,12 @@ eyre = "0.6.8"
 
 [dependencies]
 # Output format for intensive data results
-arrow2 = { version = "0.14.1", features = ["io_ipc", "io_ipc_compression"] }
-arrow2_convert = { version = "0.3.2", features = [
+arrow2 = { version = "0.17.4", features = ["io_ipc", "io_ipc_compression"] }
+arrow2_convert = { version = "0.5.0", features = [
     "derive",
     "arrow2_convert_derive",
 ] }
+
 
 # Read genomic sequences from FASTA file
 bio = "1.0.0"
@@ -62,6 +63,7 @@ env_logger = "0.9.1"
 # Arrays for ML and DP Alignment
 # nalgebra = "0.31.1"
 ndarray = { version = "0.15.6", features = ["blas"] }
+# ndarray = { version = "0.15.6" }
 openblas-src = { version = "0.10.5", features = ["static"] }
 
 
@@ -77,7 +79,7 @@ serde = "1.0.145"
 serde-pickle = "1.1.1"
 
 # Deals with eventalign tsv having to split columns to extract pA measurements
-serde_with = "2.0.1"
+serde_with = "3.7.0"
 
 # Parse bam files to extract strand information
 bam = "0.1.4"
@@ -104,11 +106,15 @@ rusqlite = { version = "0.28.0", features = ["bundled"] }
 
 # Fix problem with older gcc?
 # Related issue: https://github.com/gyscos/zstd-rs/issues/177
-zstd-sys = "=2.0.4"
+# zstd-sys = "=2.0.4"
 
 # Used in pipelines to find all fastq files
 glob = "0.3.1"
 noodles = { version = "0.33.0", features = ["bam", "sam"] }
+polars = { version = "0.39.2", features = ["lazy", "csv", "strings", "list_eval", "parquet", "ipc", "streaming", "concat_str"] }
+arrow = "51.0.0"
+serde_arrow = { version = "0.11.2", features = ["arrow-51"] }
+# bytemuck = "1.15.0"
 
 [profile.release]
 lto = "fat"

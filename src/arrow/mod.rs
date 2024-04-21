@@ -5,6 +5,7 @@ pub mod metadata;
 mod mod_bam;
 pub mod scored_read;
 pub mod signal;
+mod polars_eventalign;
 
 #[cfg(test)]
 mod test {

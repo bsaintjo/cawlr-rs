@@ -1,5 +1,6 @@
 use arrow2::datatypes::{Field, Schema};
-use arrow2_convert::{field::ArrowField, ArrowField};
+use arrow2_convert::{field::ArrowField, ArrowDeserialize, ArrowField, ArrowSerialize};
+use serde::{Deserialize, Serialize};
 
 use super::{
     eventalign::Eventalign,
@@ -7,7 +8,9 @@ use super::{
 };
 
 /// Represents a single read scored by cawlr score
-#[derive(Debug, Clone, ArrowField, Default)]
+#[derive(
+    Debug, Clone, ArrowField, ArrowDeserialize, ArrowSerialize, Default, Serialize, Deserialize,
+)]
 pub struct ScoredRead {
     pub metadata: Metadata,
     pub scores: Vec<Score>,
@@ -41,7 +44,9 @@ impl MetadataExt for ScoredRead {
     }
 }
 
-#[derive(Default, Debug, Clone, ArrowField)]
+#[derive(
+    Default, Debug, Clone, ArrowDeserialize, ArrowSerialize, ArrowField, Serialize, Deserialize,
+)]
 pub struct Score {
     pub pos: u64,
     pub kmer: String,
